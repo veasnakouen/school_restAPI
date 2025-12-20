@@ -1,0 +1,56 @@
+in this folder do the job as DTO
+    DTO: (Data Transfer Object):
+        🐍 Use to transfer data between different layers .
+        🐍 Typically contain a subset of the properties in the domain border_left.
+        🐍 For example transferring data over a network.
+
+    Advantage of DTO:
+        💠 Separate of concerns
+        💠 Performance
+        💠 Security
+        💠 Versioning
+        Generally :
+            Product.cs
+            ✒️ Create/UpdateProductDto.cs
+            ✒️ ResponseProductDto.cs
+            ✒️ 
+
+    🪧 Profile Instances
+
+        A good way to organize your mapping configurations is with profiles. 
+        Create classes that inherit from Profile and put the configuration in the constructor
+
+        // This is the approach starting with version 5
+        public class OrganizationProfile : Profile
+        {
+            public OrganizationProfile()
+            {
+                CreateMap<Foo, FooDto>();
+
+                // Use CreateMap... Etc.. here (Profile methods are the same as configuration methods)
+            }
+        }
+
+    // How it was done in 4.x - as of 5.0 this is obsolete:
+    // public class OrganizationProfile : Profile
+    // {
+    //     protected override void Configure()
+    //     {
+    //         CreateMap<Foo, FooDto>();
+    //     }
+    // }
+    
+    ⭐⭐⭐⭐⭐⭐⭐
+    Example:
+    🔥 public class Source
+        {
+            public int Value { get; set; }
+            public int Ävíator { get; set; }
+            public int SubAirlinaFlight { get; set; }
+        }
+    🔥 public class Destination
+        {
+            public int Value { get; set; }
+            public int Aviator { get; set; }
+            public int SubAirlineFlight { get; set; }
+        }

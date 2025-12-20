@@ -1,0 +1,14 @@
+
+
+// SyntaxCheck = "proto3";
+
+// option csharp_namespace = "GrpcGreeter";
+
+// package greet;
+
+// service Greeter
+// {
+//     // send greeting message
+//     rpc GetPost (GetPostRequest) returns (Post);
+// }
+
