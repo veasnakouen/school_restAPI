@@ -226,3 +226,4 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Settings.Config
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.Console.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.Debug.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.File.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\SchoolAPI.sourcelink.json

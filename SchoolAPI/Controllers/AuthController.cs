@@ -110,7 +110,8 @@ namespace SchoolAPI.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
-
+            // var existedUser= await _userManager.FindByEmailAsync(request.Email);
+            var existedUser = await _userManager.FindByNameAsync(request.Email);
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             var user = new AppUser
@@ -136,13 +137,16 @@ namespace SchoolAPI.Controllers
                 }
             }
             return Ok("User registered successfully.");
+
             // return Ok(new AuthResponse
             // {
             // IsSuccess = true, 
             // Message = "User registered successfully."
             // }
             // );
+
         }
+
 
         // use this if want return with the form of <AuthResponse> 
         // public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request) { }
@@ -180,7 +184,9 @@ namespace SchoolAPI.Controllers
                 FullName = user.FullName!
             };
 
+
             return Ok(response);
+
         }
 
 

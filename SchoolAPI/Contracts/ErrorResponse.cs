@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Components.Web;
+
 namespace SchoolAPI.Contracts
 {
     public class ErrorResponse
@@ -5,6 +7,7 @@ namespace SchoolAPI.Contracts
         public string Title { get; set; }
         public int StatusCode { get; set; }
         public string Message { get; set; }
-        
+
     }
+  
 }

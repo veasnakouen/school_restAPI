@@ -1,16 +1,21 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Security.AccessControl;
 using System.Text;
 using System.Xml.Serialization;
+using Humanizer;
+using MassTransit.Futures.Contracts;
 using MassTransit.SagaStateMachine;
 using MassTransit.Transports.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.CodeAnalysis;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Identity.Client;
 using OfficeOpenXml.FormulaParsing.FormulaExpressions;
+using OfficeOpenXml.FormulaParsing.Utilities;
 using OfficeOpenXml.Packaging.Ionic.Zip;
 using Scalar.AspNetCore;
 using schoolAPI.Extensions;
@@ -23,6 +28,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // JwtSettings profile in appSettings.json file
 // var connectionString = builder.Configuration.GetConnectionString("DefaultConnectionString");
+
 
 
 // Add services to the container.
@@ -214,6 +220,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 // await app.SeedDataAsync();
 #endregion 
 
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -248,11 +255,7 @@ app.Use(async (ctx, next) =>
     await next();
 });
 
-// in older version 
-// app.UseEndpoints(endpoints =>
-// {
-//     endpoints.MapControllers();
-//  });
+
 
 app.MapControllers();
 using var scope = app.Services.CreateScope();
@@ -260,301 +263,8 @@ var services = scope.ServiceProvider;
 
 // some c# lesson codes
 #region Testing with c#'s 
-// SingleTon in dependency Injection. 
-// Monostate\
-// public class CEO
-// {
-//     private static string name;
-//     private static int age;
-//     public string Name
-//     {
-//         get => name;
-//         set => name = value;
-//     }
-//     public int Age
-//     {
-//         get => age;
-//         set => age = value;
-//     }
-//     public override string ToString()
-//     {
-//         return $"{nameof(Name)} : {Name}, {nameof(Age)} :{Age}";
-//     }
-// }
-
-
-// public class Demo
-// {
-//     static void Main(string[] args)
-//     {
-//         var ceo = new CEO();
-//         ceo.Name = "Adam Smith";
-//         ceo.Age = 50;
-//     }
-// }
-// SOLID:
-
-#region S
-// Single Response Principle.
-// public class EmailSender
-// {
-//     public void SendEmail(string email, string message)
-//     {
-//         Console.WriteLine($"Sending email to {email} :{message}");
-//     }
-// }
-
-
-// public class User
-// {
-//     public string UserName { get; set; }
-//     public string Email { get; set; }
-
-//     public void Register()
-//     {
-//         // Register logic goes here
-
-//         // Send email...
-//         EmailSender emailSender = new();
-//         emailSender.SendEmail(Email, "Welcome to our platform.");
-//     }
-//     // 
-// }
-
-// public record UserService
-// {
-//     public void Register(User user)
-//     {
-//         // Register user logic...
-
-
-//         // Send email...
-//         EmailSender emailSender = new EmailSender();
-//         emailSender.SendEmail(user.Email, "Welcome to our platform.");
-//     }
-// }
-
-// app.MapGet("/", () => "Hello world!");
-// app.MapPost("/create", () => "hello world");           
 
 #endregion
-
-#region O..
-// software entities (classes, modules, functions. etc.) should be open for extension,
-// but close for modification
-
-
-// public enum ShapeType
-// {
-//     Circle,
-//     Rectangle
-// }
-// public abstract class Shape
-// {
-
-//     // the abstract keyword allow us to create method without body
-//     public abstract double CalculateArea();
-//     // {
-//     // switch (Type)
-//     // {
-//     //     case ShapeType.Circle:
-//     //         return Math.PI * Math.Pow(Radius, 2);
-//     //     case ShapeType.Rectangle:
-//     //         return Length * Width;
-//     //     default:
-//     //         throw new InvalidOperationException("Unsupported Shape Type.");
-//     // }
-//     // }
-// }
-
-// public class Circle : Shape
-// {
-//     public double Radius { get; set; }
-
-
-//     // override method, override to the base/parent's method
-//     public override double CalculateArea()
-//     {
-//         return Math.PI * Math.Pow(Radius, 2);
-//     }
-// }
-
-// public class Rectangle : Shape
-// {
-//     public double Width { get; set; }
-//     public double Length { get; set; }
-
-//     public override double CalculateArea()
-//     {
-//         return Width * Length;
-//     }
-// }
-#endregion
-
-#region L
-// Liskov Substitution Principle (LSP):
-// "Object of the supper class be replaceable with objects of its sub class without
-// effecting the correctness of the program."
-// public abstract class Shape
-// {
-//     public abstract double Area { get; }
-
-// }
-// public class Rectangle : Shape
-// {
-//     public virtual double Width { get; set; }
-//     public virtual double Height { get; set; }
-//     public override double Area => throw new NotImplementedException();
-// }
-
-// // public class Square : Rectangle
-// public class Square : Shape
-// {
-//     // public override double Width
-//     // {
-//     //     get => base.Width;
-//     //     set => base.Width = value;
-//     // }
-//     // public override double Height
-//     // {
-//     //     get => base.Height;
-//     //     set => base.Height = base.Width = value;
-//     // }
-
-//     public double SideLength { get; set; }
-
-//     public override double Area => SideLength * SideLength;
-// }
-// public class demo
-// {
-//     public static void Main(string[] args)
-//     {
-//         // var rect = new Rectangle();
-//         // rect.Height = 10;
-//         // rect.Width = 5;
-//         // var sq = new Square();
-//         // sq.Height = 20;
-//         // sq.Width = 5;
-//         // Console.WriteLine($"The expect Area {rect.Area}"); //result: 50
-//         // Console.WriteLine($"The expect Area {sq.Area}"); //result :  25
-
-//         // ***
-//         Shape rectangle = new Rectangle { Width = 4, Height = 5 };
-//         Console.WriteLine(rectangle.Area);
-
-//         Shape square = new Square { SideLength = 5 };
-//         Console.WriteLine(square.Area);
-
-
-
-//     }
-// }
-
-
-
-#endregion 
-
-#region I
-// Interface Segregation Principle(ISP)
-
-// "Client should not be forced to depend on interfaces they do not use."
-
-// public interface IShape
-// public interface IShape3D
-// {
-//     double Area();
-//     double Volume();
-// }
-// public interface IShape2D
-// {
-//     double Area();
-// }
-
-// // public class Circle : IShape
-// public class Circle : IShape2D
-// {
-//     public double Radius { get; set; }
-//     public double Area()
-//     {
-//         return Math.PI * Math.Pow(Radius, 2);
-//     }
-
-// }
-
-// public class Sphere : IShape3D
-// {
-//     public double Radius { get; set; }
-//     public double Area()
-//     {
-//         return 4 * Math.PI * Math.Pow(Radius, 2);
-//     }
-
-//     public double Volume()
-//     {
-//         return (4.0 / 3.0) * Math.PI * Math.Pow(Radius, 3);
-//     }
-// }
-
-// public class Demo
-// {
-//     static void Main(string[] args)
-//     {
-//         var circle = new Circle();
-//         circle.Radius = 10;
-//         Console.WriteLine(circle.Area());
-//         var sphere = new Sphere();
-//         sphere.Radius = 10;
-//         Console.WriteLine(sphere.Area());
-//         Console.WriteLine(sphere.Volume());
-
-//     }
-// }
-
-
-#endregion
-#region D
-// Dependency Inversion Principle(DIP)
-
-// "High-Level module should not depend on low level modules.both should depend one abstraction."
-// public interface IEngine { void Start(); }
-
-
-// // low level module
-// public class Engine : IEngine
-// {
-//     public void Start()
-//     {
-//         Console.WriteLine("Engine started.");
-//     }
-
-// }
-// // high level module
-// public class Car
-// {
-//     private IEngine engine;
-//     public Car(IEngine engine)
-//     {
-//         // this.engine = new Engine();
-//         this.engine = engine;
-//     }
-
-
-//     public void Start()
-//     {
-//         engine.Start();
-//         Console.WriteLine("Car started.");
-//     }
-// }
-// public class Demo
-// {
-//     static void Main(string[] args)
-//     {
-//         var car = new Car(new Engine());
-//     }
-// }
-
-#endregion
-#endregion
-// some c# lesson codes
+// some c# lesson codess
 app.Run();
 // app.RunAsync();   

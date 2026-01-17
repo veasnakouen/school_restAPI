@@ -33,19 +33,21 @@ public class RolesController : ControllerBase
             return BadRequest("Role name is required!");
         }
 
-        // role existed
         var roleExist = await _roleManager.RoleExistsAsync(createRoleRequest.RoleName);
+        // role existed
         if (roleExist)
         {
             return BadRequest("Role already existed!.");
         }
 
-        if (!roleExist)
+        if (!roleExist) //check on the role exist status
         {
             var roleResult = await _roleManager.CreateAsync(new IdentityRole(createRoleRequest.RoleName));
+            // check if the role has been added successfully
             if (roleResult.Succeeded)
             {
                 _logger.LogInformation($"The role {createRoleRequest.RoleName} Has been added successfully");
+
                 // yield return Ok(new
                 return Ok(new
                 {
@@ -56,15 +58,117 @@ public class RolesController : ControllerBase
             else
             {
                 _logger.LogInformation($"The role {createRoleRequest.RoleName} Has not been added successfully");
-                return Ok(new
+                return BadRequest(new
                 {
-                    error = $"The role {createRoleRequest.RoleName} Has not been added successfully",
+                    error = $"The role {createRoleRequest.RoleName} Has not been added!.",
                     // message = "Role has not Created Successfully!."
                 });
             }
         }
         return BadRequest(new { error = "Role already existed!." });
     }
+
+    [HttpPost("AddUserToRole")]
+    public async Task<IActionResult> AddUserToRole(string email, string roleName)
+    {
+        //check if user exist
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            _logger.LogInformation($"The User{email} does not exist!.");
+            return BadRequest(new
+            {
+                error = "User does not exist."
+            });
+        }
+
+        //check if role exist
+        var roleExist = await _roleManager.RoleExistsAsync(roleName);
+        if (!roleExist)
+        {
+            _logger.LogInformation($"The role {roleName} does not existed!.");
+            return BadRequest(new
+            {
+                error = "Role does not exist."
+            });
+        }
+        var result = await _userManager.AddToRoleAsync(user, roleName);
+        // check if the user is assign to the role successfully
+        if (result.Succeeded)
+        {
+            return Ok(new
+            {
+                result = "Success!."
+            });
+        }
+        else
+        {
+            _logger.LogInformation($"The user was not be able to add to role.");
+            return BadRequest(new
+            {
+                error = "The user was not be able to add to role."
+            });
+        }
+    }
+
+    // [HttpGet("GetUserRole")]
+    [HttpGet]
+    [Route("GetUserRole")]
+    public async Task<IActionResult> GetUserRoles(string email)
+    {
+        //check if email valid
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            _logger.LogInformation($"The use with the {email} does not exist!.");
+            return BadRequest(new
+            {
+                error = "User does not exist!."
+            });
+        }
+
+        //return the role
+        var roles = await _userManager.GetRolesAsync(user);
+        return Ok(roles);
+    }
+
+    [HttpPost("RemoveUserFromRole")]
+    public async Task<IActionResult> RemoveUserFromRole(string email, string roleName)
+    {
+        // user exist
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user == null)// User does not exist
+        {
+            _logger.LogInformation($"The user with the {email} does not exist!.");
+            return BadRequest(new
+            {
+                error = "User does not exist."
+            });
+        }
+        // role exist
+        var roleExisted = await _roleManager.RoleExistsAsync(roleName);
+        if (!roleExisted)//checks on the role exist status
+        {
+            _logger.LogInformation($"");
+            return BadRequest(new
+            {
+                error = "Role does not exist!."
+            });
+        }
+        var result = await _userManager.RemoveFromRoleAsync(user, roleName);
+        if (result.Succeeded)
+        {
+            return Ok(new
+            {
+                result = $"User {email} has been removed from role {roleName}"
+            });
+        }
+        return BadRequest(new
+        {
+            error = $"Unable to remove user{email} from role {roleName}."
+        });
+    }
+
 
     [HttpGet("all_roles")]
     public async Task<IActionResult> GetAllRoles()
@@ -85,7 +189,6 @@ public class RolesController : ControllerBase
         // return Ok(roles);
 
     }
-
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RoleResponse>>> GetRoles()
