@@ -79,7 +79,7 @@ namespace SchoolAPI.Extensions
             return services;
         }
 
-        
+
     }
 }
 

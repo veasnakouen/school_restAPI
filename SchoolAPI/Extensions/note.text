@@ -42,7 +42,6 @@ public static class ⭐IdentityServiceExtension
 
 
 
-
 // in Program.Cs file
 builder.Services.AddApplicationServices(_config);
 builder.Services.AddIdentityService(_config);

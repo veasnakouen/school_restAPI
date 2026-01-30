@@ -1,19 +1,14 @@
-using System.Collections;
-using System.Diagnostics.CodeAnalysis;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Security.Cryptography.Xml;
 using System.Text;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using OfficeOpenXml.Drawing.Chart;
 using SchoolAPI.Constant;
 using SchoolAPI.Constant.Auth;
 using SchoolAPI.Contracts.Auth;
@@ -63,27 +58,47 @@ namespace SchoolAPI.Controllers
         }
         #endregion
         // without UserManager
+        //not yet working
         [HttpPost("user register")]
-        public async Task<ActionResult<UserDto>> RegisterUser(RegisterDto dto)
+        [AllowAnonymous]
+        public async Task<ActionResult<UserDto>> RegisterUser([FromBody] RegisterDto dto)
         {
             if (await UserExists(dto.Username)) return BadRequest("UserName is taken!.");
 
             using var hmac = new HMACSHA512();
-            var user = new AppUser
-            {
-                UserName = dto.Username.ToLower(),
-                Email = dto.Email,
+            // var user = new AppUser
+            // {
+            //     UserName = dto.Username.ToLower(),
+            //     Email = dto.Email,
 
-                // PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(dto.Password)).ToString(),
-                // PasswordSalt = hmac.Key
-            };
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-            return new UserDto
+            //     // PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(dto.Password)).ToString(),
+            //     // PasswordSalt = hmac.Key
+            // };
+            var user = _mapper.Map<AppUser>(dto);
+            user.UserName = dto.Username.ToLower();
+            var result = await _userManager.CreateAsync(user, dto.Password);
+
+            // return new UserDto
+            // {
+            //     UserName = user.UserName,
+            //     Token = _tokenServices.CreateToken(user)
+            // };
+            // return _mapper.Map<UserDto>(user);
+            // ✅ Use constant: Roles.User
+            if (!result.Succeeded) return BadRequest(result.Errors);
+
+            if (dto.Roles is null)
             {
-                UserName = user.UserName,
-                Token = _tokenServices.CreateToken(user)
-            };
+                await _userManager.AddToRoleAsync(user, Roles.User);
+            }
+            else
+            {
+                foreach (var role in dto.Roles)
+                {
+                    await _userManager.AddToRoleAsync(user, role);
+                }
+            }
+            return Ok("User registered successfully.");
         }
 
         [HttpPost("LoginUser")]
@@ -111,15 +126,19 @@ namespace SchoolAPI.Controllers
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
         {
             // var existedUser= await _userManager.FindByEmailAsync(request.Email);
-            var existedUser = await _userManager.FindByNameAsync(request.Email);
             if (!ModelState.IsValid) return BadRequest(ModelState);
+            var existedUser = await _userManager.FindByNameAsync(request.Email);
+            if (existedUser != null) return BadRequest("User already exists with this email.");
 
-            var user = new AppUser
-            {
-                UserName = request.Email,
-                Email = request.Email,
-                FullName = request.FullName,
-            };
+            // var user = new AppUser
+            // {
+            //     UserName = request.Email,
+            //     Email = request.Email,
+            //     FullName = request.FullName,
+            // };
+
+            var user = _mapper.Map<AppUser>(request);
+            user.UserName = request.Email;
 
             var result = await _userManager.CreateAsync(user, request.Password);
             if (!result.Succeeded) return BadRequest(result.Errors);
@@ -138,12 +157,6 @@ namespace SchoolAPI.Controllers
             }
             return Ok("User registered successfully.");
 
-            // return Ok(new AuthResponse
-            // {
-            // IsSuccess = true, 
-            // Message = "User registered successfully."
-            // }
-            // );
 
         }
 
@@ -184,9 +197,7 @@ namespace SchoolAPI.Controllers
                 FullName = user.FullName!
             };
 
-
             return Ok(response);
-
         }
 
 
@@ -279,6 +290,7 @@ namespace SchoolAPI.Controllers
 
             return Ok(profile);
         }
+
 
         [HttpGet("{id}")]
         public async Task<ActionResult<AuthResponse>> GetUser(Guid id)
@@ -486,8 +498,6 @@ namespace SchoolAPI.Controllers
         }
 
         #endregion
-
-
         // testing for get user without aut 
         [HttpGet("AllUsers")]
         [Authorize(Roles = "Admin")]
@@ -500,6 +510,7 @@ namespace SchoolAPI.Controllers
             return Ok(users);
         }
 
+        // some functions
         async Task<bool> ExistedUser(string id)
         {
             var existedUser = await _userManager.FindByIdAsync(id);
@@ -515,6 +526,46 @@ namespace SchoolAPI.Controllers
         {
             return await _context.Users.AnyAsync(u => u.UserName.ToLower() == username.ToLower());
         }
+
+        // Testing Controller
+        public class Product
+        {
+            public string Id { get; set; } = new Guid().ToString();
+            // [Required(ErrorMessage = "The field Name is required")]
+            // [MinLength(3, ErrorMessage = "The name field must have at least 3 characters.")]
+            public string ProductName { get; set; }
+            public decimal Price { get; set; }
+            public string? ImageUrl { get; set; }
+        }
+
+        public class ProductDto
+        {
+            [Required(ErrorMessage = "The field Name is required")]
+            [MinLength(3, ErrorMessage = "The name field must have at least 3 characters.")]
+            public string ProductName { get; set; }
+            public decimal Price { get; set; }
+            public string? ImageUrl { get; set; }
+        }
+
+
+        [HttpGet("getTask")]
+        public IActionResult GetTask([FromQuery] bool isCompleted = false)
+        {
+            var product = new Product
+            {
+                Id = new Guid().ToString(),
+                ProductName = "IPhone 18",
+                Price = 1500
+            };
+            if (product.Price < 0)
+                ModelState.AddModelError("Price", "The Price field cannot have a value less than zero.");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            isCompleted = true;
+            return Ok(product);
+        }
+
 
     }
 }

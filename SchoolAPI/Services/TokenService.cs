@@ -3,12 +3,9 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
-using System.CodeDom;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SchoolAPI.Services;
 

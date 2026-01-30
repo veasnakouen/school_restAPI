@@ -1,5 +1,3 @@
-using Microsoft.AspNetCore.Components.Web;
-
 namespace SchoolAPI.Contracts
 {
     public class ErrorResponse

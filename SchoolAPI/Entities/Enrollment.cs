@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace SchoolAPI.Entities;
 
 public class Enrollment

@@ -1,7 +1,3 @@
-using Microsoft.AspNetCore.Identity;
-using SchoolAPI.Constant;
-using SchoolAPI.Entities;
-
 namespace SchoolAPI.Contracts.Auth
 {
     public class AuthResponse

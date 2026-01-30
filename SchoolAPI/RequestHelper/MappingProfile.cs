@@ -1,9 +1,9 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
-using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
+
 
 namespace SchoolAPI.RequestHelper;
 
@@ -52,7 +52,7 @@ public class MappingProfile : Profile
         CreateMap<AppUser, UserDetail>()
             .ForMember(dest => dest.Roles, opt => opt.Ignore())
             .ForMember(dest => dest.PhoneNumberConfirm, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
-
+        CreateMap<RegisterDto, AppUser>().ReverseMap();
     }
 }
 

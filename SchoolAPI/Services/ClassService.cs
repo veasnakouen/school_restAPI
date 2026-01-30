@@ -323,7 +323,7 @@ public class ClassService
         return _mapper.Map<List<AttendanceDto>>(attendances);
     }
 
-    //Note 
+    //Note  
     public async Task<bool> ExistClass(ClassRoom classEntity)
     {
         var existing = _context.Classes.AnyAsync(c => c.ClassName == classEntity.ClassName);
@@ -333,7 +333,7 @@ public class ClassService
         return existing.Result;
 
     }
-    public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
+     public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         return await _context.Set<T>().AnyAsync(predicate);
     }

@@ -1,22 +1,4 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Diagnostics;
-using System.Runtime.ExceptionServices;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Security.AccessControl;
-using System.Text;
-using System.Xml.Serialization;
-using Humanizer;
-using MassTransit.Futures.Contracts;
-using MassTransit.SagaStateMachine;
-using MassTransit.Transports.Components;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.CodeAnalysis;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using Microsoft.EntityFrameworkCore.Query;
-using Microsoft.Identity.Client;
-using OfficeOpenXml.FormulaParsing.FormulaExpressions;
-using OfficeOpenXml.FormulaParsing.Utilities;
-using OfficeOpenXml.Packaging.Ionic.Zip;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
@@ -62,7 +44,6 @@ builder.Logging
     .AddConsole()
     .AddDebug();
 
-
 #region some removable code comments
 // builder.Services.AddControllers(options => options.Filters.Add(new ValidateModelAttribute()));
 // builder.Services.AddTransient<CustomMiddleware>();
@@ -86,7 +67,7 @@ builder.Logging
 //     .AddEntityFrameworkStores<SchoolDbContext>();
 #endregion
 
-// registering custom ServiceCollection.cs,
+// registering some separate services from ServiceCollection.cs,
 builder.Services
     .AddApplicationServices()
     // .AddIdentityCore(builder.Configuration)
@@ -168,8 +149,8 @@ builder.Services.ConfigureIdentity();
 builder.Services.ConfigureCors();
 // builder.Services.ConfigureJwt(builder.Configuration);
 
-// 
-// 
+ 
+
 // builder.Services.AddAuthentication().AddBearerToken();
 // adding the authorization service from the asp.net core identity
 // builder.Services.AddIdentityApiEndpoints<AppUser>()
@@ -245,6 +226,7 @@ app.UseExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
+
 // Header
 app.Use(async (ctx, next) =>
 {
@@ -258,13 +240,28 @@ app.Use(async (ctx, next) =>
 
 
 app.MapControllers();
-using var scope = app.Services.CreateScope();
-var services = scope.ServiceProvider;
+
+// @Mr.Neil cumming do seeding data base on migration
+// using var scope = app.Services.CreateScope();
+
+// var services = scope.ServiceProvider;
+// try
+// {
+//     var context = services.GetRequiredService<SchoolAPI.Data.SchoolDbContext>();
+//     await context.Database.MigrateAsync();
+//     //todo: create a seed class within static method ("SeedUserAsync")
+//     // await Seed.SeedUserAsync(context);
+// }
+// catch (Exception ex)
+// {
+//     var customLogger = services.GetRequiredService<ILogger<Program>>();
+//     customLogger.LogError(ex, "An error occurred during migration");
+// }
 
 // some c# lesson codes
 #region Testing with c#'s 
 
 #endregion
-// some c# lesson codess
+// some c# lesson code
 app.Run();
-// app.RunAsync();   
+// app.RunAsync();   .

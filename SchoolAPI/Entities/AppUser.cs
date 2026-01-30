@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -22,12 +21,15 @@ public class AppUser : IdentityUser
     // [Column(TypeName = "nvarchar(150)")]
     public string? FullName { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? ImageUrl { get; set; }
     public string RefreshToken { get; set; }
-   
+
     public DateTime RefreshTokenExpiryTime { get; set; } = DateTime.UtcNow; //standard international time format(use anywhere in the world.)
 
-    // public bool IsActivated { get; set; }
-    // public ICollection<AppUserRole> UserRoles { get; set; }
+
 
 }
+
+
+
 

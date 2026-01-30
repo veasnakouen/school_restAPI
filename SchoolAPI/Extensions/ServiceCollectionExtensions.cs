@@ -12,20 +12,18 @@ using SchoolAPI.Entities;
 using SchoolAPI.Interfaces;
 using SchoolAPI.RequestHelper;
 using SchoolAPI.Services;
-using IoPath = System.IO.Path;
 
 namespace SchoolAPI.Extensions
 {
     // collection of services to be added to the DI container  
     public static class ServiceCollectionExtensions
     {
-
-
-
         // 🔧 Add Database/DbContext :register the connection string 
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
         {
+
             var connectionString = configuration.GetConnectionString("DefaultConnectionString");
+            services.AddControllers();
             services.AddDbContext<SchoolDbContext>(options =>
                 //  Use with sqlServer
                 // options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"),
@@ -33,6 +31,7 @@ namespace SchoolAPI.Extensions
                 // options.UseSqlite("");
                 options.UseNpgsql(connectionString)
                 );
+
             var info = Path.Combine("Data", "SchoolDatabase.db");
 
             return services;
@@ -41,7 +40,8 @@ namespace SchoolAPI.Extensions
         // auto mapper
         public static IServiceCollection AddAutoMapper(this IServiceCollection service)
         {
-            service.AddAutoMapper(typeof(MappingProfile));
+            // service.AddAutoMapper(typeof(MappingProfile));
+            service.AddAutoMapper(typeof(Program));
             return service;
         }
 
@@ -59,6 +59,7 @@ namespace SchoolAPI.Extensions
                 });
             });
         }
+
 
 
         //🔧 inject identityCore package in middleware 
@@ -81,11 +82,11 @@ namespace SchoolAPI.Extensions
                 }
             )
 
-            .AddRoles<AppRole>()
-            .AddRoleManager<RoleManager<AppRole>>()
+            .AddRoles<IdentityRole>()
+            .AddRoleManager<RoleManager<IdentityRole>>()
             .AddEntityFrameworkStores<SchoolDbContext>()
             .AddDefaultTokenProviders()
-            .AddRoleValidator<RoleManager<AppRole>>()
+            .AddRoleValidator<RoleManager<IdentityRole>>()
             .AddTokenProvider<DataProtectorTokenProvider<AppUser>>("SchoolAPI")
             .AddEntityFrameworkStores<SchoolDbContext>(); //"SchoolAPI" is provider's name
             return service;
@@ -200,8 +201,17 @@ namespace SchoolAPI.Extensions
                     .Build();
             });
 
+            // Todo : Policy based authorization
+            services.AddAuthorization(options =>
+            {
+                options.AddPolicy("Administrator", policy => policy.RequireRole("Administrator"));
+                options.AddPolicy("AdminAndPowerUser", policy => policy.RequireRole("Administrator", "PowerUser"));
+                options.AddPolicy("User", policy => policy.RequireRole("User"));
+            });
+
             return services;
         }
+
 
         // 🔧 Add Application Services (logging, etc.)
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)

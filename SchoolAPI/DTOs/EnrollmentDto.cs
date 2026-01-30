@@ -1,6 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
-
 namespace SchoolAPI.DTOs;
 //for response and data transfer
 public class EnrollmentDto

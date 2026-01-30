@@ -24,7 +24,7 @@ namespace SchoolAPI.DTOs
         // we just want to update the status of attendance
         public AttendanceStatus Status { get; set; }
     }
-    
+
     public record DeleteAttendanceDto
     {
         public string Id { get; set; } = new Guid().ToString();
