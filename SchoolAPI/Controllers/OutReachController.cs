@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SchoolAPI.DTOs;
+using SchoolAPI.Services;
 
 namespace SchoolAPI.Controllers
 {
@@ -60,9 +61,10 @@ namespace SchoolAPI.Controllers
         /// <returns>List of all outreach records.</returns>
         [HttpGet("outreach")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllOutReach()
+        public async Task<IActionResult> GetAllOutReach([FromQuery] string? filterOn, [FromQuery] string? filterQuery,
+        [FromQuery] string? sortBy, [FromQuery] bool? isAscending, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 3)
         {
-            var outReaches = await _service.GetAllOutReachAsync();
+            var outReaches = await _service.GetAllOutReachAsync(filterOn, filterQuery, sortBy, isAscending ?? true, pageNumber, pageSize);
             return Ok(outReaches);
         }
 
@@ -106,6 +108,6 @@ namespace SchoolAPI.Controllers
             var success = await _service.DeleteOutReachAsync(outReachId);
             return success ? Ok("Outreach deleted successfully.") : NotFound("Outreach not found.");
         }
-   
+
     }
 }

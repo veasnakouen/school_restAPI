@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.HttpOverrides;
 using SchoolAPI.RequestHelper;
+using SchoolAPI.Services;
 
 namespace schoolAPI.Extensions;
 

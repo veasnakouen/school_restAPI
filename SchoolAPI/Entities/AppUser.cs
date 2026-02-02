@@ -21,12 +21,10 @@ public class AppUser : IdentityUser
     // [Column(TypeName = "nvarchar(150)")]
     public string? FullName { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public string? ImageUrl { get; set; }
+    // public string? ImageUrl { get; set; }
     public string RefreshToken { get; set; }
 
     public DateTime RefreshTokenExpiryTime { get; set; } = DateTime.UtcNow; //standard international time format(use anywhere in the world.)
-
-
 
 }
 

@@ -2,9 +2,12 @@ using System.Linq.Expressions;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using SchoolAPI.Data;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
+
+namespace SchoolAPI.Services;
 
 public class ClassService
 {
@@ -45,13 +48,25 @@ public class ClassService
         return classEntity == null ? null : _mapper.Map<ClassDto>(classEntity);
     }
 
-    public async Task<IEnumerable<ClassDto>> GetAllClasses()
+    //..../filterOn=Name&filterQuery=Math
+    public async Task<IEnumerable<ClassDto>> GetAllClasses(string? filterOn = null, string? filterQuery = null)
     {
         // get all classes with students included
-        var classes = await _context.Classes
-            .Include(c => c.Students)
-            .ToListAsync();
+        // var classes = await _context.Classes
+        //     .Include(c => c.Students)
+        //     .ToListAsync();
+        var classesQuery = _context.Classes.Include(c => c.Students).AsQueryable();
 
+        if (string.IsNullOrWhiteSpace(filterOn) == false && string.IsNullOrWhiteSpace(filterQuery) == false)
+        {
+            if (filterOn.Equals("ClassName", StringComparison.OrdinalIgnoreCase))
+            {
+                classesQuery = classesQuery.Where(x => x.ClassName.Contains(filterOn));
+            }
+        }
+
+
+        var classes = await classesQuery.ToListAsync();
         return _mapper.Map<List<ClassDto>>(classes);
     }
 
@@ -191,11 +206,33 @@ public class ClassService
         return outReach == null ? null : _mapper.Map<OutReachDto>(outReach);
     }
 
-    public async Task<List<OutReachDto>> GetAllOutReachAsync()
+    public async Task<List<OutReachDto>> GetAllOutReachAsync(
+        string? filterOn = null, string? filterQuery = null,
+         string? sortBy = null, bool IsAscending = true, int pageNumber = 1, int pageSize = 3)
     {
-        var outReaches = await _context.OutReach
-            .Include(o => o.Students)
-            .ToListAsync();
+        var outreachQuery = _context.OutReach.Include(o => o.Students).AsQueryable();
+        //filter
+        if (string.IsNullOrWhiteSpace(filterOn) == false && string.IsNullOrWhiteSpace(filterQuery) == false)
+        {
+            if (filterOn.Equals("firstname", StringComparison.OrdinalIgnoreCase))
+            {
+                outreachQuery = outreachQuery.Where(_ => _.FirstName.Contains(filterQuery));
+            }
+        }
+        // sort
+        if (string.IsNullOrWhiteSpace(sortBy) == false)
+        {
+            //just do filter with firstName field
+            if (sortBy.Equals("firstname", StringComparison.OrdinalIgnoreCase))
+            {
+                outreachQuery = IsAscending ? outreachQuery.OrderBy(_ => _.FirstName) : outreachQuery.OrderByDescending(_ => _.FirstName);
+            }
+        }
+        // pagination
+        var skipResults = (pageNumber - 1) * pageSize;
+
+        var outReaches = await outreachQuery.Skip(skipResults).Take(pageSize).ToListAsync();
+        
         return _mapper.Map<List<OutReachDto>>(outReaches);
     }
 
@@ -333,7 +370,7 @@ public class ClassService
         return existing.Result;
 
     }
-     public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
+    public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         return await _context.Set<T>().AnyAsync(predicate);
     }

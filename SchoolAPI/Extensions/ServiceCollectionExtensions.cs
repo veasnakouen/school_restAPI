@@ -201,13 +201,15 @@ namespace SchoolAPI.Extensions
                     .Build();
             });
 
+
             // Todo : Policy based authorization
-            services.AddAuthorization(options =>
-            {
-                options.AddPolicy("Administrator", policy => policy.RequireRole("Administrator"));
-                options.AddPolicy("AdminAndPowerUser", policy => policy.RequireRole("Administrator", "PowerUser"));
-                options.AddPolicy("User", policy => policy.RequireRole("User"));
-            });
+            // services.AddAuthorization(options =>
+            // {
+            //     options.AddPolicy("Administrator", policy => policy.RequireRole("Administrator"));
+            //     options.AddPolicy("AdminAndPowerUser", policy => policy.RequireRole("Administrator", "PowerUser"));
+            //     options.AddPolicy("EmployeeWithMoreThan20Years", policy => policy.AddRequirements.Add(new EmployeeMoreThan20YearsRequirement(20)));
+            //     options.AddPolicy("User", policy => policy.RequireRole("User"));
+            // });
 
             return services;
         }

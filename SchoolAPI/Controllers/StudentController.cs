@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
+using SchoolAPI.Services;
 
 namespace SchoolAPI.Controllers
 {
@@ -122,6 +123,6 @@ namespace SchoolAPI.Controllers
             var success = await _service.DeleteStudentAsync(studentId);
             return success ? Ok("Student deleted successfully.") : NotFound("Student not found.");
         }
-        
+
     }
 }

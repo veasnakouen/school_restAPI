@@ -4,6 +4,8 @@ using SchoolAPI.Entities;
 namespace SchoolAPI.Controllers;
 
 
+
+
 public class BuggyController : BaseController
 {
     [HttpGet("not-found")]
@@ -24,7 +26,5 @@ public class BuggyController : BaseController
     {
         return BadRequest("This was not a good request");
     }
-
-
 
 }

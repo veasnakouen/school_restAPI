@@ -34,5 +34,5 @@ namespace SchoolAPI.Contracts.Auth
         // public string PhoneNumber { get; set; }
 
     }
-    
+
 }

@@ -4,6 +4,7 @@ using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
 using SchoolAPI.Extensions;
 using SchoolAPI.Middleware;
+using SchoolAPI.Services;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -149,7 +150,7 @@ builder.Services.ConfigureIdentity();
 builder.Services.ConfigureCors();
 // builder.Services.ConfigureJwt(builder.Configuration);
 
- 
+
 
 // builder.Services.AddAuthentication().AddBearerToken();
 // adding the authorization service from the asp.net core identity
@@ -264,4 +265,4 @@ app.MapControllers();
 #endregion
 // some c# lesson code
 app.Run();
-// app.RunAsync();   .
+// app.RunAsync();

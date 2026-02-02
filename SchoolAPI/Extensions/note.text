@@ -46,4 +46,3 @@ public static class ⭐IdentityServiceExtension
 builder.Services.AddApplicationServices(_config);
 builder.Services.AddIdentityService(_config);
 
-
