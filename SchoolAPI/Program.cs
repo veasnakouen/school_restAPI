@@ -31,12 +31,11 @@ if (string.IsNullOrEmpty(jwtSettings.Secret))
 //     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 // });
 
+#region Serilog comments
 var logger = new LoggerConfiguration()
     .WriteTo.Console()
     // .WriteTo.File("logs/schoolapi-.log", rollingInterval: RollingInterval.Day)
     .CreateLogger();
-
-builder.Services.AddScoped<ClassService>();
 
 // Add Logging
 builder.Logging
@@ -45,6 +44,9 @@ builder.Logging
     .AddConsole()
     .AddDebug();
 
+#endregion
+
+builder.Services.AddScoped<ClassService>();
 #region some removable code comments
 // builder.Services.AddControllers(options => options.Filters.Add(new ValidateModelAttribute()));
 // builder.Services.AddTransient<CustomMiddleware>();
@@ -67,8 +69,7 @@ builder.Logging
 // builder.Services.AddIdentityApiEndpoints<AppUser>()
 //     .AddEntityFrameworkStores<SchoolDbContext>();
 #endregion
-
-// registering some separate services from ServiceCollection.cs,
+#region registering some separate services from ServiceCollection.cs,
 builder.Services
     .AddApplicationServices()
     // .AddIdentityCore(builder.Configuration)
@@ -80,7 +81,7 @@ builder.Services
     .AddFluentValidation()
     .AddAutoMapper()
     .AddSwagger();
-
+#endregion
 builder.Services.AddServices();
 #region some optional code
 //Register AutoMapper
@@ -144,7 +145,7 @@ builder.Services.AddServices();
 //         }
 //     }); 
 #endregion
-
+#region Additional services comments
 // Adding Jwt from extension method (our on custom method)
 builder.Services.ConfigureIdentity();
 builder.Services.ConfigureCors();
@@ -160,7 +161,7 @@ builder.Services.ConfigureCors();
 
 // builder.Services.AddEndpointsApiExplorer();
 // builder.Services.AddOpenApi();
-
+#endregion
 var app = builder.Build();
 // 🪧 Register middleware
 app.UseMiddleware<ExceptionMiddleware>();
@@ -203,6 +204,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 #endregion 
 
 
+#region apps
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -228,7 +230,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 
-// Header
 app.Use(async (ctx, next) =>
 {
     ctx.Response.Headers.Append("X-Content-Type-Options", "nosniff");
@@ -266,3 +267,4 @@ app.MapControllers();
 // some c# lesson code
 app.Run();
 // app.RunAsync();
+#endregion
