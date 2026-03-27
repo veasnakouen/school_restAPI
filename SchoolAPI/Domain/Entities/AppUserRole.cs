@@ -2,11 +2,7 @@ using Microsoft.AspNetCore.Identity;
 
 namespace SchoolAPI.Entities;
 
-<<<<<<< HEAD
-public class AppUserRole : IdentityUserRole<int>
-=======
 public class AppUserRole : IdentityUserRole<string>
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 {
     public AppUser User { get; set; }
     public AppRole Role { get; set; }

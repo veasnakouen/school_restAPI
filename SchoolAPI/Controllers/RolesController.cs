@@ -10,11 +10,11 @@ namespace SchoolAPI.Controllers;
 [Route("api/[controller]")]
 public class RolesController : ControllerBase
 {
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly RoleManager<AppRole> _roleManager;
     private readonly UserManager<AppUser> _userManager;
     private readonly SchoolDbContext _context;
     private readonly ILogger<RolesController> _logger;
-    public RolesController(RoleManager<IdentityRole> roleManager, UserManager<AppUser> userManager, ILogger<RolesController> logger, SchoolDbContext context)
+    public RolesController(RoleManager<AppRole> roleManager, UserManager<AppUser> userManager, ILogger<RolesController> logger, SchoolDbContext context)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -41,8 +41,12 @@ public class RolesController : ControllerBase
 
         if (!roleExist) //check on the role exist status
         {
+<<<<<<< HEAD
             var roleResult = await _roleManager.CreateAsync(new IdentityRole(createRoleRequest.RoleName));
             // check if the role has been added successfully
+=======
+            var roleResult = await _roleManager.CreateAsync(new AppRole { Name = createRoleRequest.RoleName });
+>>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
             if (roleResult.Succeeded)
             {
                 _logger.LogInformation($"The role {createRoleRequest.RoleName} Has been added successfully");

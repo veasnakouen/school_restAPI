@@ -46,6 +46,7 @@ public class AuthController : BaseController
         ITokenServices tokenServices,
         IMapper mapper)
     {
+<<<<<<< HEAD
         _userManager = userManager;
         _tokenService = tokenService;
         _roleManager = roleManager;
@@ -64,6 +65,14 @@ public class AuthController : BaseController
     public async Task<ActionResult<UserDto>> RegisterUser([FromBody] RegisterDto dto)
     {
         if (await UserExists(dto.Username)) return BadRequest("UserName is taken!.");
+=======
+        // this is also the method
+        // public string Message => "sksdf";
+        // #region is using for organization of code,end with #endregion, make it easy to read
+        #region Constructor Injection
+        // these (three) build-in libraries
+        private readonly RoleManager<AppRole> _roleManager;
+>>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 
         using var hmac = new HMACSHA512();
         // var user = new AppUser
@@ -71,6 +80,7 @@ public class AuthController : BaseController
         //     UserName = dto.Username.ToLower(),
         //     Email = dto.Email,
 
+<<<<<<< HEAD
         //     // PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(dto.Password)).ToString(),
         //     // PasswordSalt = hmac.Key
         // };
@@ -88,6 +98,17 @@ public class AuthController : BaseController
         if (!result.Succeeded) return BadRequest(result.Errors);
 
         if (dto.Roles is null)
+=======
+        public AuthController(
+            UserManager<AppUser> userManager,
+            ITokenService tokenService,
+            RoleManager<AppRole> roleManager,
+            IConfiguration configuration,
+            SignInManager<AppUser> signInManager,
+            SchoolDbContext context,
+            ITokenServices tokenServices,
+            IMapper mapper)
+>>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
         {
             await _userManager.AddToRoleAsync(user, Roles.User);
         }

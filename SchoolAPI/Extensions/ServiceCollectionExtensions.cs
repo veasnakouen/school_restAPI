@@ -93,30 +93,42 @@ namespace SchoolAPI.Extensions
             return service;
         }
 
-        // 🔧 Add Identity options
+        // 🔧 Add Identity options with full ASP.NET Core Identity features
         public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
         {
-            services.AddIdentity<AppUser, IdentityRole>(options =>
+            services.AddIdentity<AppUser, AppRole>(options =>
                 {
-                    // these are 
-                    // options.SignIn.RequireConfirmedAccount = true;
-                    // options.SignIn.RequireConfirmedPhoneNumber = true;
+                    // Password settings
                     options.Password.RequireDigit = true;
-                    // options.Password.RequireUppercase = false;
-                    // options.Password.RequireLowercase = false;
+                    options.Password.RequireLowercase = true;
+                    options.Password.RequireUppercase = true;
                     options.Password.RequireNonAlphanumeric = false;
-                    options.User.RequireUniqueEmail = true;
-                    options.SignIn.RequireConfirmedEmail = false;
-                    options.Password.RequiredLength = 6;
+                    options.Password.RequiredLength = 8;
                     options.Password.RequiredUniqueChars = 1;
 
+                    // User settings
+                    options.User.RequireUniqueEmail = true;
+                    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+
+                    // SignIn settings
+                    options.SignIn.RequireConfirmedEmail = false;
+                    options.SignIn.RequireConfirmedPhoneNumber = false;
+                    options.SignIn.RequireConfirmedAccount = false;
+
+                    // Lockout settings
                     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
                     options.Lockout.MaxFailedAccessAttempts = 5;
                     options.Lockout.AllowedForNewUsers = true;
+
+                    // Account settings
+                    options.Account.RequireUniqueEmail = true;
                 })
                 .AddEntityFrameworkStores<SchoolDbContext>()
-                .AddDefaultTokenProviders();
-
+                .AddDefaultTokenProviders()
+                .AddRoles<AppRole>()
+                .AddRoleManager<RoleManager<AppRole>>()
+                .AddUserManager<UserManager<AppUser>>()
+                .AddSignInManager<SignInManager<AppUser>>();
 
             return services;
         }

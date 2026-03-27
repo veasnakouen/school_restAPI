@@ -15,6 +15,7 @@ namespace SchoolAPI.Data;
 #endregion
 public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUser>(option)
 {
+<<<<<<< HEAD
     #region comments
     // with the older version of c# we use constructor to pass the options to the base class
     // public SchoolDbContext(DbContextOptions option) : base(option) { }
@@ -34,6 +35,15 @@ public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUse
     // Todo: do checking the usage of this 
     // with this method we can customize the table name and other properties of the table 
     protected override void OnModelCreating(ModelBuilder builder)
+=======
+    // public class SchoolDbContext : DbContext
+    // public class SchoolDbContext(DbContextOptions options) : IdentityDbContext<AppUser>(options)
+    // 🪧 we use this (below) one if our AppUser inherit from IdentityUser<int> (specify with "int" type )
+    // public class SchoolDbContext(DbContextOptions options): IdentityDbContext<AppUser, AppRole, int,
+    //  IdentityUserClaim<int>, AppUserRole, IdentityUserLogin<int>,
+    //  IdentityRoleClaim<int>, IdentityUserToken<int>>(options)
+    public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUser, AppRole, string>(option)
+>>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
     {
         base.OnModelCreating(builder);
 
@@ -63,8 +73,35 @@ public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUse
         //         },
         // };
 
+<<<<<<< HEAD
         // builder.Entity<IdentityRole>().HasData(roles);
         #endregion
+=======
+
+        // Todo: do checking the usage of this 
+        // with this method we can customize the table name and other properties of the table 
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<AppUser>().ToTable("Users");
+            builder.Entity<AppRole>().ToTable("Roles");
+            builder.Entity<AppUserRole>().ToTable("UserRoles");
+            
+            // Configure relationships
+            builder.Entity<AppUserRole>()
+                .HasOne(ur => ur.User)
+                .WithMany()
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<AppUserRole>()
+                .HasOne(ur => ur.Role)
+                .WithMany()
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
+>>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 
     }
 }

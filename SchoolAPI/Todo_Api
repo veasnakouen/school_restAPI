@@ -1,0 +1,523 @@
+Todo:
+
+Some Questions:
+- Why do we need to add string.Empty?
+- What is the right ways for doing CQRS?
+- A little bit check about the Message brokers,and what is Dead-Letter queue(DLQ)?
+
+
+```code
+* Domain > Entities > TodoItem:
+
+	- Id 			: Guid,string,int ...
+	- Title 		: string (string.Empty)
+	- IsDone 		: bool
+	- DueDate		: DateTime
+	- Note			: string (string.Empty)
+	- TodoCategoryId	: ForiengKey 
+	- TodoCategory		: Relation to TodoCategory ( new TodoCategory() )
+	- CreateDate		: DateTime
+	- UpdateDate		: DateTime
+
+* Domain > Entities > TodoCategory:
+
+	- Id 			: Guid,string,int ...
+	- Title			: string
+	- Description		: string (string.Empty)
+	- TodoItems		: Relationship => ICollection<TodoITem> ( new List<TotoItem>() )	
+
+* Domain > Constracts > ApiResponse:
+	- Success		: bool
+	- Message		: string (stirng.Empty)
+	- Data			: object? (optional, new object())
+	- SatusCode		: int
+	- constructur ApiResponse(bool succes,string message,object? data,int statuCode){
+		Success = success;
+		Message = message;
+		Data = data;
+		StatusCode = statusCode;
+		}
+
+* Domain > Constracts > CreateTodoCategoryRequest:
+	- Title 		: string(string.Empty)
+	- Description 		: string (string.Empty)
+
+* Domain > Constracts > CreateTodoRequest :
+	- Title 		: string (string.Empty)
+	- IsDone		: bool
+	- DueDate		: DateTime	
+	- Note			: string (string.Empty)
+	- TodoCategoryIt	: int (type as TodoCategory's Id Type)
+	- Constructor 		: CreateTodoReqest(){
+		Isdone= false;
+	}
+
+* Domain > Constracts > ErrorResponse:
+	- StatusCode		: int
+	- Message		: string ( string.Empty )
+	- Title			: string ( string.Empty )
+
+* Domain > Constracts > UpdateTodoCategoryRequest:
+	- Title			: string
+	- Description 		: string
+
+* Domain > Constract > Dtos > TodoCateoryDto :
+	-  Id			: int 
+	- Title			: string ( string.Empty )
+	- Description 		: string ( string.Empty )
+
+* Domain > Constracts > UpdateTodoRequest: (For update user should/can choose what she/he want to update)
+	- Title 		: string?
+	- IsDone		: bool?
+	- DueDate		: DateTime?
+	- Note			: string?	
+	- todoCategoryid	: int?
+* Domain > Constract > Dtos > UpdateTodoCategoryRequest:
+	- Title			: string ( string.Empty )
+	- Description		: string ( string.Empty )
+
+* Domain > Constracts > Dtos > TodoItemDto:
+	- [JsonIgnor] IsUpDateOperation : bool
+	- Id			: int
+	- Title			: string ()
+	- IsDone		: bool (false)
+	- DueDate		: DateTime
+	- Note			: string 
+	- TodoCategoryId	: int
+	- Category		: string (should be feature could be retrieve all TodoCategory as a list item/selects)
+	- CreateDate		: DateTime
+ 
+
+*//Interface
+* Infrastructure > Interface > IBaseRepository<T>:
+	- Task<T> AddAsync(T entity)
+	- Task<T> UpdateAsync(T entity)
+	- Task<T> Delete(T entity)
+	- Task<T> GetByIdAsync(int id)
+	- Task<IEnumerable<T>> GetAllAsync();
+	- Task<IEnumerable<T>> SearchAsync(string searchTerm);
+
+//Implementation
+* Infrastructure > Repository > BaseRepository<T> : IBaseRepository<T> where T: class
+	{
+		private readonly Dbcontext _context;
+		private readonly DbSet<T> _dbSet; 
+		
+		public BaseRepository(Dbcontext context){
+			_context = context;
+			_dbSet = _context.Set<T>();
+		}
+
+		public async Task<T> AddAsync(T entity){
+			await _dbSet.AddAsync(entity);
+			await _context.SaveChangeAsync();
+			return entity;
+		}
+	
+		public async Task<IEnumerable<T>> GetAllAsync(){
+			IQueryable<T> query = _dbSet.AsNotTracking();
+			if(typeof(T) == typeof(TodoItem)){
+				query = query.Include(t=>((TodoITem)(object)t).TodoCategory);
+			}
+			return await query.ToListAsync();
+		}
+		
+		public async Task<T> GetByIdAsync(int id){
+			return await _dbSet.FindAsync(id);
+		}
+		
+		public async Task<T> DeleteAsync(T entity){
+			 _dbSet.Remove(entity);
+			await _context.SaveChangeAsync();
+			return entity;
+		}
+		
+		public async Task<T> UpdateAsync(T entity){
+			_dbSet.Attach(entity)
+			_context.Entry(entity).State = EntityState.Modeified;
+			await _context.SaveChangeAsync();
+			return entity;
+		}
+
+		public Task<IEumerable<T>> SearchTodoAsync(string searchTerm){
+			if(typeof(T) == typeof(TodoItem)){
+				return await _contex.Set<TodoItem>()
+					.Include(t=>t.TodoCategory)
+					.Where(b=>EF.Functions.Like(b.Title,$"%{searchTerm}%"))
+					.Cast<T>()
+					.ToListAsync();
+			}else{
+				throw new InvalidOperationException("Search Only For TodoItems!");
+			}
+		}
+	}
+ 	
+** Importants
+
+	- connection-string ("sqlConnection")
+	- register our dbContext in middleware :
+		builder.Services.AddDbcontext<DbContext>(opstions=>
+				//(" DbContext " => our DbContext_name)
+		{
+			options.UseSqlServer(builder.Configuration.GetConnectionString("sqlConnection"),
+						
+					b=>b.MigrationsAssembly("Infrastructure"));
+					("Todo.Infrastructure" => our DbContext namespace/location)
+		});
+	- register Repository:
+		builder.Service.AddScoped(typeof(IBaseRepository<>),typeof(BaseRepository<>));
+	
+** Some Packages : 
+	- Microsoft.EntityFrameworkCore
+	- Microsoft.EntityFrameworkCore.Design
+	- Microsoft.EntityFrameworkCore.Tools
+** Some Command :
+	- dotnet ef migrations add InitialDb
+	- dotnet ef database update
+	- For more command we can type:> dotnet ef [databae, migrations,dbcontext] --help ( use help for help in use that commands)
+ 
+
+//⚡Infrastructure > Commands
+** Infrastructure > Commands > Todo > CreateTodoCommand : IRequest<ApiResponse>{
+		public CreateTodoRequest? CreateTodoRequest {get;set;}
+	}
+** Infrastructure > Commands > Todo > DeleteTodoCommand : IRequest<ApiResponse>{
+		public int TodoId {get;set;}
+	}	
+** Infrastructure > Commands > Todo > SearchTodoByTitleCommand : IRequest<ApiResponse>{
+		public string SearchTerm{get;set;}
+	}
+** Infrastructure > Commands > Todo > UpdateTodoCommand : IRequest<ApiResponse>{
+		public int TodoId{get;set;}
+		public UpdateTodoRequest? UpdateTodoRequest{ get; set; }
+	}
+** Infrastructure > Commands > TodoCategory > CreateTodoCategoryCommand : IRequest<ApiResponse>{
+		public CreateCategoryTodoRequest? CreateCategoryTodoRequest {get;set;}
+	}
+** Infrastructure > Commands > TodoCategory > DeleteCategoryTodoCommand : IRequest<ApiResponse>{
+		public int categoryId{ get; set; }
+	}
+** Infrastructure > Commands > TodoCategory > DeleteCategoryTodoCommand : IRequest<ApiResponse>{
+		public int categoryId{ get; set; }
+	}
+** Infrastructure > Commands > TodoCategory > UpdateCategoryTodoCommand : IRequest<ApiResponse>{
+		public int Id { get; set; }
+		public UpdateTodoCategoryRequest? UpdateTodoCategoryRequest{get;set;}
+	}
+
+**⚡ Infrastructure > Queries >
+** Infrastructure > Queries > Todo > GetAllTodoQuery:IRequest<ApiResponse>{
+		
+	}
+** Infrastructure > Queries > Todo > GetTodoByIdQuery:IRequest<ApiResponse>{
+		public int TodoId { get; set; }
+	}
+** Infrastructure > Queries > TodoCategory > GetAllodoCategoryQuery: IRequest<ApiResponse>{
+		
+	}
+** Infrastructure > Queries > TodoCategory > GetTodoCategoryByIdQuery: IRequest<ApiResponse>{
+		public int CategoryId { get; set; }
+	}
+
+//⚡Infrastructure > Handler (combine Commands and Queries into here and some more logics)
+** Infrastructure > Handlers >Todo > CreateTodoHandler:IRequestHandler < CreateTodoCommand, ApiResponse >{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	private readonly IMapper _mapper;
+
+	public CreateTodoHandler(IBaseRepository<TodoItem> baseRepository,IMapper _mapper){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+		
+	public async Task<ApiResponse> Handle(CreateTodoCommand request,CancellationToken cancellationToken){
+		var todoItem = _mapper.Map<TodoItem>(request.CreateTodoRequest);
+		todoItem.CreateDate = DateTime.Now;
+		todoItem.UpdateDate = DateTime.Now;
+		await baseRepository.AddAsync(todoItem);
+
+		var todoResponseData = _mapper.map<TodoItemDto>(todoItem)
+		var response = new ApiResponse{
+			Success = true;
+			Data = todoResponseData,
+			Message = "Todo Created Successfully"
+		};
+		return response;
+	}
+}
+** Infrastructure > Handlers >Todo > DeleteTodoHandler:IRequestHandler<DeleteTodoCommand,ApiResponse>{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	public CreateTodoHandler(IBaseRepository<TodoItem> baseRepository){
+		this.baseRepository = baseRepository;
+	}
+
+	public async Task<ApiResponse> Handle(DeleteTodoCommand request,CancellationToken cancellationToken){
+		var response = new ApiResponse();
+		var todo = await baseRespository.GetByIdAsync(request.TodoId);
+		if(todo == null){
+			response.Success = false;
+			response.Message = "Todo Not Found!";
+		}	
+		await baseRepository.DeleteAsync(todo);
+		response.Success = true;
+		response.Message = "Todo Deleted Successfully";
+		return response;	
+	}
+}
+** Infrastructure > Handlers >Todo > GetAllTodosQueryHandler:IRequestHandler<GetAllTodoQuery,ApiResponse>{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	private readonly IMapper _mapper;
+	public GetAllTodosQueryHandler(Imapper mapper,IBaseRepository<TodoItem> baseRepository){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+	public async Task<ApiReponse> Handle(GetAllTodosQuery request,CancellationToken cancellationToken){
+		try{
+			var getAllTodos = await baseRepository.GetAllAsync();
+			var result = _mapper.Map<List<TodoItemDto>>(getallTodos);
+			var response = new ApiResponse{
+				Success = true,
+				Data = result,
+				Message = "Todo Fetched successfully"
+			};
+			return response;
+		}catch(Exception ex){
+			throw new applicationException("Something Gone Wrong!.",ex.Message);
+		}
+	}
+}
+** Infrastructure > Handlers >Todo > GetTodoByIdQueryHandler:IRequestHandler<GetTodoByIdQuery,ApiResponse>{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	private readonly IMapper _mapper;	
+	public GetTodoByIdQueryHandler(Imapper mapper,IBaseRepository<TodoItem> baseRepository){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+	pubic async Task<ApiResponse> Handle(GetTodoByIdQuery request, CancellationToken cancellationToken){
+		var todo = await baseRepository.GetByIdjAcync(request.TodoId);
+		if(todo == null){
+			throw new TodoNotFoundException(request.TodoId);
+		}
+		var getTodoById =_mappr.Map<TodoItemD>(todo);
+		var response = new ApiRespose{
+			Success = true,
+			Data = getTodoById,
+			Message = "Todo Fetched Successfully."
+		};
+		reurn response;
+	} 
+
+}
+** Infrastructure > Handlers >Todo > UpdateTodoHandler:IRequestHandler<UpdateCommand,ApiResponse>{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	private readonly IMapper _mapper;	
+	public UpdateTodoHandler(Imapper mapper,IBaseRepository<TodoItem> baseRepository){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+	public async Task<ApiResponse> Handle(UpdateTodoComand request,CancellationToken canncellationToken){
+		var existingTodo = awiat baseRepository.GetByIdAsync(request.todoId);
+		if(existingTodo == null){
+			throw new TodoNotFoundException(request.TodoId);
+		}
+		_mapping.Map( request.UpdateTodoRequest, existingTodo );
+		existingTodo.UpdateDate = DateTime.Now;
+		var updatedTodo = await baseRepository.UpdateAsync(existingTodo);
+		var todoResponseDat = _mapper.Map<TodoItemDto>(updateTodo);
+		
+		return new ApiResponse{
+			Success = true,
+			Data = todoResponseData,
+			Message = "Todo update Successfully."
+		}
+	}
+}
+** Infrastructure > Handlers >Todo > SearchTodoByTitleHandler:IRequestHandler<SearchTodoByTitleCommand,ApiResponse>{
+	private readonly IBaseRepository<TodoItem> baseRepository;
+	private readonly IMapper _mapper;	
+	public SearchTodoByTitleHandler(Imapper mapper,IBaseRepository<TodoItem> baseRepository){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+	public async Task<ApiReponse> Handle(SearchTodoByTitleCommand request,CancallationToken cancellationToken){
+		if(string.InullOrEmpty(request.searchTerm)){
+			return new ApiResponse{
+				Success = false,
+				Message = "Search Term is required!",
+				Data= new List<TodoItemDto>();
+			};
+		}
+		var todos = await baseRepository.SearchTodoAsync(request.SearchTerm);
+			if(todos ==null || j!todo.Any()){
+				return new ApiResponse{
+					Success = false,
+					Data = new List<TodoItemDto>(),
+					Message = "Todo Not Found"
+				}
+			}	
+			var result = _mapper.Map<List<TodoItemDto>>(todos);
+			var response = new ApiResponse{
+				Success = true;
+				Data = resulst,
+				Message = "todo fetched successfully."
+			}
+			return response;
+		}
+	}
+}
+🪧 Also follow above code to apply with CategoryTodo
+** Infrastructure > Handlers >TodoCategories > CreateTodoCategoryHandler : IRequestHandler < CreateTodoCategoryCommand, ApiResponse >{
+	private readonly IBaseRepository<TodoCategory> baseRepository;
+	private readonly IMapper _mapper;
+
+	public CreateTodoCategoryHandler(IBaseRepository<TodoCategory> baseRepository,IMapper _mapper){
+		this.baseRepository = baseRepository;
+		_mapper = mapper;
+	}
+	public async Task<ApiResponse> Handle(CreateTodoCategoryCommand request,CancellationToken cancellationToken){
+		if(request.CreateTodoCategoryRequest  == null){
+			throw new ArgumentException(nameof(request.CreateTodoCategoryRequest),"Create TodoCategory Request can't be null!");	
+		}
+		var category = _mapper.map<TodoCategory>(request.CreateTodoCategoryRequest);
+		if(category == null){
+			throw new InvalidDataException("Invalid Data");
+		}
+		category.CreateDate = DateTime.Now;
+		category.UpdateDate = DateTime.Now;
+		
+		await baseRepository.AddAsync(category);
+		var todoRepsonseData = _mapper.Map<TodoCategoryDto>(category);
+		
+		return new AjpiReponse{
+			Data = todoResponseData,
+			Success = true,
+			Message = "Todo Created Successfully"
+		};
+		
+	}
+}
+
+** After Created All, Register in Middleware
+	
+	 - builder.Services.AddMediatR(m=>m.RegisterServicesFromAssemblyContaining(typeof(GetAllTodoCategoriesQuery)));
+	
+	- app.UseExceptionHandler();
+
+
+** Infrastructure > Exceptions > NotFoundException : Exception {
+		public NotFoundException (string Message) : base(Message){}
+	}
+	
+** Infrastructure > Exceptions >TodoNotfoundException : NotFoundException {
+		public TodoNotfoundException (int Id):base($"Todo with id {Id} not found!")
+	}
+** Infrastructure > Exceptions > CategoryNotFoundException :NotFoundException {
+		public CategorynotFoundExcepiton(int Id) :base($"Category with id {Id} not found!"){}
+	}			
+** Infrastructure > Exceptions > RepositoryException(string message,Exception innerException) : Exception(message,innerException){
+		
+	}
+** Infrastructure > Mapping
+	**package 
+		- Automapper 14.0.0
+		- FluentValidation 11.11.0
+		- MediatR 12.5.0
+** Infrastructure > Mapping > MappingProfile : Profile{
+	public MappingProfile(){
+		CreateMap<TodoItem,TodoItemDto>()
+			.ForMember(dest=>dest.Category, opt=>opt.MapFrom(src=>src.TodoCategory.Title))
+			.ReverseMap();
+		CreateMap<CreatetodoRequest,TodoItem>()
+			.ForMember(dest=>dest.CreateDate,opt=>opt.Ignore())
+			.ForMember(dest=>dest.UpdateDate,opt=>opt.Ignore())
+			.ForMember(dest=>dest.Id,opt=>opt.Ignore());
+		CreateMap<UpdateTodoRequest,TodoItem>();
+			// do some ignore when update
+			.ForMember(dest=>dest.CreateDate,opt=>opt.Ignore())
+			.ForMember(dest=>dest.UpdateDate,opt=>opt.Ignore())
+			.ForMember(dest=>dest.Id,opt=>opt.Ignore())
+			.ForMember(dest=>dest.TodoCategoryId,opt=>opt.Ignore())
+		CreateMap<TodoCategory,TodoCategoryDto>.ReverseMap();
+		CreateMap<CreateTodoCategoryRequest,TodoCategory>()
+			.ForMember(dest=>dest.Id,opt=>opt.Ignore());
+		CreateMap<UpdateTodoCategoryRequest,TodoCategory>()
+	}	
+}
+
+## After do mapping profile, do register in middlware
+	-builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
+```	
+## TodoApi > Exceptions > GlobalExceptionHandler{
+	private readonly Iloger<GlobalExceptionHandler> _logger;
+	public GlobalExceptionhanlder(ILogger<GlobalExceptionHandler> logger){
+		_logger = logger;
+	}
+
+	public async ValueTask<bool> TryHandlerAsync(HttpContext httpContext,Exception exception,CncellationToken cancellationToken){
+		_logger.logError(exception,exception.Message);
+		var response = new ErrorResponse{
+			message = exception.Message;
+		}
+		switch (exception){
+			case BadhttpRequestException:
+				response.StatusCode = (int)httpStatusCode.BadRequest;
+				response.Title = exception.GetType().Name;
+				break;
+			case default:
+				response.StatusCode = (int)HttpStatusCode.interlServerError;
+				response.Title = "Internal Server Error";
+				break;
+		}
+		httpContext.Reponse.Statuscode = response.Statuscode;
+		await httpcontext.Reponse.WriteAsJsonAsync(response,cancellationToken);
+
+		return true;
+		
+	}
+}
+** Register in MiddleWare:
+	builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+	builder.Services.AddProblemDetails();
+
+**Presentation > TodoAPI > Controllers > BaseApiController : controllerBase{
+	protected IMediator mediator => HttlpContext.RequestServices.GetRequiredServie<Imdiator>(); 
+}
+**Presentation > TodoAPI > Controllers > TodoControler: BaseApiController{
+	[HttpGet("todo/all")]
+	public async Task<IActionResult> GetAllTodo(){
+		return Ok(await mediator.Send(new GetAlltodoQuery()));
+	}
+	[HttpGet("todo/{id}")]
+	public async Task<IActionResult> GetById(int id){
+		return Ok(await mediator.Send(new GetTodoByIdeQuery{todoId=id}));
+	}
+	[HttpPost("todo")]
+	public async Task<IActionResult> CreateTodo([FromBody]CreateTodoRequest createTodoRequest){
+		var response = awiat mediator.Send(new CreateTodoCommand{CreateTodoRequest=createTodoRequest});
+		return Ok(response);
+	} 
+	[HttpPut("todo/{id}")]
+	public async Task<IActionResult> UpdateTodo(int id,[FromBody]UpdateTodoRequest updateTodoRequest){
+		var response = awiat mediator.Send(ne updateTodoCommand{TodoId=id,UpdatetodoRequest = updatTodoRequest});
+		return Ok(response);
+	}
+	[HttpDelete("todo/{id}")]
+	public async Task<IActionResult> DeleteTodo(int id){
+		var response = awiat mediator.Send(new DeleteTodoCommand{TodoId = todoId});
+		return Ok(response);
+	}
+	[HttpGet("todo/searh")]
+	public async Task<IActonResult> SearchTodos([FromQuery]string searchTerm){
+		var response = await mediator.Send(new SearchTodoByTitleComamnd{searchTerm = searchTerm});
+		return Ok(response);
+	}
+
+}	
+
+
+
+
+
+
+
+
+
