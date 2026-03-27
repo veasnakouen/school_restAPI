@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using SchoolAPI.Contracts;
 using SchoolAPI.Data;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Extensions
 {
