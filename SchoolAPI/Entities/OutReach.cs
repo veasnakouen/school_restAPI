@@ -7,7 +7,7 @@ namespace SchoolAPI.Entities
         public string? LastName { get; set; }
 
         public string? NickName { get; set; }
-        public string? Contact { get; set; }
+        public string? Contact { get; set; } = string.Empty;
         public ICollection<Student> Students { get; set; } = new List<Student>();
         // public IFormFile Image { get; set; }
     }

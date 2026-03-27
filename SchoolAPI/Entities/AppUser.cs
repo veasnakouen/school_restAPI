@@ -11,7 +11,7 @@ namespace SchoolAPI.Entities;//: physical file location
 // public class AppUser : IdentityUser<int>
 public class AppUser : IdentityUser
 {
-    // todo: when we implement form IdentityUser we can leave the body blank ::> public class AppUser:IdentityUser{leave blank}
+    // TODO: when we implement form IdentityUser we can leave the body blank ::> public class AppUser:IdentityUser{leave blank}
     // public string Id { get; set; } = Guid.NewGuid().ToString();
     // public required string  DisplayName { get; set; }
     // public string DisplayName { get; set; }

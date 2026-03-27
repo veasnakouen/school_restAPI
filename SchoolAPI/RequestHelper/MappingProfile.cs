@@ -1,6 +1,8 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Identity;
+using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
+using SchoolAPI.Controllers;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
 
@@ -53,6 +55,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Roles, opt => opt.Ignore())
             .ForMember(dest => dest.PhoneNumberConfirm, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
         CreateMap<RegisterDto, AppUser>().ReverseMap();
+        CreateMap<Product, ProductDto>().ReverseMap();
     }
 }
 

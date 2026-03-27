@@ -13,7 +13,7 @@ namespace SchoolAPI.Controllers
         {
             _service = service;
         }
-
+   
 
         /// <summary>
         /// Enrolls a student in a class.

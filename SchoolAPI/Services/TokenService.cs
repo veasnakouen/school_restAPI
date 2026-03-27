@@ -25,8 +25,6 @@ public class TokenService : ITokenService
     // public async Task<string> GenerateAccessToken(AppUser user, IEnumerable<string> roles)
     public string GenerateAccessToken(AppUser user, IEnumerable<string> roles)
     {
-
-
         //  var key = Encoding.ASCII.GetBytes(_configuration.GetSection("JwtSettings:Secret").Value!);
         //  var key = Encoding.ASCII.GetBytes(_configuration.GetValue<string>("JwtSettings:Secret"));
         //  var cred = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256);
@@ -55,7 +53,6 @@ public class TokenService : ITokenService
         claims.Add(new Claim("exp", expSeconds.ToString(), ClaimValueTypes.Integer64));
         //// convert to array
         // var claimArray = claims.ToArray();
-
 
         //use UTF* encoding
         var keyBytes = Encoding.UTF8.GetBytes(secret!);
@@ -130,7 +127,6 @@ public class JwtHandler
             signingCredentials: GetSigningCredentials());
 
         return jwtOptions;
-
     }
     private SigningCredentials GetSigningCredentials()
     {

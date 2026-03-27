@@ -9,6 +9,7 @@ using Microsoft.OpenApi.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Data;
 using SchoolAPI.Entities;
+using SchoolAPI.Helpers;
 using SchoolAPI.Interfaces;
 using SchoolAPI.RequestHelper;
 using SchoolAPI.Services;
@@ -162,8 +163,14 @@ namespace SchoolAPI.Extensions
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
                 // options.DefaultScheme=
             })
-            .AddJwtBearer(options =>
+            // .AddJwtBearer(options =>
+            .AddJwtBearer("Bearer", options =>
             {
+                // var key = Encoding.UTF8.GetBytes(configuration.GetSection("JwtSettings:Secret").Value!);
+                // string issuer = configuration.GetSection("JwtSettings:Issuer").Value!;
+                // string audience = configuration.GetSection("JwtSettings:Audience").Value!;
+
+                options.RequireHttpsMetadata = false;
                 options.SaveToken = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -203,14 +210,13 @@ namespace SchoolAPI.Extensions
 
 
             // Todo : Policy based authorization
-            // services.AddAuthorization(options =>
-            // {
+            // services.AddAuthorization(options => {
             //     options.AddPolicy("Administrator", policy => policy.RequireRole("Administrator"));
             //     options.AddPolicy("AdminAndPowerUser", policy => policy.RequireRole("Administrator", "PowerUser"));
             //     options.AddPolicy("EmployeeWithMoreThan20Years", policy => policy.AddRequirements.Add(new EmployeeMoreThan20YearsRequirement(20)));
             //     options.AddPolicy("User", policy => policy.RequireRole("User"));
             // });
-
+            services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
             return services;
         }
 
@@ -259,7 +265,7 @@ namespace SchoolAPI.Extensions
                 });
                 c.AddServer(new OpenApiServer
                 {
-                    Url = "http://localhost:5000",
+                    Url = "http://localhost:5001",
                     Description = "Development Server"
                 });
             });

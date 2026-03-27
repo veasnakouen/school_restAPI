@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "VBIb/uSjK24=",
+  "dgSpecHash": "pNmOuPeGJ2Y=",
   "success": true,
   "projectFilePath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
   "expectedPackageFiles": [
@@ -8,6 +8,7 @@
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.1\\automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\azure.core\\1.38.0\\azure.core.1.38.0.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\azure.identity\\1.11.4\\azure.identity.1.11.4.nupkg.sha512",
+    "C:\\Users\\K-VeaSna\\.nuget\\packages\\cloudinarydotnet\\1.28.0\\cloudinarydotnet.1.28.0.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\epplus\\8.2.1\\epplus.8.2.1.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\epplus.interfaces\\8.1.0\\epplus.interfaces.8.1.0.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\fluentvalidation\\12.0.0\\fluentvalidation.12.0.0.nupkg.sha512",
@@ -94,13 +95,16 @@
   ],
   "logs": [
     {
-      "code": "NU1900",
+      "code": "NU1903",
       "level": "Warning",
-      "message": "Error occurred while getting package vulnerability data: Unable to load the service index for source https://api.nuget.org/v3/index.json.",
+      "message": "Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x",
       "projectPath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
       "warningLevel": 1,
       "filePath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
-      "targetGraphs": []
+      "libraryId": "AutoMapper",
+      "targetGraphs": [
+        "net10.0"
+      ]
     }
   ]
 }

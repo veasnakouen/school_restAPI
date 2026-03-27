@@ -1,9 +1,24 @@
-⭐ to make our Program.cs be clean/tidy-up we need to create/add extension method  
+
+# NOTICE
+
+```text
+text⭐ to make our Program.cs be clean/tidy-up we need to create/add extension method  
  🔥Extension Methods enable us to add method to existing type without creating a new derived type Or modify the original type.
     this class need to be static type
- 
+```
+
+## List
+
+```text
+
+```
+
+### ApplicationSErvice
+
+#### ⭐ApplicationServiceExtension.cs
+
+```code
 Ex:> 
-⭐ApplicationServiceExtension.cs
     namespace SchoolAPI.Extensions;
     public static class ApplicationServicesExtensions
     {
@@ -19,7 +34,13 @@ Ex:>
             return services;
         }   
     }
-⭐IdentityServiceExtension.cs   
+```
+
+### IdentityService  
+
+### ⭐IdentityServic eExtension.cs
+
+```code
 namespace SchoolAPI.Extensions;
 public static class ⭐IdentityServiceExtension
 {
@@ -39,10 +60,15 @@ public static class ⭐IdentityServiceExtension
         return services;
     }
 }
+```
 
+## In Program.Cs file
 
+-[List](#list)
+        -[IdentityService](#identityservice)
+        -[ApplicationService](#applicationservice)
 
-// in Program.Cs file
+```code
 builder.Services.AddApplicationServices(_config);
 builder.Services.AddIdentityService(_config);
-
+```

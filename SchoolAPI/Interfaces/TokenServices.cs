@@ -5,4 +5,5 @@ namespace SchoolAPI.Interfaces;
 public interface ITokenServices
 {
     string CreateToken(AppUser user);
+    string? RefreshToken(AppUser user);
 }

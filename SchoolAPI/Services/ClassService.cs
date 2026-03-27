@@ -2,7 +2,6 @@ using System.Linq.Expressions;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
 using SchoolAPI.Data;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
@@ -207,8 +206,12 @@ public class ClassService
     }
 
     public async Task<List<OutReachDto>> GetAllOutReachAsync(
-        string? filterOn = null, string? filterQuery = null,
-         string? sortBy = null, bool IsAscending = true, int pageNumber = 1, int pageSize = 3)
+        string? filterOn = null,
+         string? filterQuery = null,
+         string? sortBy = null,
+          bool IsAscending = true,
+           int pageNumber = 1,
+            int pageSize = 3)
     {
         var outreachQuery = _context.OutReach.Include(o => o.Students).AsQueryable();
         //filter
@@ -232,7 +235,7 @@ public class ClassService
         var skipResults = (pageNumber - 1) * pageSize;
 
         var outReaches = await outreachQuery.Skip(skipResults).Take(pageSize).ToListAsync();
-        
+
         return _mapper.Map<List<OutReachDto>>(outReaches);
     }
 

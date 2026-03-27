@@ -1,7 +1,9 @@
 
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.StaticAssets;
 using Microsoft.IdentityModel.Tokens;
 using SchoolAPI.Entities;
 using SchoolAPI.Interfaces;
@@ -52,6 +54,33 @@ public class TokenServices(IConfiguration config) : ITokenServices
         return tokenHandler.WriteToken(token);
 
     }
+
+    public string RefreshToken(AppUser user)
+    {
+        throw new NotImplementedException();
+    }
+
+
+    public class TokenUtils
+    {
+        public static (string rawtoken, string hasedToken) GenerateToken()
+        {
+            var bytes = RandomNumberGenerator.GetBytes(64);
+            var raw = Base64UrlEncoder.Encode(bytes);
+
+            using var sha = SHA256.Create();
+            var hashed = Convert.ToBase64String(sha.ComputeHash(bytes));
+            return (raw, hashed);
+        }
+        public static string HashToken(string rawToken)
+        {
+            using var sha = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes(rawToken);
+            return Convert.ToBase64String(sha.ComputeHash(bytes));
+        }
+    }
+
+
 }
 // for using our service 
 // we need to register our service in program.cs file or in our service collection

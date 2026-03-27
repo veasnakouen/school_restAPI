@@ -1,8 +1,9 @@
-using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
 using SchoolAPI.Extensions;
+using SchoolAPI.Helpers;
+using SchoolAPI.Interfaces;
 using SchoolAPI.Middleware;
 using SchoolAPI.Services;
 using Serilog;
@@ -47,6 +48,14 @@ builder.Logging
 #endregion
 
 builder.Services.AddScoped<ClassService>();
+builder.Services.AddScoped<IPhotoService, PhotoService>();
+
+#region Angular
+// builder.Services.AddSpaStaticFile(configuration=>{
+//     configuration.RootPath = "ClientApp/dist";
+// });
+#endregion Angular
+
 #region some removable code comments
 // builder.Services.AddControllers(options => options.Filters.Add(new ValidateModelAttribute()));
 // builder.Services.AddTransient<CustomMiddleware>();
@@ -79,7 +88,7 @@ builder.Services
     .AddMediatR(builder.Configuration)
     // .ConfigureJwt(builder.Configuration)
     .AddFluentValidation()
-    .AddAutoMapper()
+    // .AddAutoMapper()
     .AddSwagger();
 #endregion
 builder.Services.AddServices();
@@ -149,6 +158,7 @@ builder.Services.AddServices();
 // Adding Jwt from extension method (our on custom method)
 builder.Services.ConfigureIdentity();
 builder.Services.ConfigureCors();
+// builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
 // builder.Services.ConfigureJwt(builder.Configuration);
 
 
@@ -203,7 +213,6 @@ app.UseMiddleware<ExceptionMiddleware>();
 // await app.SeedDataAsync();
 #endregion 
 
-
 #region apps
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -221,7 +230,17 @@ if (app.Environment.IsDevelopment())
 
 
 app.UseCors("CorePolicy");
+
 // app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:4200"));
+#region Angualr
+// app.UseSpa(spa => {
+//     spa.Options.SourcePth = "";
+//     if (app.Environment.IsDevelopment())
+//     {
+//         spa.UseAngularCliServer(npmScript: "serve");   
+//     }
+// });
+#endregion Angular
 
 app.UseHttpsRedirection();
 app.UseRouting();
@@ -238,7 +257,7 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000"); // HSTS
     await next();
 });
-
+//seem like to mapping 
 
 
 app.MapControllers();
@@ -259,12 +278,19 @@ app.MapControllers();
 //     var customLogger = services.GetRequiredService<ILogger<Program>>();
 //     customLogger.LogError(ex, "An error occurred during migration");
 // }
-
-// some c# lesson codes
+// style for using minimal API in asp.net core web Api dotnet 10
+// app.MapGet("/minimal-get", () =>
+// {
+//     throw new NotImplementedException();
+// }); 
 #region Testing with c#'s 
-
+// some c# Vs-Code short-Cut/ Commands
+//  dotnet add migration "Migration_Name"
+//  dotnet ef database update
+// Alt + F12 : Peeking in vs-Code
+// 
 #endregion
-// some c# lesson code
+
 app.Run();
 // app.RunAsync();
 #endregion
