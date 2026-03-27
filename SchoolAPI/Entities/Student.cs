@@ -1,4 +1,7 @@
+#nullable enable
+
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SchoolAPI.Entities
 {
@@ -9,8 +12,11 @@ namespace SchoolAPI.Entities
         [Required]
         // [JsonPropertyName("kh_last_name")]
         public string KhLastName { get; set; }
+        [AllowNull]
         public string KhFirstName { get; set; }
+        [AllowNull]
         public string EngLastName { get; set; }
+        [AllowNull]
         public string EngFirstName { get; set; }
         public Gender Gender { get; set; }
         public DateTime DateOfBirth { get; set; }

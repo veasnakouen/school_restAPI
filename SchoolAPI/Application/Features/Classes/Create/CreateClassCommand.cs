@@ -1,4 +1,10 @@
-using SchoolAPI.Domain.Entities;
+#nullable enable
+
+using MediatR;
+using SchoolAPI.Application.Common.Models;
+using MediatR;
+using SchoolAPI.Application.Common.Models;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Features.Classes.Create;
 

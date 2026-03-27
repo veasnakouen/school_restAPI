@@ -1,3 +1,7 @@
+#nullable enable
+
+using System.Diagnostics.CodeAnalysis;
+
 namespace SchoolAPI.Contracts.Auth
 {
     public class AuthResponse
@@ -11,6 +15,7 @@ namespace SchoolAPI.Contracts.Auth
         public bool IsSuccess { get; set; }//add
         public string? Message { get; set; }//add
         public ICollection<string> Role { get; set; }
+        [AllowNull]
         public string PhoneNumber { get; set; }
         public int AccessFailedCount { get; set; }
 

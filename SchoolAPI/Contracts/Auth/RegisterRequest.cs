@@ -1,4 +1,7 @@
+#nullable enable
+
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SchoolAPI.Contracts.Auth
 {
@@ -19,12 +22,14 @@ namespace SchoolAPI.Contracts.Auth
     {
         [Required]
         // [DataType(DataType.EmailAddress)]
+        [AllowNull]
         public string Username { get; set; }
+        [AllowNull]
         public string Email { get; set; }
 
         [Required]
         // [DataType(DataType.Password)]
-
+        [AllowNull]
         public string Password { get; set; }
         public string[] Roles { get; set; }
 

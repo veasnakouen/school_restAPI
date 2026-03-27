@@ -1,7 +1,10 @@
+using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.DTOs;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Features.Classes.GetAll;
 

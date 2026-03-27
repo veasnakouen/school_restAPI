@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.Contracts
 {
     public class JwtSettings

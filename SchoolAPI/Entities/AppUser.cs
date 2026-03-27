@@ -1,4 +1,7 @@
+#nullable enable
+
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -7,7 +10,7 @@ namespace SchoolAPI.Entities;//: physical file location
 // public class AppUser:IdentityUser<int>
 [Table("User")]
 [Index(nameof(Id))]
-[Index(nameof(FullName))]
+// [Index(nameof(FullName))]
 // public class AppUser : IdentityUser<int>
 public class AppUser : IdentityUser
 {
@@ -19,10 +22,10 @@ public class AppUser : IdentityUser
 
     // [PersonalData]
     // [Column(TypeName = "nvarchar(150)")]
-    public string? FullName { get; set; }
+    [AllowNull] public string FullName { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    // public string? ImageUrl { get; set; }
-    public string RefreshToken { get; set; }
+    [AllowNull] public string ImageUrl { get; set; }
+    [AllowNull] public string RefreshToken { get; set; }
 
     public DateTime RefreshTokenExpiryTime { get; set; } = DateTime.UtcNow; //standard international time format(use anywhere in the world.)
 

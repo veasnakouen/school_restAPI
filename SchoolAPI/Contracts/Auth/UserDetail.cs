@@ -1,3 +1,4 @@
+#nullable enable
 
 namespace SchoolAPI.Contracts.Auth;
 

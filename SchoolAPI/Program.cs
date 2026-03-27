@@ -88,16 +88,7 @@ builder.Services
     .AddFluentValidation()
     // .AddAutoMapper()
     .AddSwagger();
-<<<<<<< HEAD
 #endregion
-=======
-
-// Add ASP.NET Core Identity API Endpoints (provides all built-in Identity features)
-builder.Services.AddIdentityApiEndpoints<AppUser>()
-    .AddRoles<AppRole>()
-    .AddEntityFrameworkStores<SchoolDbContext>();
-
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 builder.Services.AddServices();
 #region some optional code
 //Register AutoMapper
@@ -268,16 +259,6 @@ app.Use(async (ctx, next) =>
 
 
 app.MapControllers();
-<<<<<<< HEAD
-=======
-
-// Map ASP.NET Core Identity API Endpoints (provides all built-in Identity features)
-// These endpoints provide: Register, Login, RefreshToken, ConfirmEmail, ForgotPassword, ResetPassword, etc.
-app.MapIdentityApiEndpoints<AppUser>();
-
-using var scope = app.Services.CreateScope();
-var services = scope.ServiceProvider;
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 
 // @Mr.Neil cumming do seeding data base on migration
 // using var scope = app.Services.CreateScope();

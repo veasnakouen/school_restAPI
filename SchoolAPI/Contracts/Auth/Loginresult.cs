@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.Contracts.Auth;
 
 public class LoginResult

@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.Controllers;
 
 public class RoleResponse

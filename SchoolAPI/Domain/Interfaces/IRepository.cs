@@ -1,4 +1,6 @@
-namespace SchoolAPI.Domain.Interfaces;
+#nullable enable
+
+using SchoolAPI.Entities;
 
 public interface IRepository<T> where T : class
 {

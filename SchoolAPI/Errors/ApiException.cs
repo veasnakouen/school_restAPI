@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.Errors;
 
 public class ApiException(int StatusCode,string message,string? details)

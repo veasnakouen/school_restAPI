@@ -2,7 +2,9 @@ using MediatR;
 using Microsoft.AspNetCore.Identity;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Constant;
-using SchoolAPI.Domain.Entities;
+using MediatR;
+using SchoolAPI.Application.Common.Models;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Features.Auth.Register;
 

@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.DTOs;
 //for response and data transfer
 public class EnrollmentDto

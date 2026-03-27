@@ -1,3 +1,5 @@
+#nullable enable
+
 namespace SchoolAPI.Application.Common.Models;
 
 public class Result<T>
