@@ -1,4 +1,5 @@
 using MediatR;
+using SchoolAPI.Domain.Entities;
 
 namespace SchoolAPI.Application.Common.Interfaces;
 

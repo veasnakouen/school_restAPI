@@ -1,9 +1,9 @@
 
 using Microsoft.AspNetCore.Identity;
+using SchoolAPI.Entities;
 
-namespace SchoolAPI.Entities;
+namespace schoolAPI.Entities;
 
-// Using string-based Id to match IdentityUser (default)
 public class AppRole : IdentityRole
 {
     public ICollection<AppUserRole> UserRoles { get; set; }

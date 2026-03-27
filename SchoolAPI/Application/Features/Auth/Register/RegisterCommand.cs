@@ -1,4 +1,5 @@
-using SchoolAPI.Domain.Entities;
+using MediatR;
+using SchoolAPI.Application.Common.Models;
 
 namespace SchoolAPI.Application.Features.Auth.Register;
 

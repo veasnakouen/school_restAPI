@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 
 namespace SchoolAPI.Contracts.Auth
 {
@@ -10,7 +11,7 @@ namespace SchoolAPI.Contracts.Auth
         [Required]
         public string Password { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
-        public List<string>? Roles { get; set; } //add
+        [AllowNull] public List<string> Roles { get; set; } //add
 
     }
 
@@ -18,12 +19,12 @@ namespace SchoolAPI.Contracts.Auth
     public class RegisterDto
     {
         [Required]
-        // [DataType(DataType.EmailAddress)]
+        [DataType(DataType.EmailAddress)]
         public string Username { get; set; }
         public string Email { get; set; }
 
         [Required]
-        // [DataType(DataType.Password)]
+        [DataType(DataType.Password)]
 
         public string Password { get; set; }
         public string[] Roles { get; set; }

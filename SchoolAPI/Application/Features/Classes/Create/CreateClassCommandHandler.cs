@@ -1,5 +1,6 @@
 using MediatR;
 using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Domain.Entities;
 
 namespace SchoolAPI.Application.Features.Classes.Create;
@@ -26,7 +27,9 @@ public class CreateClassCommandHandler : IRequestHandler<CreateClassCommand, Res
             ClassName = request.ClassName
         };
 
-        _context.Classes.Add(classRoom);
+        // _context.Classes.Add(classRoom);
+        _context.Classes.Append(classRoom);
+    
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result<Guid>.Success(classRoom.Id);

@@ -1,3 +1,5 @@
+using MediatR;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Domain.Entities;
 
 namespace SchoolAPI.Application.Features.Classes.Create;

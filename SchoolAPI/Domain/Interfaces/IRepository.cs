@@ -1,3 +1,5 @@
+using SchoolAPI.Domain.Entities;
+
 namespace SchoolAPI.Domain.Interfaces;
 
 public interface IRepository<T> where T : class

@@ -121,7 +121,7 @@ namespace SchoolAPI.Extensions
                     options.Lockout.AllowedForNewUsers = true;
 
                     // Account settings
-                    options.Account.RequireUniqueEmail = true;
+                    // options.Account.RequireUniqueEmail = true;
                 })
                 .AddEntityFrameworkStores<SchoolDbContext>()
                 .AddDefaultTokenProviders()

@@ -21,10 +21,7 @@ namespace SchoolAPI.Controllers;
 
 public class AuthController : BaseController
 {
-    // this is also the method
-    // public string Message => "sksdf";
-    // #region is using for organization of code,end with #endregion, make it easy to read
-    #region Constructor Injection
+   
     // these (three) build-in libraries
     private readonly RoleManager<IdentityRole> _roleManager;
 
@@ -42,73 +39,32 @@ public class AuthController : BaseController
         RoleManager<IdentityRole> roleManager,
         IConfiguration configuration,
         SignInManager<AppUser> signInManager,
-        SchoolDbContext context,
         ITokenServices tokenServices,
         IMapper mapper)
     {
-<<<<<<< HEAD
         _userManager = userManager;
         _tokenService = tokenService;
         _roleManager = roleManager;
         _configuration = configuration;
         _signInManager = signInManager;
         _mapper = mapper;
-        _context = context;
         _tokenServices = tokenServices;
         // var today = DateOnly.FromDateTime(DateTime.UtcNow);
     }
-    #endregion
+ 
     // without UserManager
     //not yet working
+
+    
     [HttpPost("user register")]
     [AllowAnonymous]
     public async Task<ActionResult<UserDto>> RegisterUser([FromBody] RegisterDto dto)
     {
         if (await UserExists(dto.Username)) return BadRequest("UserName is taken!.");
-=======
-        // this is also the method
-        // public string Message => "sksdf";
-        // #region is using for organization of code,end with #endregion, make it easy to read
-        #region Constructor Injection
-        // these (three) build-in libraries
-        private readonly RoleManager<AppRole> _roleManager;
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
 
-        using var hmac = new HMACSHA512();
-        // var user = new AppUser
-        // {
-        //     UserName = dto.Username.ToLower(),
-        //     Email = dto.Email,
+        
 
-<<<<<<< HEAD
-        //     // PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(dto.Password)).ToString(),
-        //     // PasswordSalt = hmac.Key
-        // };
-        var user = _mapper.Map<AppUser>(dto);
-        user.UserName = dto.Username.ToLower();
-        var result = await _userManager.CreateAsync(user, dto.Password);
-
-        // return new UserDto
-        // {
-        //     UserName = user.UserName,
-        //     Token = _tokenServices.CreateToken(user)
-        // };
-        // return _mapper.Map<UserDto>(user);
-        // ✅ Use constant: Roles.User
-        if (!result.Succeeded) return BadRequest(result.Errors);
-
-        if (dto.Roles is null)
-=======
-        public AuthController(
-            UserManager<AppUser> userManager,
-            ITokenService tokenService,
-            RoleManager<AppRole> roleManager,
-            IConfiguration configuration,
-            SignInManager<AppUser> signInManager,
-            SchoolDbContext context,
-            ITokenServices tokenServices,
-            IMapper mapper)
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
+       if(dto.Roles)
         {
             await _userManager.AddToRoleAsync(user, Roles.User);
         }
@@ -325,11 +281,6 @@ public class AuthController : BaseController
 
 
     [HttpGet("users")]
-    // [Authorize]
-    // [Authorize(Roles = "Admin")]
-    // [Authorize(Policy = "AdminOnly")] ::> builder.Services.AddAuthorization(options =>options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin")));
-    //[Authorize(Policy = "EmployeeIdPolicy")] ::> builder.Services.AddAuthorization(options =>options.AddPolicy("EmployeeIdPolicy", policy => policy.RequireClaim("EmployeeId")));
-    // [Authorize(Roles = Roles.Admin)]
     public async Task<IActionResult> GetAllUsers(string? filterOn = null, string? filterQuery = null)
     {
         var users = new List<AppUser>();
@@ -355,8 +306,8 @@ public class AuthController : BaseController
 
             return Ok(userListLinq);
         }
-        // // using OCP example
-        users = _userManager.Users.ToList();
+        // using OCP example
+        users = await _userManager.Users.ToListAsync();
         var bf = new BetterFilter();
         IEnumerable<AppUser> result = new List<AppUser>();
 
@@ -465,17 +416,6 @@ public class AuthController : BaseController
         return tokenHandler.WriteToken(token);
     }
 
-    #region Test_Toon
-    [HttpGet("Toon")]
-    [AllowAnonymous]
-    public async Task<ActionResult<string>> GetToon()
-    {
-        var toonResponse = new AppUser();
-
-        return await Task.FromResult<ActionResult<string>>("Toon is the best character in One Piece!");
-    }
-    #endregion
-
     #region Open-Closed Principle (OCP) Example
     public interface ISpecification<T> where T : class
     {
@@ -497,13 +437,14 @@ public class AuthController : BaseController
 
         public bool IsSatisfiedBy(AppUser user)
         {
-            if (user.FullName == _color)
+            if ( user.Email == _color)
             {
                 return true;
             }
             return false;
         }
     }
+
     public class BetterFilter : IFilter<AppUser>
     {
         public IEnumerable<AppUser> Filter(IEnumerable<AppUser> items, ISpecification<AppUser> spec)
@@ -527,7 +468,6 @@ public class AuthController : BaseController
     public async Task<ActionResult<IEnumerable<AppUser>>> GetUsers()
     {
         var users = await _userManager.Users.AsNoTracking().ToListAsync();
-        // var users = _userManager.Users.ToList();
         return Ok(users);
     }
 
