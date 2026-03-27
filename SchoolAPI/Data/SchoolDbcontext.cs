@@ -11,7 +11,7 @@ namespace SchoolAPI.Data
     // public class SchoolDbContext(DbContextOptions options): IdentityDbContext<AppUser, AppRole, int,
     //  IdentityUserClaim<int>, AppUserRole, IdentityUserLogin<int>,
     //  IdentityRoleClaim<int>, IdentityUserToken<int>>(options)
-    public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUser>(option)
+    public class SchoolDbContext(DbContextOptions option) : IdentityDbContext<AppUser, AppRole, string>(option)
     {
         // with the older version of c# we use constructor to pass the options to the base class
         // public SchoolDbContext(DbContextOptions option) : base(option) { }
@@ -32,32 +32,22 @@ namespace SchoolAPI.Data
         {
             base.OnModelCreating(builder);
 
-            // 
             builder.Entity<AppUser>().ToTable("Users");
-            builder.Entity<IdentityRole>().ToTable("Roles");
-            // .Property(u => u.Gender)
-            // .HasConversion<string>();//Store text , e.g., 'Male','Female
+            builder.Entity<AppRole>().ToTable("Roles");
+            builder.Entity<AppUserRole>().ToTable("UserRoles");
+            
+            // Configure relationships
+            builder.Entity<AppUserRole>()
+                .HasOne(ur => ur.User)
+                .WithMany()
+                .HasForeignKey(ur => ur.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
-            //Sample code for Seeding Role, if roles not exist entity framework core migration will add this data to database   
-            // var writerRoleId = "MT-003-ekf-sdf";
-            // var readerRoleId = "MT-003--read";
-            // var roles = new List<IdentityRole>
-            // {
-            //     new IdentityRole{
-            //         Id=writerRoleId,
-            //         Name="Writer",
-            //         NormalizedName="Writer".ToUpper()
-            //         ConcurrencyStamp = writerRoleId,
-            //         },
-            //     new IdentityRole{
-            //         Id=writerRoleId,
-            //         Name="Reader",
-            //         NormalizedName="Reader".ToUpper()
-            //         ConcurrencyStamp = readerRoleId,
-            //         },
-            // };
-
-            // builder.Entity<IdentityRole>().HasData(roles);
+            builder.Entity<AppUserRole>()
+                .HasOne(ur => ur.Role)
+                .WithMany()
+                .HasForeignKey(ur => ur.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
 
     }

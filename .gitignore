@@ -1,0 +1,39 @@
+```
+# Build artifacts
+obj/
+bin/
+*.dll
+*.exe
+*.pdb
+*.config
+*.runtimeconfig.json
+*.deps.json
+*.lock.json
+
+# Dependencies
+packages/
+node_modules/
+lib/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.userprefs
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test results
+TestResults/
+```

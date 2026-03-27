@@ -83,15 +83,18 @@ builder.Logging
 // registering custom ServiceCollection.cs,
 builder.Services
     .AddApplicationServices()
-    // .AddIdentityCore(builder.Configuration)
     .AddIdentityServices(builder.Configuration)
     .AddJwtAuthentication(builder.Configuration)
     .AddDatabase(builder.Configuration)
     .AddMediatR(builder.Configuration)
-    // .ConfigureJwt(builder.Configuration)
     .AddFluentValidation()
     .AddAutoMapper()
     .AddSwagger();
+
+// Add ASP.NET Core Identity API Endpoints (provides all built-in Identity features)
+builder.Services.AddIdentityApiEndpoints<AppUser>()
+    .AddRoles<AppRole>()
+    .AddEntityFrameworkStores<SchoolDbContext>();
 
 builder.Services.AddServices();
 #region some optional code
@@ -255,6 +258,11 @@ app.Use(async (ctx, next) =>
 //  });
 
 app.MapControllers();
+
+// Map ASP.NET Core Identity API Endpoints (provides all built-in Identity features)
+// These endpoints provide: Register, Login, RefreshToken, ConfirmEmail, ForgotPassword, ResetPassword, etc.
+app.MapIdentityApiEndpoints<AppUser>();
+
 using var scope = app.Services.CreateScope();
 var services = scope.ServiceProvider;
 

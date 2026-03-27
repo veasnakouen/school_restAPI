@@ -24,15 +24,16 @@ namespace SchoolAPI.Extensions
         }
         public static void ConfigureIdentity(this IServiceCollection services)
         {
-            services.AddIdentityCore<IdentityUser>(o =>
+            services.AddIdentityCore<AppUser>(o =>
             {
-                o.Password.RequireDigit = true;//true
-                o.Password.RequireLowercase = true;//true
+                o.Password.RequireDigit = true;
+                o.Password.RequireLowercase = true;
                 o.Password.RequireNonAlphanumeric = false;
-                o.Password.RequireUppercase = false;
+                o.Password.RequireUppercase = true;
                 o.Password.RequiredLength = 8;
-                // o.User.RequireUniqueEmail = true;
-            }).AddEntityFrameworkStores<SchoolDbContext>()
+                o.User.RequireUniqueEmail = true;
+            }).AddRoles<AppRole>()
+            .AddEntityFrameworkStores<SchoolDbContext>()
             .AddDefaultTokenProviders();
         }
 
