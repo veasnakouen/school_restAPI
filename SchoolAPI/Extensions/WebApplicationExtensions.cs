@@ -8,7 +8,7 @@ namespace SchoolAPI.Extensions
         public static async Task SeedDataAsync(this WebApplication app)
         {
             using var scope = app.Services.CreateScope();
-            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
             var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
 
             // Seed Roles
@@ -16,7 +16,7 @@ namespace SchoolAPI.Extensions
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
-                    await roleManager.CreateAsync(new IdentityRole(roleName));
+                    await roleManager.CreateAsync(new AppRole { Name = roleName });
                 }
             }
 

@@ -31,7 +31,7 @@ namespace SchoolAPI.Controllers
         // #region is using for organization of code,end with #endregion, make it easy to read
         #region Constructor Injection
         // these (three) build-in libraries
-        private readonly RoleManager<IdentityRole> _roleManager;
+        private readonly RoleManager<AppRole> _roleManager;
 
         private readonly SignInManager<AppUser> _signInManager;
         private readonly UserManager<AppUser> _userManager;
@@ -44,7 +44,7 @@ namespace SchoolAPI.Controllers
         public AuthController(
             UserManager<AppUser> userManager,
             ITokenService tokenService,
-            RoleManager<IdentityRole> roleManager,
+            RoleManager<AppRole> roleManager,
             IConfiguration configuration,
             SignInManager<AppUser> signInManager,
             SchoolDbContext context,
