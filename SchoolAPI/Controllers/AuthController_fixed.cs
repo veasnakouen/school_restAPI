@@ -26,7 +26,7 @@ public class AuthController : BaseController
     // #region is using for organization of code,end with #endregion, make it easy to read
     #region Constructor Injection
     // these (three) build-in libraries
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly RoleManager<AppRole> _roleManager;
 
     private readonly SignInManager<AppUser> _signInManager;
     private readonly UserManager<AppUser> _userManager;
@@ -39,7 +39,7 @@ public class AuthController : BaseController
     public AuthController(
         UserManager<AppUser> userManager,
         ITokenService tokenService,
-        RoleManager<IdentityRole> roleManager,
+        RoleManager<AppRole> roleManager,
         IConfiguration configuration,
         SignInManager<AppUser> signInManager,
         SchoolDbContext context,
@@ -71,7 +71,6 @@ public class AuthController : BaseController
         //     UserName = dto.Username.ToLower(),
         //     Email = dto.Email,
 
-<<<<<<< HEAD
         //     // PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(dto.Password)).ToString(),
         //     // PasswordSalt = hmac.Key
         // };
@@ -89,17 +88,6 @@ public class AuthController : BaseController
         if (!result.Succeeded) return BadRequest(result.Errors);
 
         if (dto.Roles is null)
-=======
-        public AuthController(
-            UserManager<AppUser> userManager,
-            ITokenService tokenService,
-            RoleManager<AppRole> roleManager,
-            IConfiguration configuration,
-            SignInManager<AppUser> signInManager,
-            SchoolDbContext context,
-            ITokenServices tokenServices,
-            IMapper mapper)
->>>>>>> 54bf8effddd83d8a224abf77c11fb729f4b6613c
         {
             await _userManager.AddToRoleAsync(user, Roles.User);
         }
