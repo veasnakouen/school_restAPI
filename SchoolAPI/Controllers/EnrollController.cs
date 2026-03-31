@@ -18,20 +18,19 @@ namespace SchoolAPI.Controllers
         /// <summary>
         /// Enrolls a student in a class.
         /// </summary>
-        /// <param name="studentId">The ID of the student.</param>
-        /// <param name="classId">The ID of the class.</param>
+        /// <param name="request">The student and class IDs.</param>
         /// <returns>Success message or error if enrollment fails.</returns>
         [HttpPost("enroll")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> EnrollStudent(Guid studentId, Guid classId)
+        public async Task<IActionResult> EnrollStudent([FromBody] EnrollStudentRequest request)
         {
-            if (studentId == Guid.Empty || classId == Guid.Empty)
+            if (request.StudentId == Guid.Empty || request.ClassId == Guid.Empty)
             {
                 return BadRequest("Invalid student or class ID.");
             }
 
-            var success = await _service.EnrollStudentAsync(studentId, classId);
+            var success = await _service.EnrollStudentAsync(request.StudentId, request.ClassId);
             return success ? Ok("Student enrolled successfully.") : BadRequest("Enrollment failed. Student or class not found, or student already enrolled.");
         }
 

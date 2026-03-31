@@ -1,28 +1,17 @@
-// // // In QrCodeService.cs
-//  byte[] GenerateQrCodeWithLogo(string text, int size = 300, string? logoPath = null)
-// {
-//     using var qrGenerator = new QRCodeGenerator();
-//     using var qrData = qrGenerator.CreateQrCode(text, QRCodeGenerator.ECCLevel.H); // High error correction
-//     using var qrCode = new PngByteQRCode(qrData);
+using QRCoder;
 
-//     byte[] png;
+namespace SchoolAPI.Services
+{
+    public class QrcodeService
+    {
+        public byte[] GenerateQrCode(string text, int pixelsPerModule = 20)
+        {
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(text, QRCodeGenerator.ECCLevel.H);
+            using var qrCode = new PngByteQRCode(qrData);
 
-//     if (!string.IsNullOrEmpty(logoPath) && File.Exists(logoPath))
-//     {
-//         var logo = System.Drawing.Image.FromFile(logoPath);
-//         png = qrCode.GetGraphic(size, 
-//             foregroundColor: System.Drawing.Color.Black,
-//             backgroundColor: System.Drawing.Color.White,
-//             icon: logo,
-//             iconSizePercent: 20,
-//             iconBorderWidth: 3,
-//             clearAreaRadius: 15);
-//     }
-//     else
-//     {
-//         png = qrCode.GetGraphic(size);
-//     }
-
-//     return png;
-// }
+            return qrCode.GetGraphic(pixelsPerModule);
+        }
+    }
+}
 

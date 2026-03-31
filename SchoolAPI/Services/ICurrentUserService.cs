@@ -1,7 +1,9 @@
+#nullable enable
 namespace SchoolAPI.Services
 {
     public interface ICurrentUserService
     {
-        public string? GetUserId();
+        string? GetUserId();
+        Task<string> GetUserEmailAsync();
     }
 }

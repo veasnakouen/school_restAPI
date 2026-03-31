@@ -3,9 +3,6 @@ using SchoolAPI.Entities;
 
 namespace SchoolAPI.Controllers;
 
-
-
-
 public class BuggyController : BaseController
 {
     [HttpGet("not-found")]

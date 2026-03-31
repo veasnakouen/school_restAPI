@@ -44,11 +44,6 @@ public static class ServiceCollectionsExtensions
                      .DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
              });
 
-       
-       
-        
-
-
         return services;
     }
 }

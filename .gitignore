@@ -1,4 +1,3 @@
-```
 # Build artifacts
 obj/
 bin/
@@ -23,6 +22,7 @@ logs/
 .env
 .env.local
 .env.*
+**/secrets.json
 
 # IDE
 .vscode/
@@ -36,4 +36,3 @@ Thumbs.db
 
 # Test results
 TestResults/
-```

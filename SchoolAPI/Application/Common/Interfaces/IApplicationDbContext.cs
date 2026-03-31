@@ -1,14 +1,22 @@
 using MediatR;
-using SchoolAPI.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Common.Interfaces;
 
 public interface IApplicationDbContext
 {
-    IQueryable<ClassRoom> Classes { get; }
-    IQueryable<Student> Students { get; }
-    IQueryable<OutReach> OutReaches { get; }
-    IQueryable<Attendance> Attendances { get; }
+    DbSet<ClassRoom> Classes { get; }
+    DbSet<Student> Students { get; }
+    DbSet<OutReach> OutReaches { get; }
+    DbSet<Attendance> Attendances { get; }
+    DbSet<Product> Products { get; }
+    DbSet<Category> Categories { get; }
+    DbSet<Brand> Brands { get; }
+    DbSet<Department> Departments { get; }
+    DbSet<Donor> Donors { get; }
+    DbSet<Responser> Responsers { get; }
+    DbSet<Transaction> Transactions { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }
 

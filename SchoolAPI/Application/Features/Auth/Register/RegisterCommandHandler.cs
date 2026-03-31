@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Identity;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Constant;
-using SchoolAPI.Domain.Entities;
 using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Features.Auth.Register;

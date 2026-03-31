@@ -61,19 +61,9 @@ public class ClassController : BaseController
     [HttpGet("classes")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetAllClasses()
+    public async Task<IActionResult> GetAllClasses([FromQuery] string? filterOn, [FromQuery] string? filterQuery)
     {
-        var classes = await _service.GetAllClassesAsync();
-        return Ok(classes);
-    }
-
-    // with IEnumerable<ClassDto>
-    [HttpGet("allClasses")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetClasses([FromQuery] string? filterOn, [FromQuery] string? filterQuery)
-    {
-        var classes = await _service.GetAllClasses();
+        var classes = await _service.GetAllClasses(filterOn, filterQuery);
         return Ok(classes);
     }
 
@@ -99,16 +89,15 @@ public class ClassController : BaseController
     // [Authorize(Roles ="Teacher")]
     public async Task<IActionResult> DeleteClass(Guid classId)
     {
-
-        var existingClass = await _service.GetClassAsync(classId);
-
         if (classId == Guid.Empty)
         {
             return BadRequest("Invalid class room ID.");
         }
+
+        var existingClass = await _service.GetClassAsync(classId);
         if (existingClass == null)
         {
-            throw new NullReferenceException("Class Room not found.");
+            return NotFound("Class Room not found.");
         }
 
         var success = await _service.DeleteClassAsync(classId);

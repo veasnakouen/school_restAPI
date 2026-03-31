@@ -19,7 +19,6 @@ public class ClassService
         _mapper = mapper;
     }
 
-
     // --- Class CRUD ---
     public async Task<ClassDto> CreateClassAsync(ClassDto classDto)
     {
@@ -60,7 +59,7 @@ public class ClassService
         {
             if (filterOn.Equals("ClassName", StringComparison.OrdinalIgnoreCase))
             {
-                classesQuery = classesQuery.Where(x => x.ClassName.Contains(filterOn));
+                classesQuery = classesQuery.Where(x => x.ClassName.Contains(filterQuery));
             }
         }
 
@@ -192,14 +191,14 @@ public class ClassService
 
         var outReach = _mapper.Map<OutReach>(outReachDto);
         outReach.Id = Guid.NewGuid();
-        _context.OutReach.Add(outReach);
+        _context.OutReaches.Add(outReach);
         await _context.SaveChangesAsync();
         return _mapper.Map<OutReachDto>(outReach);
     }
 
     public async Task<OutReachDto> GetOutReachAsync(Guid outReachId)
     {
-        var outReach = await _context.OutReach
+        var outReach = await _context.OutReaches
             .Include(o => o.Students)
             .FirstOrDefaultAsync(o => o.Id == outReachId);
         return outReach == null ? null : _mapper.Map<OutReachDto>(outReach);
@@ -213,7 +212,7 @@ public class ClassService
            int pageNumber = 1,
             int pageSize = 3)
     {
-        var outreachQuery = _context.OutReach.Include(o => o.Students).AsQueryable();
+        var outreachQuery = _context.OutReaches.Include(o => o.Students).AsQueryable();
         //filter
         if (string.IsNullOrWhiteSpace(filterOn) == false && string.IsNullOrWhiteSpace(filterQuery) == false)
         {
@@ -246,7 +245,7 @@ public class ClassService
             return false;
         }
 
-        var outReach = await _context.OutReach.FindAsync(outReachId);
+        var outReach = await _context.OutReaches.FindAsync(outReachId);
         if (outReach == null)
         {
             return false;
@@ -259,13 +258,13 @@ public class ClassService
 
     public async Task<bool> DeleteOutReachAsync(Guid outReachId)
     {
-        var outReach = await _context.OutReach.FindAsync(outReachId);
+        var outReach = await _context.OutReaches.FindAsync(outReachId);
         if (outReach == null)
         {
             return false;
         }
 
-        _context.OutReach.Remove(outReach);
+        _context.OutReaches.Remove(outReach);
         await _context.SaveChangesAsync();
         return true;
     }
@@ -366,12 +365,7 @@ public class ClassService
     //Note  
     public async Task<bool> ExistClass(ClassRoom classEntity)
     {
-        var existing = _context.Classes.AnyAsync(c => c.ClassName == classEntity.ClassName);
-        // var existing2 =  _context.Classes.AnyAsync(c => c.Id == classEntity.Id);
-        // var result =  Task.WhenAll(existing, existing2);
-        // return result.Result.Any(r => r == true);
-        return existing.Result;
-
+        return await _context.Classes.AnyAsync(c => c.ClassName == classEntity.ClassName);
     }
     public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
     {

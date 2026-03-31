@@ -4,8 +4,8 @@ using SchoolAPI.Services;
 
 namespace SchoolAPI.Controllers
 {
-    // [Route("api/[controller]")]
-    // [ApiController]
+    [Route("api/[controller]")]
+    [ApiController]
     public class OutReachController : ControllerBase
     {
         public ClassService _service;

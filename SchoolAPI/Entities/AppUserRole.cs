@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Identity;
 
 namespace SchoolAPI.Entities;
 
-public class AppUserRole : IdentityUserRole<AppUser>
+public class AppUserRole : IdentityUserRole<string>
 {
-    public AppUser User { get; set; }
-    public AppRole Role { get; set; }
+    public virtual AppUser User { get; set; }
+    public virtual AppRole Role { get; set; }
 }

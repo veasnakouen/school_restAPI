@@ -1,28 +1,16 @@
-using System.Diagnostics.CodeAnalysis;
-using SchoolAPI.Entities;
+namespace SchoolAPI.Entities;
 
-namespace SchoolAPI.Controllers;
-
-public class Product:BaseEntity
+public class Product : BaseEntity
 {
-    public string CodeNumber { get; set; }
-    public string Name { get; set; }
-    public string Description { get; set; }
-    [AllowNull]
-    public Category Category { get; set; }
-    public Decimal? Price { get; set; }
+    public string CodeNumber { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string CategoryId { get; set; } = string.Empty;
+    public Category Category { get; set; } = null!;
+    public string BrandId { get; set; } = string.Empty;
+    public Brand Brand { get; set; } = null!;
+    public decimal? Price { get; set; }
     public string ImageUrl { get; set; } = string.Empty;
-    // public string Department { get; set; } = string.Empty;
-    public string VochurNumber { get; set; }  
-}
-
-public class Category : BaseEntity
-{
-    public string Name { get; set; }
-}
- 
-public class Department : BaseEntity
-{
-    public string Name { get; set; }
-    public string Location{ get; set; }
+    public string Quality { get; set; } = string.Empty;
+    public string VoucherNumber { get; set; } = string.Empty;
 }

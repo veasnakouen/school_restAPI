@@ -1,6 +1,9 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Constant;
+using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Data;
 using SchoolAPI.Entities;
 
@@ -8,13 +11,14 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Roles = Roles.Admin)]
 public class RolesController : ControllerBase
 {
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private readonly RoleManager<AppRole> _roleManager;
     private readonly UserManager<AppUser> _userManager;
     private readonly SchoolDbContext _context;
     private readonly ILogger<RolesController> _logger;
-    public RolesController(RoleManager<IdentityRole> roleManager, UserManager<AppUser> userManager, ILogger<RolesController> logger, SchoolDbContext context)
+    public RolesController(RoleManager<AppRole> roleManager, UserManager<AppUser> userManager, ILogger<RolesController> logger, SchoolDbContext context)
     {
         _userManager = userManager;
         _roleManager = roleManager;
@@ -25,7 +29,7 @@ public class RolesController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest createRoleRequest)
     {
-        if (!ModelState.IsValid) throw new NotImplementedException();
+        if (!ModelState.IsValid) return BadRequest(ModelState);
 
         if (string.IsNullOrEmpty(createRoleRequest.RoleName))
         {
@@ -41,26 +45,23 @@ public class RolesController : ControllerBase
 
         if (!roleExist) //check on the role exist status
         {
-            var roleResult = await _roleManager.CreateAsync(new IdentityRole(createRoleRequest.RoleName));
+            var roleResult = await _roleManager.CreateAsync(new AppRole { Name = createRoleRequest.RoleName });
             // check if the role has been added successfully
             if (roleResult.Succeeded)
             {
-                _logger.LogInformation($"The role {createRoleRequest.RoleName} Has been added successfully");
+                _logger.LogInformation("The role {RoleName} was added successfully", createRoleRequest.RoleName);
 
-                // yield return Ok(new
                 return Ok(new
                 {
-                    result = $"The role {createRoleRequest.RoleName} Has been added successfully",
-                    // message = "Role Created Successfully!."
+                    result = $"The role {createRoleRequest.RoleName} Has been added successfully"
                 });
             }
             else
             {
-                _logger.LogInformation($"The role {createRoleRequest.RoleName} Has not been added successfully");
+                _logger.LogInformation("The role {RoleName} was not added successfully", createRoleRequest.RoleName);
                 return BadRequest(new
                 {
-                    error = $"The role {createRoleRequest.RoleName} Has not been added!.",
-                    // message = "Role has not Created Successfully!."
+                    error = $"The role {createRoleRequest.RoleName} Has not been added!."
                 });
             }
         }
@@ -74,7 +75,7 @@ public class RolesController : ControllerBase
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
         {
-            _logger.LogInformation($"The User{email} does not exist!.");
+            _logger.LogInformation("The user {Email} does not exist", email);
             return BadRequest(new
             {
                 error = "User does not exist."
@@ -85,7 +86,7 @@ public class RolesController : ControllerBase
         var roleExist = await _roleManager.RoleExistsAsync(roleName);
         if (!roleExist)
         {
-            _logger.LogInformation($"The role {roleName} does not existed!.");
+            _logger.LogInformation("The role {RoleName} does not exist", roleName);
             return BadRequest(new
             {
                 error = "Role does not exist."
@@ -102,7 +103,7 @@ public class RolesController : ControllerBase
         }
         else
         {
-            _logger.LogInformation($"The user was not be able to add to role.");
+            _logger.LogInformation("The user {Email} could not be added to role {RoleName}", email, roleName);
             return BadRequest(new
             {
                 error = "The user was not be able to add to role."
@@ -119,7 +120,7 @@ public class RolesController : ControllerBase
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)
         {
-            _logger.LogInformation($"The use with the {email} does not exist!.");
+            _logger.LogInformation("The user with email {Email} does not exist", email);
             return BadRequest(new
             {
                 error = "User does not exist!."
@@ -138,7 +139,7 @@ public class RolesController : ControllerBase
         var user = await _userManager.FindByEmailAsync(email);
         if (user == null)// User does not exist
         {
-            _logger.LogInformation($"The user with the {email} does not exist!.");
+            _logger.LogInformation("The user with email {Email} does not exist", email);
             return BadRequest(new
             {
                 error = "User does not exist."
@@ -173,20 +174,6 @@ public class RolesController : ControllerBase
     public async Task<IActionResult> GetAllRoles()
     {
         return Ok(await _roleManager.Roles.ToListAsync());
-
-
-        // var roles = await _roleManager.Roles.Where(r => r.Name != "Admin").Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name
-        // }).ToListAsync();
-        // var roles = await _roleManager.Roles.Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name
-        // }).ToListAsync();
-        // return Ok(roles);
-
     }
 
     [HttpGet]
@@ -206,17 +193,6 @@ public class RolesController : ControllerBase
         }).ToListAsync();
 
         return Ok(roles);
-
-        // // list of user with total user count
-        // var userCount = (await _userManager.Users.ToListAsync()).Count;
-
-        // var roles = await _roleManager.Roles.Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name,
-        //     TotalUsers = userCount
-        // }).ToListAsync();
-        // return Ok(roles);
     }
 
     [HttpDelete]
@@ -225,18 +201,13 @@ public class RolesController : ControllerBase
         var role = await _roleManager.FindByIdAsync(id);
 
         if (role is null)
-            NotFound("Role not found!.");
+            return NotFound("Role not found!.");
 
         var result = await _roleManager.DeleteAsync(role);
 
         if (result.Succeeded)
-            Ok(new { message = "Role delete successfully!" });
+            return Ok(new { message = "Role deleted successfully!" });
 
         return BadRequest("Role deletion failed");
-
-
-
     }
-
-
 }

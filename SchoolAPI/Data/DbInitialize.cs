@@ -22,23 +22,16 @@ public class DbInitialize
             Console.WriteLine("Already have data");
             return;   // DB has been seeded
         }
-        var students = new List<Student>
-        {
-            // TODO: Create list of new Student
-            //  objects here
-            // new Student{KhFirstName="សុភា",KhLastName="ជូត",EngFirstName="Sophea",EngLastName="Chhout",.....},
-            // new Student{KhFirstName="សឿត",KhLastName="គង់",EngFirstName="soeut",EngLastName="Kong",.....},
 
-        };
         var student = new Student
         {
             KhFirstName = "សុខ",
             KhLastName = "សុវណ្ណ",
             EngFirstName = "Sok",
+            EngLastName = "Sovann",
         };
 
-        context.AddRange(students);
-
+        context.Students.Add(student);
         context.SaveChanges();
     }
 }

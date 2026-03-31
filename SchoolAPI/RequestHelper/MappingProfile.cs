@@ -13,16 +13,11 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        // syntax: CreateMap<Source, Destination>(); we create mapping from source to destination
-        CreateMap<AuthResponse, UserManager<AppUser>>().ReverseMap();
-
         // Class mappings
         CreateMap<ClassRoom, ClassDto>()
             .ForMember(dest => dest.Students, opt => opt.MapFrom(src => src.Students));
-        // .ForMember(dest => dest.Attendances, opt => opt.MapFrom(src => src.Attendances));
         CreateMap<ClassDto, ClassRoom>()
-            .ForMember(dest => dest.Students, opt => opt.Ignore()); // Ignore navigation property when mapping back
-                                                                    // .ForMember(dest => dest.Attendances, opt => opt.Ignore());
+            .ForMember(dest => dest.Students, opt => opt.Ignore());
 
         // Student mappings
         CreateMap<Student, StudentDto>()
@@ -40,7 +35,6 @@ public class MappingProfile : Profile
         CreateMap<Attendance, AttendanceDto>();
         CreateMap<AttendanceDto, Attendance>()
             .ForMember(dest => dest.Student, opt => opt.Ignore());
-        // .ForMember(dest => dest.Class, opt => opt.Ignore());
 
         // OutReach mappings
         CreateMap<OutReach, OutReachDto>()
@@ -48,14 +42,46 @@ public class MappingProfile : Profile
         CreateMap<OutReachDto, OutReach>()
             .ForMember(dest => dest.Students, opt => opt.Ignore());
 
-        CreateMap<AppUser, AuthResponse>();
+        // Auth mappings
         CreateMap<AppUser, AuthResponse>();
         CreateMap<RegisterRequest, AppUser>();
         CreateMap<AppUser, UserDetail>()
             .ForMember(dest => dest.Roles, opt => opt.Ignore())
             .ForMember(dest => dest.PhoneNumberConfirm, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
         CreateMap<RegisterDto, AppUser>().ReverseMap();
-        CreateMap<Product, ProductDto>().ReverseMap();
+        CreateMap<Brand, BrandDto>();
+        CreateMap<BrandDto, Brand>();
+        CreateMap<Category, CategoryDto>();
+        CreateMap<CategoryDto, Category>();
+        CreateMap<Department, DepartmentDto>();
+        CreateMap<DepartmentDto, Department>();
+        CreateMap<Donor, DonorDto>();
+        CreateMap<DonorDto, Donor>();
+        CreateMap<Responser, ResponserDto>();
+        CreateMap<ResponserDto, Responser>();
+        CreateMap<Product, ProductDto>()
+            .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
+            .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.Brand != null ? src.Brand.Name : null));
+        CreateMap<ProductDto, Product>()
+            .ForMember(dest => dest.Category, opt => opt.Ignore())
+            .ForMember(dest => dest.Brand, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore());
+
+        CreateMap<Transaction, TransactionDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.Name : string.Empty))
+            .ForMember(dest => dest.DonorName, opt => opt.MapFrom(src => src.Donor != null ? src.Donor.Name : string.Empty))
+            .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : string.Empty))
+            .ForMember(dest => dest.ResponserName, opt => opt.MapFrom(src => src.Responser != null ? src.Responser.Name : string.Empty))
+            .ForMember(dest => dest.CreatedDate, opt => opt.MapFrom(src => src.CreatedDate ?? DateTime.UtcNow))
+            .ForMember(dest => dest.UpdateDate, opt => opt.MapFrom(src => src.UpdateDate ?? DateTime.UtcNow));
+        CreateMap<TransactionDto, Transaction>()
+            .ForMember(dest => dest.Product, opt => opt.Ignore())
+            .ForMember(dest => dest.Donor, opt => opt.Ignore())
+            .ForMember(dest => dest.Department, opt => opt.Ignore())
+            .ForMember(dest => dest.Responser, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
+            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore());
     }
 }
 

@@ -4,7 +4,7 @@ namespace SchoolAPI.Entities
     {
         Present,
         Absent,
-        late,
+        Late,
         Excused
     }
 }

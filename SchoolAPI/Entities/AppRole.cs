@@ -1,8 +1,7 @@
 
 using Microsoft.AspNetCore.Identity;
-using SchoolAPI.Entities;
 
-namespace schoolAPI.Entities;
+namespace SchoolAPI.Entities;
 
 public class AppRole : IdentityRole
 {
