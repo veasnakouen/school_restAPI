@@ -27,7 +27,6 @@ namespace SchoolAPI.Extensions
             services.AddDbContext<SchoolDbContext>(options =>
                 options.UseNpgsql(connectionString)
                 );
-
             // Register IApplicationDbContext
             services.AddScoped<SchoolAPI.Application.Common.Interfaces.IApplicationDbContext, SchoolDbContext>();
 
@@ -117,7 +116,6 @@ namespace SchoolAPI.Extensions
 
             return services;
         }
-
 
         //  Add JWT Authentication
         public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
@@ -223,7 +221,6 @@ namespace SchoolAPI.Extensions
 
             return services;
         }
-
 
         //   Add MediatR
         public static IServiceCollection AddMediatR(this IServiceCollection services, IConfiguration configure)

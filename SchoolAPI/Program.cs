@@ -42,7 +42,7 @@ builder.Services.AddServices();
 builder.Services.ConfigureCors();
 builder.Services.AddDatabase(builder.Configuration)
         .AddIdentityServices(builder.Configuration)
-    .AddJwtAuthentication(builder.Configuration)
+        .AddJwtAuthentication(builder.Configuration)
         .AddApplicationServices()
         .AddMediatR(builder.Configuration)
         .AddFluentValidation()
