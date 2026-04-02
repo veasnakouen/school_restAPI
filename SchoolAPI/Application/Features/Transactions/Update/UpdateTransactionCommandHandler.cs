@@ -5,6 +5,7 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Application.Features.Transactions.Update;
 
@@ -12,11 +13,13 @@ public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransaction
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
+    private readonly ICacheVersionService _cacheVersionService;
 
-    public UpdateTransactionCommandHandler(IApplicationDbContext context, IMapper mapper)
+    public UpdateTransactionCommandHandler(IApplicationDbContext context, IMapper mapper, ICacheVersionService cacheVersionService)
     {
         _context = context;
         _mapper = mapper;
+        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<TransactionDto>> Handle(UpdateTransactionCommand request, CancellationToken cancellationToken)
@@ -122,6 +125,7 @@ public class UpdateTransactionCommandHandler : IRequestHandler<UpdateTransaction
         transaction.UpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
+        _cacheVersionService.Invalidate("transactions");
 
         return Result<TransactionDto>.Success(_mapper.Map<TransactionDto>(transaction));
     }

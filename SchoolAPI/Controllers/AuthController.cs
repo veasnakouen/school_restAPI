@@ -2,11 +2,13 @@
 using System.Security.Claims;
 using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SchoolAPI.Constant;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Entities;
@@ -49,6 +51,7 @@ public class AuthController : BaseController
 
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -69,19 +72,47 @@ public class AuthController : BaseController
 
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        if (user == null)
+        {
+            await _userManager.AccessFailedAsync(user);
             return Unauthorized("Invalid credentials.");
+        }
+
+        // Check if user is locked out
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            return Unauthorized("Account is locked out. Please try again later.");
+        }
+
+        var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!passwordValid)
+        {
+            await _userManager.AccessFailedAsync(user);
+            
+            // Check if lockout threshold reached
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                return Unauthorized("Account is locked out due to too many failed attempts.");
+            }
+            
+            return Unauthorized("Invalid credentials.");
+        }
+
+        // Reset access failed count on successful login
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateAccessToken(user, roles);
+        var accessToken = await _tokenService.GenerateAccessToken(user, roles);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = refreshToken;
+        // Hash the refresh token before storing
+        user.RefreshToken = _tokenService.HashRefreshToken(refreshToken);
         user.RefreshTokenExpiryTime = GetRefreshTokenExpiryUtc();
         await _userManager.UpdateAsync(user);
 
@@ -93,8 +124,12 @@ public class AuthController : BaseController
             RefreshToken = refreshToken,
             ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryInMinutes > 0 ? _jwtSettings.ExpiryInMinutes : 120),
             UserId = user.Id,
-            Email = user.Email,
-            FullName = user.FullName
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName ?? string.Empty,
+            IsSuccess = true,
+            Role = roles.ToList(),
+            PhoneNumber = user.PhoneNumber ?? string.Empty,
+            AccessFailedCount = user.AccessFailedCount
         };
 
         return Ok(response);
@@ -102,6 +137,7 @@ public class AuthController : BaseController
 
     [HttpPost("refresh")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
         var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken);
@@ -113,16 +149,20 @@ public class AuthController : BaseController
         if (email == null) return BadRequest("Invalid token.");
 
         var user = await _userManager.FindByEmailAsync(email);
-        if (user == null ||
-            user.RefreshToken != request.RefreshToken ||
-            user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        if (user == null)
             return Unauthorized("Invalid refresh token.");
 
+        // Verify the refresh token using hash comparison
+        if (!_tokenService.VerifyRefreshToken(user.RefreshToken, request.RefreshToken) ||
+            user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            return Unauthorized("Invalid or expired refresh token.");
+
         var roles = await _userManager.GetRolesAsync(user);
-        var newAccessToken = _tokenService.GenerateAccessToken(user, roles);
+        var newAccessToken = await _tokenService.GenerateAccessToken(user, roles);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = newRefreshToken;
+        // Hash the new refresh token before storing
+        user.RefreshToken = _tokenService.HashRefreshToken(newRefreshToken);
         user.RefreshTokenExpiryTime = GetRefreshTokenExpiryUtc();
         await _userManager.UpdateAsync(user);
 
@@ -132,14 +172,17 @@ public class AuthController : BaseController
             RefreshToken = newRefreshToken,
             ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryInMinutes > 0 ? _jwtSettings.ExpiryInMinutes : 120),
             UserId = user.Id,
-            Email = user.Email,
-            FullName = user.FullName
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName ?? string.Empty,
+            IsSuccess = true,
+            Role = roles.ToList()
         };
 
         return Ok(response);
     }
 
     [HttpPut("update-profile")]
+    [Authorize]
     public async Task<IActionResult> UpdateProfile([FromBody] UserDetail request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -158,7 +201,7 @@ public class AuthController : BaseController
     }
 
     [HttpGet("profile")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize]
     public async Task<ActionResult<UserDetail>> GetProfile()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -184,6 +227,7 @@ public class AuthController : BaseController
     }
 
     [HttpGet("{id}")]
+    [Authorize(Policy = Permissions.UsersRead)]
     public async Task<ActionResult<AuthResponse>> GetUser(Guid id)
     {
         var user = await _userManager.FindByIdAsync(id.ToString());
@@ -192,37 +236,74 @@ public class AuthController : BaseController
     }
 
     [HttpGet("users")]
-    [Authorize(Roles = Roles.Admin)]
-    public async Task<IActionResult> GetAllUsers(string? filterOn = null, string? filterQuery = null)
+    [Authorize(Policy = Permissions.UsersRead)]
+    public async Task<IActionResult> GetAllUsers(
+        [FromQuery] string? filterOn = null,
+        [FromQuery] string? filterQuery = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool isAscending = true,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
         var query = _userManager.Users.AsQueryable();
 
-        if (filterOn?.Equals("name", StringComparison.OrdinalIgnoreCase) == true && !string.IsNullOrEmpty(filterQuery))
+        if (!string.IsNullOrWhiteSpace(filterOn) && !string.IsNullOrWhiteSpace(filterQuery))
         {
-            query = query.Where(u => EF.Functions.Like(u.FullName, $"%{filterQuery}%"));
+            if (filterOn.Equals("name", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => EF.Functions.Like(u.FullName, $"%{filterQuery}%"));
+            }
+            else if (filterOn.Equals("email", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => EF.Functions.Like(u.Email!, $"%{filterQuery}%"));
+            }
+            else if (filterOn.Equals("phone", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => u.PhoneNumber != null && EF.Functions.Like(u.PhoneNumber, $"%{filterQuery}%"));
+            }
         }
 
-        var users = await query.AsNoTracking().ToListAsync();
+        query = string.IsNullOrWhiteSpace(sortBy)
+            ? query.OrderBy(u => u.FullName)
+            : sortBy.Equals("name", StringComparison.OrdinalIgnoreCase)
+                ? isAscending ? query.OrderBy(u => u.FullName) : query.OrderByDescending(u => u.FullName)
+                : sortBy.Equals("email", StringComparison.OrdinalIgnoreCase)
+                    ? isAscending ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email)
+                    : query.OrderBy(u => u.FullName);
 
-        var userList = new List<object>();
+        var totalCount = await query.CountAsync();
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize < 1 ? 10 : pageSize;
+        var users = await query.AsNoTracking()
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var userList = new List<UserListItemDto>();
         foreach (var user in users)
         {
             var roles = await _userManager.GetRolesAsync(user);
-            userList.Add(new
+            userList.Add(new UserListItemDto
             {
-                user.Id,
-                user.FullName,
-                user.Email,
-                user.PhoneNumber,
-                Roles = roles
+                Id = user.Id,
+                FullName = user.FullName,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                Roles = roles.ToList()
             });
         }
 
-        return Ok(userList);
+        return Ok(new PagedResult<UserListItemDto>
+        {
+            Items = userList,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        });
     }
 
     [HttpGet("details")]
-    [Authorize(Roles = Roles.Admin)]
+    [Authorize(Policy = Permissions.UsersRead)]
     public async Task<ActionResult<UserDetail>> GetUserDetail(string id)
     {
         var user = await _userManager.FindByIdAsync(id);

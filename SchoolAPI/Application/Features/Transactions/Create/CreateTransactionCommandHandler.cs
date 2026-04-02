@@ -5,6 +5,7 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Application.Features.Transactions.Create;
 
@@ -12,11 +13,13 @@ public class CreateTransactionCommandHandler : IRequestHandler<CreateTransaction
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
+    private readonly ICacheVersionService _cacheVersionService;
 
-    public CreateTransactionCommandHandler(IApplicationDbContext context, IMapper mapper)
+    public CreateTransactionCommandHandler(IApplicationDbContext context, IMapper mapper, ICacheVersionService cacheVersionService)
     {
         _context = context;
         _mapper = mapper;
+        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<TransactionDto>> Handle(CreateTransactionCommand request, CancellationToken cancellationToken)
@@ -122,6 +125,7 @@ public class CreateTransactionCommandHandler : IRequestHandler<CreateTransaction
 
         _context.Transactions.Add(transaction);
         await _context.SaveChangesAsync(cancellationToken);
+        _cacheVersionService.Invalidate("transactions");
 
         return Result<TransactionDto>.Success(_mapper.Map<TransactionDto>(transaction));
     }

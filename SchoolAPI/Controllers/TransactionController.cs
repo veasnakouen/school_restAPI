@@ -1,6 +1,8 @@
 using System;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolAPI.Constant;
 using SchoolAPI.Application.Features.Transactions.Create;
 using SchoolAPI.Application.Features.Transactions.Delete;
 using SchoolAPI.Application.Features.Transactions.GetAll;
@@ -12,6 +14,7 @@ namespace SchoolAPI.Controllers;
 
 [Route("api/transactions")]
 [ApiController]
+[Authorize(Policy = Permissions.TransactionRead)]
 public class TransactionController : ControllerBase
 {
     private readonly ISender _sender;
@@ -24,9 +27,9 @@ public class TransactionController : ControllerBase
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAllTransactions(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllTransactions([FromQuery] string? filterOn = null, [FromQuery] string? filterQuery = null, [FromQuery] string? sortBy = null, [FromQuery] bool isAscending = true, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetAllTransactionsQuery(), cancellationToken);
+        var result = await _sender.Send(new GetAllTransactionsQuery(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize), cancellationToken);
         return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
     }
 
@@ -40,6 +43,7 @@ public class TransactionController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.TransactionCreate)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateTransaction([FromBody] TransactionDto transactionDto, CancellationToken cancellationToken)
@@ -54,6 +58,7 @@ public class TransactionController : ControllerBase
     }
 
     [HttpPut("{transactionId}")]
+    [Authorize(Policy = Permissions.TransactionUpdate)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -69,6 +74,7 @@ public class TransactionController : ControllerBase
     }
 
     [HttpDelete("{transactionId}")]
+    [Authorize(Policy = Permissions.TransactionDelete)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteTransaction(string transactionId, CancellationToken cancellationToken)

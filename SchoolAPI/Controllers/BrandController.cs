@@ -13,7 +13,7 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = $"{Roles.Admin},{Roles.DataEntry}")]
+[Authorize(Policy = Permissions.BrandRead)]
 public class BrandController : ControllerBase
 {
     private readonly ISender _sender;
@@ -38,6 +38,7 @@ public class BrandController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.BrandCreate)]
     public async Task<IActionResult> Create([FromBody] BrandDto brand, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateBrandCommand(brand), cancellationToken);
@@ -50,6 +51,7 @@ public class BrandController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = Permissions.BrandUpdate)]
     public async Task<IActionResult> Update(string id, [FromBody] BrandDto input, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
@@ -62,6 +64,7 @@ public class BrandController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = Permissions.BrandDelete)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteBrandCommand(id), cancellationToken);

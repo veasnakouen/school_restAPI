@@ -162,6 +162,7 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("FullName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("LockoutEnabled")
@@ -188,6 +189,7 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("RefreshToken")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("RefreshTokenExpiryTime")
@@ -266,6 +268,7 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -285,6 +288,7 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -319,9 +323,11 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Location")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -341,12 +347,15 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -363,9 +372,11 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("City")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Country")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreateDate")
@@ -400,12 +411,15 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FirstName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("LastName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Status")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<decimal>("TotalCost")
@@ -445,36 +459,47 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("BrandId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CategoryId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CodeNumber")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("ImagePublicId")
                         .HasColumnType("text");
 
                     b.Property<string>("ImageUrl")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
 
                     b.Property<string>("Quality")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("VoucherNumber")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -495,12 +520,15 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Email")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("PhoneNumber")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdateDate")
@@ -524,15 +552,18 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("EngFirstName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("EngLastName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Gender")
                         .HasColumnType("integer");
 
                     b.Property<string>("KhFirstName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("KhLastName")
@@ -560,24 +591,30 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DepartmentId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("DonorId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ProductId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ProviderName")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.Property<string>("Resource")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ResponserId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<decimal>("TotalCost")
@@ -691,11 +728,15 @@ namespace SchoolAPI.Data.Migrations
                 {
                     b.HasOne("SchoolAPI.Entities.Brand", "Brand")
                         .WithMany()
-                        .HasForeignKey("BrandId");
+                        .HasForeignKey("BrandId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Category", "Category")
                         .WithMany()
-                        .HasForeignKey("CategoryId");
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Brand");
 
@@ -721,19 +762,27 @@ namespace SchoolAPI.Data.Migrations
                 {
                     b.HasOne("SchoolAPI.Entities.Department", "Department")
                         .WithMany()
-                        .HasForeignKey("DepartmentId");
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Donor", "Donor")
                         .WithMany()
-                        .HasForeignKey("DonorId");
+                        .HasForeignKey("DonorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Responser", "Responser")
                         .WithMany()
-                        .HasForeignKey("ResponserId");
+                        .HasForeignKey("ResponserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Department");
 

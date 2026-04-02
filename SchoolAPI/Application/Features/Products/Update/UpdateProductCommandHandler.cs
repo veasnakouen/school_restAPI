@@ -5,6 +5,7 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Application.Features.Products.Update;
 
@@ -12,11 +13,13 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
+    private readonly ICacheVersionService _cacheVersionService;
 
-    public UpdateProductCommandHandler(IApplicationDbContext context, IMapper mapper)
+    public UpdateProductCommandHandler(IApplicationDbContext context, IMapper mapper, ICacheVersionService cacheVersionService)
     {
         _context = context;
         _mapper = mapper;
+        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<ProductDto>> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
@@ -66,15 +69,21 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         product.Description = request.Product.Description ?? string.Empty;
         product.CategoryId = category?.Id;
         product.Category = category;
-            product.BrandId = brand?.Id;
-            product.Brand = brand;
+        product.BrandId = brand?.Id;
+        product.Brand = brand;
         product.Price = request.Product.Price;
-        product.ImageUrl = request.Product.ImageUrl ?? string.Empty;
-            product.Quality = request.Product.Quality ?? string.Empty;
-            product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(request.Product.ImageUrl))
+        {
+            product.ImageUrl = request.Product.ImageUrl;
+            product.ImagePublicId = null;
+        }
+
+        product.Quality = request.Product.Quality ?? string.Empty;
+        product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
         product.UpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
+        _cacheVersionService.Invalidate("products");
 
         return Result<ProductDto>.Success(_mapper.Map<ProductDto>(product));
     }

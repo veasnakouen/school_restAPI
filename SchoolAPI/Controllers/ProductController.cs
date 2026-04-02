@@ -1,16 +1,21 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolAPI.Constant;
 using SchoolAPI.Application.Features.Products.Create;
 using SchoolAPI.Application.Features.Products.Delete;
 using SchoolAPI.Application.Features.Products.GetAll;
 using SchoolAPI.Application.Features.Products.GetById;
+using SchoolAPI.Application.Features.Products.Image;
 using SchoolAPI.Application.Features.Products.Update;
 using SchoolAPI.Contracts;
+using SchoolAPI.Helpers;
 
 namespace SchoolAPI.Controllers;
 
 [Route("api/products")]
 [ApiController]
+[Authorize(Policy = Permissions.ProductRead)]
 public class ProductController : ControllerBase
 {
     private readonly ISender _sender;
@@ -23,9 +28,9 @@ public class ProductController : ControllerBase
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAllProducts(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllProducts([FromQuery] string? filterOn = null, [FromQuery] string? filterQuery = null, [FromQuery] string? sortBy = null, [FromQuery] bool isAscending = true, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetAllProductsQuery(), cancellationToken);
+        var result = await _sender.Send(new GetAllProductsQuery(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize), cancellationToken);
         return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
     }
 
@@ -39,6 +44,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.ProductCreate)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreateProduct([FromBody] ProductDto productDto, CancellationToken cancellationToken)
@@ -53,6 +59,7 @@ public class ProductController : ControllerBase
     }
 
     [HttpPut("{productId}")]
+    [Authorize(Policy = Permissions.ProductUpdate)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -68,11 +75,35 @@ public class ProductController : ControllerBase
     }
 
     [HttpDelete("{productId}")]
+    [Authorize(Policy = Permissions.ProductDelete)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeleteProduct(string productId, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteProductCommand(productId), cancellationToken);
         return result.IsSuccess ? Ok("Product deleted successfully.") : NotFound(result.ErrorMessage);
+    }
+
+    [HttpPost("{productId}/image")]
+    [Authorize(Policy = Permissions.ProductUpdate)]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(ImageValidation.MaxFileSizeBytes)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadProductImage(string productId, [FromForm] ProductImageUploadRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new UploadProductImageCommand(productId, request.File), cancellationToken);
+        return result.IsSuccess ? Ok(result.Data) : BadRequest(result.ErrorMessage);
+    }
+
+    [HttpDelete("{productId}/image")]
+    [Authorize(Policy = Permissions.ProductUpdate)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteProductImage(string productId, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new DeleteProductImageCommand(productId), cancellationToken);
+        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
     }
 }

@@ -13,7 +13,7 @@ namespace SchoolAPI.Data.Migrations
 {
     [DbContext(typeof(SchoolDbContext))]
     [Migration("20250824155134_initial")]
-    partial class initial
+    partial class Initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

@@ -5,6 +5,7 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Application.Features.Products.Create;
 
@@ -12,11 +13,13 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 {
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
+    private readonly ICacheVersionService _cacheVersionService;
 
-    public CreateProductCommandHandler(IApplicationDbContext context, IMapper mapper)
+    public CreateProductCommandHandler(IApplicationDbContext context, IMapper mapper, ICacheVersionService cacheVersionService)
     {
         _context = context;
         _mapper = mapper;
+        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<ProductDto>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -62,6 +65,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync(cancellationToken);
+        _cacheVersionService.Invalidate("products");
 
         var productDto = _mapper.Map<ProductDto>(product);
         return Result<ProductDto>.Success(productDto);

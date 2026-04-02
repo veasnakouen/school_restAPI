@@ -13,7 +13,7 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = $"{Roles.Admin},{Roles.DataEntry}")]
+[Authorize(Policy = Permissions.DepartmentRead)]
 public class DepartmentController : ControllerBase
 {
     private readonly ISender _sender;
@@ -38,6 +38,7 @@ public class DepartmentController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.DepartmentCreate)]
     public async Task<IActionResult> Create([FromBody] DepartmentDto department, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateDepartmentCommand(department), cancellationToken);
@@ -50,6 +51,7 @@ public class DepartmentController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = Permissions.DepartmentUpdate)]
     public async Task<IActionResult> Update(string id, [FromBody] DepartmentDto input, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
@@ -62,6 +64,7 @@ public class DepartmentController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = Permissions.DepartmentDelete)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteDepartmentCommand(id), cancellationToken);

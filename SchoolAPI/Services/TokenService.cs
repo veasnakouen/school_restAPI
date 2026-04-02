@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using SchoolAPI.Constant;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
 using System.IdentityModel.Tokens.Jwt;
@@ -14,18 +15,38 @@ public class TokenService : ITokenService
 {
     private readonly JwtSettings _jwtSettings;
     private readonly IConfiguration _configuration;
+    private readonly RoleManager<AppRole> _roleManager;
 
     public TokenService(IOptions<JwtSettings> jwtSettings,
-         IConfiguration configuration
+         IConfiguration configuration,
+         RoleManager<AppRole> roleManager
     )
     {
         _jwtSettings = jwtSettings.Value;
         _configuration = configuration;
+        _roleManager = roleManager;
     }
 
-    public string GenerateAccessToken(AppUser user, IEnumerable<string> roles)
+    public string HashRefreshToken(string refreshToken)
+    {
+        using var sha256 = SHA256.Create();
+        var bytes = Encoding.UTF8.GetBytes(refreshToken);
+        var hash = sha256.ComputeHash(bytes);
+        return Convert.ToBase64String(hash);
+    }
+
+    public bool VerifyRefreshToken(string storedHash, string refreshToken)
+    {
+        var computedHash = HashRefreshToken(refreshToken);
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(storedHash),
+            Encoding.UTF8.GetBytes(computedHash));
+    }
+
+    public async Task<string> GenerateAccessToken(AppUser user, IEnumerable<string> roles)
     {
         var secret = _configuration["JwtSettings:Secret"];
+        var roleNames = roles.ToList();
 
         var claims = new List<Claim>
                 {
@@ -39,7 +60,28 @@ public class TokenService : ITokenService
 
                 };
         // Add Roles
-        claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
+        claims.AddRange(roleNames.Select(r => new Claim(ClaimTypes.Role, r)));
+
+        // Add permission claims attached to the user's roles
+        var permissionValues = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var roleName in roleNames)
+        {
+            var role = await _roleManager.FindByNameAsync(roleName);
+            if (role == null)
+            {
+                continue;
+            }
+
+            var roleClaims = await _roleManager.GetClaimsAsync(role);
+            foreach (var permissionClaim in roleClaims.Where(x => x.Type == Permissions.ClaimType))
+            {
+                if (permissionValues.Add(permissionClaim.Value))
+                {
+                    claims.Add(new Claim(Permissions.ClaimType, permissionClaim.Value));
+                }
+            }
+        }
+
         // Expiry Time
         var expiryMinutes = _jwtSettings.ExpiryInMinutes > 0 ? _jwtSettings.ExpiryInMinutes : 120;
 

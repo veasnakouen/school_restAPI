@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = Roles.Admin)]
+[Authorize(Policy = Permissions.RolesRead)]
 public class RolesController : ControllerBase
 {
     private readonly RoleManager<AppRole> _roleManager;
@@ -27,6 +28,7 @@ public class RolesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.RolesCreate)]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest createRoleRequest)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -69,6 +71,7 @@ public class RolesController : ControllerBase
     }
 
     [HttpPost("AddUserToRole")]
+    [Authorize(Policy = Permissions.RolesAssign)]
     public async Task<IActionResult> AddUserToRole(string email, string roleName)
     {
         //check if user exist
@@ -133,6 +136,7 @@ public class RolesController : ControllerBase
     }
 
     [HttpPost("RemoveUserFromRole")]
+    [Authorize(Policy = Permissions.RolesAssign)]
     public async Task<IActionResult> RemoveUserFromRole(string email, string roleName)
     {
         // user exist
@@ -176,6 +180,83 @@ public class RolesController : ControllerBase
         return Ok(await _roleManager.Roles.ToListAsync());
     }
 
+    [HttpGet("{roleName}/permissions")]
+    public async Task<IActionResult> GetRolePermissions(string roleName)
+    {
+        var role = await _roleManager.FindByNameAsync(roleName);
+        if (role == null)
+        {
+            return NotFound(new { error = "Role not found." });
+        }
+
+        var permissions = await _roleManager.GetClaimsAsync(role);
+        return Ok(permissions
+            .Where(x => x.Type == Permissions.ClaimType)
+            .Select(x => x.Value)
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [HttpPost("{roleName}/permissions")]
+    [Authorize(Policy = Permissions.RolesUpdate)]
+    public async Task<IActionResult> AddPermissionToRole(string roleName, [FromBody] RolePermissionRequest request)
+    {
+        if (!ModelState.IsValid)
+        {
+            return BadRequest(ModelState);
+        }
+
+        var role = await _roleManager.FindByNameAsync(roleName);
+        if (role == null)
+        {
+            return NotFound(new { error = "Role not found." });
+        }
+
+        if (!Permissions.All.Contains(request.Permission, StringComparer.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { error = "Unknown permission." });
+        }
+
+        var existingClaims = await _roleManager.GetClaimsAsync(role);
+        if (existingClaims.Any(x => x.Type == Permissions.ClaimType && x.Value == request.Permission))
+        {
+            return Ok(new { result = "Permission already assigned." });
+        }
+
+        var result = await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, request.Permission));
+        if (!result.Succeeded)
+        {
+            return BadRequest(result.Errors);
+        }
+
+        return Ok(new { result = $"Permission {request.Permission} added to {roleName}." });
+    }
+
+    [HttpDelete("{roleName}/permissions")]
+    [Authorize(Policy = Permissions.RolesUpdate)]
+    public async Task<IActionResult> RemovePermissionFromRole(string roleName, [FromBody] RolePermissionRequest request)
+    {
+        var role = await _roleManager.FindByNameAsync(roleName);
+        if (role == null)
+        {
+            return NotFound(new { error = "Role not found." });
+        }
+
+        var claims = await _roleManager.GetClaimsAsync(role);
+        var claim = claims.FirstOrDefault(x => x.Type == Permissions.ClaimType && x.Value == request.Permission);
+        if (claim == null)
+        {
+            return NotFound(new { error = "Permission not found on role." });
+        }
+
+        var result = await _roleManager.RemoveClaimAsync(role, claim);
+        if (!result.Succeeded)
+        {
+            return BadRequest(result.Errors);
+        }
+
+        return Ok(new { result = $"Permission {request.Permission} removed from {roleName}." });
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<RoleResponse>>> GetRoles()
     {
@@ -196,6 +277,7 @@ public class RolesController : ControllerBase
     }
 
     [HttpDelete]
+    [Authorize(Policy = Permissions.RolesDelete)]
     public async Task<IActionResult> DeleteRole(string id)
     {
         var role = await _roleManager.FindByIdAsync(id);

@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Constant;
 using SchoolAPI.Data;
 using SchoolAPI.Entities;
+using System.Security.Claims;
 
 namespace SchoolAPI.Extensions
 {
@@ -21,7 +23,7 @@ namespace SchoolAPI.Extensions
             var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
             // 2. Seed Roles
-            foreach (var roleName in new[] { Constant.Roles.User, Constant.Roles.Admin })
+            foreach (var roleName in new[] { Constant.Roles.User, Constant.Roles.Admin, Constant.Roles.DataEntry, Constant.Roles.Teacher })
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
@@ -64,6 +66,30 @@ namespace SchoolAPI.Extensions
             if (!await userManager.IsInRoleAsync(adminUser, Constant.Roles.Admin))
             {
                 await userManager.AddToRoleAsync(adminUser, Constant.Roles.Admin);
+            }
+
+            await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Admin, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Admin));
+            await EnsureRolePermissionsAsync(roleManager, Constant.Roles.DataEntry, Permissions.GetDefaultPermissionsForRole(Constant.Roles.DataEntry));
+            await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Teacher, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Teacher));
+        }
+
+        private static async Task EnsureRolePermissionsAsync(RoleManager<AppRole> roleManager, string roleName, IEnumerable<string> permissions)
+        {
+            var role = await roleManager.FindByNameAsync(roleName);
+            if (role == null)
+            {
+                return;
+            }
+
+            var existingClaims = await roleManager.GetClaimsAsync(role);
+            foreach (var permission in permissions.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (existingClaims.Any(x => x.Type == Permissions.ClaimType && x.Value == permission))
+                {
+                    continue;
+                }
+
+                await roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, permission));
             }
         }
     }

@@ -5,10 +5,10 @@ namespace SchoolAPI.Services;
 
 public interface ITokenService
 {
-    // 
-    // Task<string> GenerateAccessToken(AppUser user, IEnumerable<string> roles);
-    string GenerateAccessToken(AppUser user, IEnumerable<string> roles);
+    Task<string> GenerateAccessToken(AppUser user, IEnumerable<string> roles);
     string GenerateRefreshToken();
+    string HashRefreshToken(string refreshToken);
+    bool VerifyRefreshToken(string storedHash, string refreshToken);
 
     ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
 }

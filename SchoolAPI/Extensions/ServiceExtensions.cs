@@ -19,7 +19,7 @@ public static class ServiceCollectionsExtensions
         services.AddOpenApi();
         services.AddHttpContextAccessor();
         services.AddProblemDetails();
-        services.AddAutoMapper(typeof(MappingProfile));
+        services.AddAutoMapper(cfg => { }, typeof(MappingProfile).Assembly);
 
         services.Configure<ForwardedHeadersOptions>(options =>
        {

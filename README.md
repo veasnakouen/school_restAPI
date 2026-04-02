@@ -9,6 +9,7 @@ A simple ASP.NET Core Web API for managing school data (students, classes, teach
 - JSON-based REST API
 - Input validation and basic error handling
 - (Optional) Entity Framework Core migrations and database seeding
+- Policy-based authorization with a documented role-permission matrix: [SchoolAPI/Document/authorization-permission-matrix.md](SchoolAPI/Document/authorization-permission-matrix.md)
 
 ## Tech stack
 

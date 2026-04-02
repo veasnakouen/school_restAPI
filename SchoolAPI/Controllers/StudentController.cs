@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using SchoolAPI.Constant;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
 using SchoolAPI.Services;
@@ -8,6 +9,7 @@ namespace SchoolAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = Permissions.StudentRead)]
     public class StudentController : ControllerBase
     {
         private readonly ClassService _service;
@@ -26,6 +28,7 @@ namespace SchoolAPI.Controllers
         /// <param name="studentDto">Student details.</param>
         /// <returns>The created student.</returns>
         [HttpPost("students")]
+        [Authorize(Policy = Permissions.StudentCreate)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateStudent([FromBody] StudentDto studentDto)
@@ -77,10 +80,15 @@ namespace SchoolAPI.Controllers
         /// <returns>List of all students.</returns>
         [HttpGet("students")]
         [ProducesResponseType(StatusCodes.Status200OK)]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllStudents()
+        public async Task<IActionResult> GetAllStudents(
+            [FromQuery] string? filterOn = null,
+            [FromQuery] string? filterQuery = null,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] bool isAscending = true,
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10)
         {
-            var students = await _service.GetAllStudentsAsync();
+            var students = await _service.GetAllStudentsAsync(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize);
             return Ok(students);
         }
 
@@ -91,6 +99,7 @@ namespace SchoolAPI.Controllers
         /// <param name="studentDto">Updated student details.</param>
         /// <returns>Success message or error if update fails.</returns>
         [HttpPut("students/{studentId}")]
+        [Authorize(Policy = Permissions.StudentUpdate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -111,6 +120,7 @@ namespace SchoolAPI.Controllers
         /// <param name="studentId">The ID of the student.</param>
         /// <returns>Success message or error if deletion fails.</returns>
         [HttpDelete("students/{studentId}")]
+        [Authorize(Policy = Permissions.StudentDelete)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteStudent(Guid studentId)

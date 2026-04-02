@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using SchoolAPI.Constant;
 using SchoolAPI.DTOs;
 using SchoolAPI.Services;
 
@@ -6,6 +8,7 @@ namespace SchoolAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = Permissions.EnrollmentRead)]
     public class EnrollController : ControllerBase
     {
         private readonly ClassService _service;
@@ -21,6 +24,7 @@ namespace SchoolAPI.Controllers
         /// <param name="request">The student and class IDs.</param>
         /// <returns>Success message or error if enrollment fails.</returns>
         [HttpPost("enroll")]
+        [Authorize(Policy = Permissions.EnrollmentCreate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> EnrollStudent([FromBody] EnrollStudentRequest request)
@@ -40,6 +44,7 @@ namespace SchoolAPI.Controllers
         /// <param name="studentId">The ID of the student.</param>
         /// <returns>Success message or error if removal fails.</returns>
         [HttpDelete("remove")]
+        [Authorize(Policy = Permissions.EnrollmentDelete)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RemoveStudent(Guid studentId)
@@ -59,6 +64,7 @@ namespace SchoolAPI.Controllers
         /// <param name="attendanceDto">Attendance details (student ID, class ID, date, status).</param>
         /// <returns>Success message or error if marking fails.</returns>
         [HttpPost("attendance")]
+        [Authorize(Policy = Permissions.EnrollmentUpdate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> MarkAttendance([FromBody] AttendanceDto attendanceDto)

@@ -125,9 +125,10 @@ Automatic seeding on application startup:
   - Custom error handling for unauthorized requests
 
 ### Authorization Policies
-- Role-based authorization using `[Authorize(Roles = "Admin")]`
-- Policy-based authorization support
+- Role-based authorization is still used for Identity membership, but feature access is policy-based.
+- Policy-based authorization support with permission policies like `brand.read` and `student.update`
 - Claims-based authorization support
+- See [authorization-permission-matrix](SchoolAPI/Document/authorization-permission-matrix.md) for the current role-to-permission map.
 
 ### Security Headers
 Added middleware for:

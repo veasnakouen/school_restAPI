@@ -1,9 +1,13 @@
 using Scalar.AspNetCore;
+using Hangfire;
 using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
 using SchoolAPI.Extensions;
 using SchoolAPI.Middleware;
+using SchoolAPI.Services.Reporting;
 using Serilog;
+using Microsoft.AspNetCore.HttpOverrides;
+using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,8 +42,24 @@ builder.Logging
 
 #endregion
 
+QuestPDF.Settings.License = LicenseType.Community;
+
 builder.Services.AddServices();
 builder.Services.ConfigureCors();
+builder.Services.ConfigureEpplus();
+builder.Services.AddRateLimiting();
+builder.Services.AddHangfireServices(builder.Configuration);
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    var redisConfiguration = builder.Configuration["Redis:Configuration"];
+    if (string.IsNullOrWhiteSpace(redisConfiguration))
+    {
+        throw new InvalidOperationException("Redis configuration is missing. Set 'Redis:Configuration' in configuration or user secrets.");
+    }
+
+    options.Configuration = redisConfiguration;
+    options.InstanceName = "SchoolAPI:";
+});
 builder.Services.AddDatabase(builder.Configuration)
         .AddIdentityServices(builder.Configuration)
         .AddJwtAuthentication(builder.Configuration)
@@ -62,6 +82,7 @@ app.Use(async (ctx, next) =>
 
 // Global exception handling middleware
 app.UseMiddleware<ExceptionMiddleware>();
+app.UseForwardedHeaders();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -71,16 +92,23 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
     // scalar UI
     app.MapScalarApiReference();
-    app.MapOpenApi();
+    app.MapOpenApi().AllowAnonymous();
+    app.UseHangfireDashboard("/hangfire");
 }
 
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("CorePolicy");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+RecurringJob.AddOrUpdate<IMonthlyTransactionReportJob>(
+    "monthly-transaction-report",
+    job => job.GeneratePreviousMonthReportAsync(),
+    Cron.Monthly(1, 0, 0));
 
 // Apply migrations and seed roles + admin user
 await app.SeedDataAsync();

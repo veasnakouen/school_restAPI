@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: school-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: schooldb
+      POSTGRES_USER: schooluser
+      POSTGRES_PASSWORD: schoolpass123
+    ports:
+      - "5432:5432"
+    volumes:
+      - school_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U schooluser -d schooldb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: school-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - school_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./SchoolAPI
+      dockerfile: Dockerfile
+    container_name: school-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnectionString: Host=postgres;Port=5432;Database=schooldb;Username=schooluser;Password=schoolpass123
+      Redis__Configuration: redis:6379,abortConnect=false
+      JwtSettings__Secret: replace-with-a-long-development-secret-value
+      JwtSettings__Issuer: schoolAPI
+      JwtSettings__Audience: schoolClient
+      JwtSettings__ExpiryInMinutes: "120"
+      JwtSettings__RefreshTokenExpiryInDays: "7"
+      CloudinarySettings__CloudName: replace-with-cloudinary-cloud-name
+      CloudinarySettings__ApiKey: replace-with-cloudinary-api-key
+      CloudinarySettings__ApiSecret: replace-with-cloudinary-api-secret
+    ports:
+      - "5000:8080"
+
+volumes:
+  school_postgres_data:
+  school_redis_data:

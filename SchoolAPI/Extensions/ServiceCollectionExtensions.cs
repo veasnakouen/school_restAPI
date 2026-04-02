@@ -1,17 +1,25 @@
 using System.Text;
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SchoolAPI.Contracts;
+using SchoolAPI.Authorization;
 using SchoolAPI.Data;
+using SchoolAPI.Constant;
 using SchoolAPI.Entities;
 using SchoolAPI.Helpers;
 using SchoolAPI.Interfaces;
 using SchoolAPI.Services;
+using SchoolAPI.Services.Reporting;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
 
 namespace SchoolAPI.Extensions
 {
@@ -36,7 +44,7 @@ namespace SchoolAPI.Extensions
         // auto mapper
         public static IServiceCollection AddAutoMapper(this IServiceCollection service)
         {
-            service.AddAutoMapper(typeof(Program));
+            service.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
             return service;
         }
 
@@ -162,6 +170,9 @@ namespace SchoolAPI.Extensions
                     .Build();
             });
 
+            services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+            services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
             services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
             return services;
         }
@@ -175,8 +186,112 @@ namespace SchoolAPI.Extensions
             // Register application services
             services.AddScoped<IPhotoService, PhotoService>();
             services.AddScoped<SchoolAPI.Services.ICurrentUserService, CurrentUserService>();
+            services.AddSingleton<ICacheStore, RedisCacheStore>();
+            services.AddSingleton<ICacheVersionService, CacheVersionService>();
+            services.AddScoped<IAssessmentRequestReportService, AssessmentRequestReportService>();
+            services.AddScoped<IStudentAssessmentRequestReportService, StudentAssessmentRequestReportService>();
+            services.AddScoped<IMonthlyTransactionReportService, MonthlyTransactionReportService>();
+            services.AddScoped<IMonthlyTransactionReportJob, MonthlyTransactionReportJob>();
             
             return services;
+        }
+
+        public static IServiceCollection AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnectionString");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("Default connection string is missing. Hangfire requires a PostgreSQL connection string.");
+            }
+
+            services.AddHangfire(config =>
+            {
+                config.UseSimpleAssemblyNameTypeSerializer();
+                config.UseRecommendedSerializerSettings();
+                config.UsePostgreSqlStorage(storageOptions => storageOptions.UseNpgsqlConnection(connectionString));
+            });
+
+            services.AddHangfireServer();
+            return services;
+        }
+
+        // 🔧 Rate limiting
+        public static IServiceCollection AddRateLimiting(this IServiceCollection services)
+        {
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 300,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.AddPolicy("auth", httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.AddPolicy("report", httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 2,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.Headers.RetryAfter = "60";
+                    context.HttpContext.Response.ContentType = "application/json";
+                    await context.HttpContext.Response.WriteAsJsonAsync(
+                        new { error = "Too many requests. Please try again later." },
+                        cancellationToken);
+                };
+            });
+
+            return services;
+        }   
+
+        private static string GetRateLimitPartitionKey(HttpContext httpContext)
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                return $"user:{userId}";
+            }
+
+            var remoteIpAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            if (!string.IsNullOrWhiteSpace(remoteIpAddress))
+            {
+                return $"ip:{remoteIpAddress}";
+            }
+
+            return "ip:unknown";
         }
 
 

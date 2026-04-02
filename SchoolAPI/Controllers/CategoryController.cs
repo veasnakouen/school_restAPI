@@ -13,7 +13,7 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = $"{Roles.Admin},{Roles.DataEntry}")]
+[Authorize(Policy = Permissions.CategoryRead)]
 public class CategoryController : ControllerBase
 {
     private readonly ISender _sender;
@@ -38,6 +38,7 @@ public class CategoryController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.CategoryCreate)]
     public async Task<IActionResult> Create([FromBody] CategoryDto category, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateCategoryCommand(category), cancellationToken);
@@ -50,6 +51,7 @@ public class CategoryController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = Permissions.CategoryUpdate)]
     public async Task<IActionResult> Update(string id, [FromBody] CategoryDto input, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
@@ -62,6 +64,7 @@ public class CategoryController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = Permissions.CategoryDelete)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteCategoryCommand(id), cancellationToken);

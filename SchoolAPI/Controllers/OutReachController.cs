@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using SchoolAPI.Constant;
 using SchoolAPI.DTOs;
 using SchoolAPI.Services;
 
@@ -6,6 +8,7 @@ namespace SchoolAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = Permissions.OutreachRead)]
     public class OutReachController : ControllerBase
     {
         public ClassService _service;
@@ -21,6 +24,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachDto">Outreach details.</param>
         /// <returns>The created outreach record.</returns>
         [HttpPost("outreach")]
+        [Authorize(Policy = Permissions.OutreachCreate)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateOutReach([FromBody] OutReachDto outReachDto)
@@ -75,6 +79,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachDto">Updated outreach details.</param>
         /// <returns>Success message or error if update fails.</returns>
         [HttpPut("outreach/{outReachId}")]
+        [Authorize(Policy = Permissions.OutreachUpdate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -96,6 +101,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachId">The ID of the outreach record.</param>
         /// <returns>Success message or error if deletion fails.</returns>
         [HttpDelete("outreach/{outReachId}")]
+        [Authorize(Policy = Permissions.OutreachDelete)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteOutReach(Guid outReachId)

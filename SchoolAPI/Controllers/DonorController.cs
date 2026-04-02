@@ -13,7 +13,7 @@ namespace SchoolAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = $"{Roles.Admin},{Roles.DataEntry}")]
+[Authorize(Policy = Permissions.DonorRead)]
 public class DonorController : ControllerBase
 {
     private readonly ISender _sender;
@@ -38,6 +38,7 @@ public class DonorController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Policy = Permissions.DonorCreate)]
     public async Task<IActionResult> Create([FromBody] DonorDto donor, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateDonorCommand(donor), cancellationToken);
@@ -50,6 +51,7 @@ public class DonorController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Policy = Permissions.DonorUpdate)]
     public async Task<IActionResult> Update(string id, [FromBody] DonorDto input, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
@@ -62,6 +64,7 @@ public class DonorController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Policy = Permissions.DonorDelete)]
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteDonorCommand(id), cancellationToken);

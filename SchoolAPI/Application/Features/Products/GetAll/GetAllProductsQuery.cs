@@ -4,4 +4,10 @@ using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Application.Features.Products.GetAll;
 
-public record GetAllProductsQuery : IRequest<Result<List<ProductDto>>>;
+public record GetAllProductsQuery(
+	string? filterOn = null,
+	string? filterQuery = null,
+	string? sortBy = null,
+	bool isAscending = true,
+	int pageNumber = 1,
+	int pageSize = 10) : IRequest<Result<PagedResult<ProductDto>>>;

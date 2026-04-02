@@ -11,6 +11,7 @@ public class Product : BaseEntity
     public Brand Brand { get; set; } = null!;
     public decimal? Price { get; set; }
     public string ImageUrl { get; set; } = string.Empty;
+    public string? ImagePublicId { get; set; }
     public string Quality { get; set; } = string.Empty;
     public string VoucherNumber { get; set; } = string.Empty;
 }

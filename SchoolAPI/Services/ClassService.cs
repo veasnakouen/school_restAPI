@@ -2,21 +2,29 @@ using System.Linq.Expressions;
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Data;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
+using SchoolAPI.Helpers;
+using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Services;
 
 public class ClassService
 {
+    private const string AcademicsCacheScope = "academics";
     private readonly SchoolDbContext _context;
     private readonly IMapper _mapper;
+    private readonly ICacheStore _cacheStore;
+    private readonly ICacheVersionService _cacheVersionService;
 
-    public ClassService(SchoolDbContext context, IMapper mapper)
+    public ClassService(SchoolDbContext context, IMapper mapper, ICacheStore cacheStore, ICacheVersionService cacheVersionService)
     {
         _context = context;
         _mapper = mapper;
+        _cacheStore = cacheStore;
+        _cacheVersionService = cacheVersionService;
     }
 
     // --- Class CRUD ---
@@ -32,6 +40,7 @@ public class ClassService
 
         _context.Classes.Add(classEntity);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
 
         return _mapper.Map<ClassDto>(classEntity);
 
@@ -47,13 +56,23 @@ public class ClassService
     }
 
     //..../filterOn=Name&filterQuery=Math
-    public async Task<IEnumerable<ClassDto>> GetAllClasses(string? filterOn = null, string? filterQuery = null)
+    public async Task<PagedResult<ClassDto>> GetAllClasses(
+        string? filterOn = null,
+        string? filterQuery = null,
+        string? sortBy = null,
+        bool isAscending = true,
+        int pageNumber = 1,
+        int pageSize = 10)
     {
-        // get all classes with students included
-        // var classes = await _context.Classes
-        //     .Include(c => c.Students)
-        //     .ToListAsync();
-        var classesQuery = _context.Classes.Include(c => c.Students).AsQueryable();
+        var cacheVersion = _cacheVersionService.GetVersion(AcademicsCacheScope);
+        var cacheKey = CacheKeyBuilder.BuildAcademicListKey("classes", cacheVersion, filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize);
+        var cachedResult = await _cacheStore.GetAsync<PagedResult<ClassDto>>(cacheKey);
+        if (cachedResult != null)
+        {
+            return cachedResult;
+        }
+
+        var classesQuery = _context.Classes.Include(c => c.Students).AsNoTracking().AsQueryable();
 
         if (string.IsNullOrWhiteSpace(filterOn) == false && string.IsNullOrWhiteSpace(filterQuery) == false)
         {
@@ -63,9 +82,31 @@ public class ClassService
             }
         }
 
+        classesQuery = string.IsNullOrWhiteSpace(sortBy)
+            ? classesQuery.OrderBy(x => x.ClassName)
+            : sortBy.Equals("ClassName", StringComparison.OrdinalIgnoreCase)
+                ? isAscending ? classesQuery.OrderBy(x => x.ClassName) : classesQuery.OrderByDescending(x => x.ClassName)
+                : classesQuery.OrderBy(x => x.ClassName);
 
-        var classes = await classesQuery.ToListAsync();
-        return _mapper.Map<List<ClassDto>>(classes);
+        var totalCount = await classesQuery.CountAsync();
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize < 1 ? 10 : pageSize;
+
+        var classes = await classesQuery
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var result = new PagedResult<ClassDto>
+        {
+            Items = _mapper.Map<List<ClassDto>>(classes),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+
+        await _cacheStore.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2));
+        return result;
     }
 
     public async Task<List<ClassDto>> GetAllClassesAsync()
@@ -91,6 +132,7 @@ public class ClassService
 
         _mapper.Map(classDto, classEntity);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -109,6 +151,7 @@ public class ClassService
 
         // save change(async) after removing.
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
 
         return true;
 
@@ -128,6 +171,7 @@ public class ClassService
         // 
         _context.Students.Add(student);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         // syntax : _mapper.Map<DestinationType>(source)
         return _mapper.Map<StudentDto>(student);
 
@@ -141,13 +185,74 @@ public class ClassService
         return student == null ? null : _mapper.Map<StudentDto>(student);
     }
 
-    public async Task<List<StudentDto>> GetAllStudentsAsync()
+    public async Task<PagedResult<StudentDto>> GetAllStudentsAsync(
+        string? filterOn = null,
+        string? filterQuery = null,
+        string? sortBy = null,
+        bool isAscending = true,
+        int pageNumber = 1,
+        int pageSize = 10)
     {
-        var students = await _context.Students
+        var cacheVersion = _cacheVersionService.GetVersion(AcademicsCacheScope);
+        var cacheKey = CacheKeyBuilder.BuildAcademicListKey("students", cacheVersion, filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize);
+        var cachedResult = await _cacheStore.GetAsync<PagedResult<StudentDto>>(cacheKey);
+        if (cachedResult != null)
+        {
+            return cachedResult;
+        }
+
+        var query = _context.Students
             .Include(s => s.Attendances)
-            // .AsNoTracking()
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filterOn) && !string.IsNullOrWhiteSpace(filterQuery))
+        {
+            if (filterOn.Equals("engfirstname", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(x => x.EngFirstName.Contains(filterQuery));
+            }
+            else if (filterOn.Equals("englastname", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(x => x.EngLastName.Contains(filterQuery));
+            }
+            else if (filterOn.Equals("khfirstname", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(x => x.KhFirstName.Contains(filterQuery));
+            }
+            else if (filterOn.Equals("khlastname", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(x => x.KhLastName.Contains(filterQuery));
+            }
+        }
+
+        query = string.IsNullOrWhiteSpace(sortBy)
+            ? query.OrderBy(x => x.EngFirstName)
+            : sortBy.Equals("engfirstname", StringComparison.OrdinalIgnoreCase)
+                ? isAscending ? query.OrderBy(x => x.EngFirstName) : query.OrderByDescending(x => x.EngFirstName)
+                : sortBy.Equals("englastname", StringComparison.OrdinalIgnoreCase)
+                    ? isAscending ? query.OrderBy(x => x.EngLastName) : query.OrderByDescending(x => x.EngLastName)
+                    : query.OrderBy(x => x.EngFirstName);
+
+        var totalCount = await query.CountAsync();
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize < 1 ? 10 : pageSize;
+
+        var students = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
-        return _mapper.Map<List<StudentDto>>(students);
+
+        var result = new PagedResult<StudentDto>
+        {
+            Items = _mapper.Map<List<StudentDto>>(students),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+
+        await _cacheStore.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2));
+        return result;
     }
 
     public async Task<bool> UpdateStudentAsync(Guid studentId, StudentDto studentDto)
@@ -165,6 +270,7 @@ public class ClassService
 
         _mapper.Map(studentDto, student);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -178,6 +284,7 @@ public class ClassService
 
         _context.Students.Remove(student);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -193,6 +300,7 @@ public class ClassService
         outReach.Id = Guid.NewGuid();
         _context.OutReaches.Add(outReach);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return _mapper.Map<OutReachDto>(outReach);
     }
 
@@ -204,7 +312,7 @@ public class ClassService
         return outReach == null ? null : _mapper.Map<OutReachDto>(outReach);
     }
 
-    public async Task<List<OutReachDto>> GetAllOutReachAsync(
+    public async Task<PagedResult<OutReachDto>> GetAllOutReachAsync(
         string? filterOn = null,
          string? filterQuery = null,
          string? sortBy = null,
@@ -212,7 +320,15 @@ public class ClassService
            int pageNumber = 1,
             int pageSize = 3)
     {
-        var outreachQuery = _context.OutReaches.Include(o => o.Students).AsQueryable();
+        var cacheVersion = _cacheVersionService.GetVersion(AcademicsCacheScope);
+        var cacheKey = CacheKeyBuilder.BuildAcademicListKey("outreaches", cacheVersion, filterOn, filterQuery, sortBy, IsAscending, pageNumber, pageSize);
+        var cachedResult = await _cacheStore.GetAsync<PagedResult<OutReachDto>>(cacheKey);
+        if (cachedResult != null)
+        {
+            return cachedResult;
+        }
+
+        var outreachQuery = _context.OutReaches.Include(o => o.Students).AsNoTracking().AsQueryable();
         //filter
         if (string.IsNullOrWhiteSpace(filterOn) == false && string.IsNullOrWhiteSpace(filterQuery) == false)
         {
@@ -233,9 +349,19 @@ public class ClassService
         // pagination
         var skipResults = (pageNumber - 1) * pageSize;
 
+        var totalCount = await outreachQuery.CountAsync();
         var outReaches = await outreachQuery.Skip(skipResults).Take(pageSize).ToListAsync();
 
-        return _mapper.Map<List<OutReachDto>>(outReaches);
+        var result = new PagedResult<OutReachDto>
+        {
+            Items = _mapper.Map<List<OutReachDto>>(outReaches),
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        };
+
+        await _cacheStore.SetAsync(cacheKey, result, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2));
+        return result;
     }
 
     public async Task<bool> UpdateOutReachAsync(Guid outReachId, OutReachDto outReachDto)
@@ -253,6 +379,7 @@ public class ClassService
 
         _mapper.Map(outReachDto, outReach);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -266,6 +393,7 @@ public class ClassService
 
         _context.OutReaches.Remove(outReach);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -292,6 +420,7 @@ public class ClassService
         student.Class = classEntity;
         classEntity.Students.Add(student);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -306,6 +435,7 @@ public class ClassService
         student.ClassId = null;
         student.Class = null;
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -330,6 +460,7 @@ public class ClassService
         attendance.Id = Guid.NewGuid();
         _context.Attendances.Add(attendance);
         await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
         return true;
     }
 
@@ -370,6 +501,11 @@ public class ClassService
     public async Task<bool> ExistingAsync<T>(Expression<Func<T, bool>> predicate) where T : class
     {
         return await _context.Set<T>().AnyAsync(predicate);
+    }
+
+    private void InvalidateAcademicsCache()
+    {
+        _cacheVersionService.Invalidate(AcademicsCacheScope);
     }
 
 }
