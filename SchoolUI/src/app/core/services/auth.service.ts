@@ -1,6 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs';
+import { tap, throwError } from 'rxjs';
 import { ApiClientService } from './api-client.service';
 import {
   AuthResponse,
@@ -9,7 +9,11 @@ import {
   RefreshTokenRequest,
   RegisterRequest,
   UpdateProfileRequest,
-  UserProfile
+  UserProfile,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  ConfirmEmailRequest,
+  ResendConfirmationEmailRequest
 } from '../../models/auth.model';
 import { TokenStorageService } from './token-storage.service';
 
@@ -33,13 +37,32 @@ export class AuthService {
   }
 
   register(request: RegisterRequest) {
-    return this.api.post<string>('Auth/register', request);
+    return this.api.post<AuthResponse>('Auth/register', request).pipe(tap((response) => this.persist(response)));
   }
 
-  refresh(): Promise<void> {
+  forgotPassword(request: ForgotPasswordRequest) {
+    return this.api.post<{ message: string; isSuccess: boolean }>('Auth/forgot-password', request);
+  }
+
+  resetPassword(request: ResetPasswordRequest) {
+    return this.api.post<{ message: string; isSuccess: boolean }>('Auth/reset-password', request);
+  }
+
+  confirmEmail(request: ConfirmEmailRequest) {
+    return this.api.get<{ message: string; isSuccess: boolean }>('Auth/confirm-email', request);
+  }
+
+  resendConfirmationEmail(request: ResendConfirmationEmailRequest) {
+    return this.api.post<{ message: string; isSuccess: boolean; userId?: string; confirmationToken?: string }>(
+      'Auth/resend-confirmation-email',
+      request
+    );
+  }
+
+  refresh() {
     const session = this.sessionSignal();
     if (!session) {
-      return Promise.resolve();
+      return throwError(() => new Error('No active session.'));
     }
 
     const request: RefreshTokenRequest = {
@@ -47,15 +70,7 @@ export class AuthService {
       refreshToken: session.refreshToken
     };
 
-    return new Promise((resolve, reject) => {
-      this.api.post<AuthResponse>('Auth/refresh', request).subscribe({
-        next: (response) => {
-          this.persist(response);
-          resolve();
-        },
-        error: reject
-      });
-    });
+    return this.api.post<AuthResponse>('Auth/refresh', request).pipe(tap((response) => this.persist(response)));
   }
 
   profile() {
@@ -64,6 +79,21 @@ export class AuthService {
 
   updateProfile(request: UpdateProfileRequest) {
     return this.api.put<string>('Auth/update-profile', request);
+  }
+
+  updateSession(update: Partial<AuthSession>): void {
+    const session = this.sessionSignal();
+    if (!session) {
+      return;
+    }
+
+    const nextSession = {
+      ...session,
+      ...update
+    };
+
+    this.storage.write(nextSession);
+    this.sessionSignal.set(nextSession);
   }
 
   logout(): void {

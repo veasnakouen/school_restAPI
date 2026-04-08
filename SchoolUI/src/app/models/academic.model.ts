@@ -7,6 +7,21 @@ export interface AttendanceDto {
   status?: string;
 }
 
+export interface CreateClassRequest {
+  className: string;
+}
+
+export interface CreateStudentRequest {
+  khLastName: string;
+  khFirstName: string;
+  engLastName: string;
+  engFirstName: string;
+  gender: Gender;
+  dateOfBirth: string;
+  classId?: string | null;
+  outReachId?: string | null;
+}
+
 export interface StudentDto {
   id: string;
   khLastName: string;

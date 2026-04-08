@@ -2,24 +2,89 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, ScrollAnimateDirective],
   template: `
     <div class="mx-auto max-w-[1600px] space-y-6">
-      <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        @for (item of metricCards; track item.label) {
-          <article class="card border border-base-300 bg-base-100 shadow-xl">
+      <section scrollAnimate animateVariant="fade-up" animateDelay="0ms" class="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+        <article class="relative overflow-hidden rounded-[30px] border border-primary/20 bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-2xl">
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_38%)]"></div>
+          <div class="relative card-body gap-6 p-6 lg:p-8">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content">Today</span>
+              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/90">{{ auth.session()?.fullName || 'School user' }}</span>
+              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/80">{{ auth.session()?.email || 'guest' }}</span>
+            </div>
+
+            <div class="max-w-3xl space-y-3">
+              <p class="text-xs uppercase tracking-[0.45em] text-primary-content/75">Command center</p>
+              <h2 class="text-4xl font-black tracking-tight sm:text-5xl">A cleaner, faster overview of school operations.</h2>
+              <p class="max-w-2xl text-sm text-primary-content/80 sm:text-base">
+                Track enrollment, inventory, reports, and live activity from one polished dashboard surface.
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3">
+              <a routerLink="/reports" class="btn border-0 bg-white text-base-content shadow-lg hover:bg-white/95">Open reports</a>
+              <a routerLink="/students" class="btn btn-ghost border border-primary-content/20 text-primary-content hover:bg-primary-content/10">View students</a>
+            </div>
+          </div>
+        </article>
+
+        <article class="app-shell-panel overflow-hidden">
+          <div class="card-body gap-5 p-6 lg:p-8">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h3 class="card-title text-2xl">Live summary</h3>
+                <p class="text-sm text-base-content/60">Quick signals for today’s session.</p>
+              </div>
+              <div class="badge badge-primary badge-outline">Synced</div>
+            </div>
+
+            <div class="space-y-3">
+              <div class="rounded-3xl bg-base-200/80 p-4">
+                <div class="text-xs uppercase tracking-[0.35em] text-base-content/50">Current user</div>
+                <div class="mt-2 text-2xl font-extrabold text-base-content">{{ auth.session()?.fullName || 'Guest user' }}</div>
+                <div class="mt-1 text-sm text-base-content/60">{{ auth.session()?.email || 'No session available' }}</div>
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-3">
+                <div class="rounded-3xl bg-base-200/70 p-4">
+                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Theme</div>
+                  <div class="mt-2 text-lg font-bold">Night-ready</div>
+                  <div class="text-xs text-base-content/60">Adaptive visuals</div>
+                </div>
+                <div class="rounded-3xl bg-base-200/70 p-4">
+                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Reports</div>
+                  <div class="mt-2 text-lg font-bold">18</div>
+                  <div class="text-xs text-base-content/60">Ready to export</div>
+                </div>
+                <div class="rounded-3xl bg-base-200/70 p-4">
+                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Status</div>
+                  <div class="mt-2 text-lg font-bold text-success">Healthy</div>
+                  <div class="text-xs text-base-content/60">All services stable</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section scrollAnimate animateVariant="fade-up" animateDelay="80ms" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        @for (item of metricCards; track $index) {
+          <article class="app-shell-panel overflow-hidden">
             <div class="card-body gap-3 p-5">
-              <div class="text-xs font-medium uppercase tracking-[0.35em] text-base-content/60">{{ item.label }}</div>
+              <div class="text-[11px] font-semibold uppercase tracking-[0.45em] text-base-content/45">{{ item.label }}</div>
               <div class="flex items-end justify-between gap-3">
                 <div>
-                  <div class="text-4xl font-extrabold tracking-tight text-base-content">{{ item.value }}</div>
-                  <div class="text-sm text-success">{{ item.delta }}</div>
+                  <div class="text-4xl font-black tracking-tight text-base-content">{{ item.value }}</div>
+                  <div class="mt-1 text-sm text-success">{{ item.delta }}</div>
                 </div>
-                <div class="rounded-2xl bg-base-200 p-3 text-primary shadow-inner">
+                <div class="rounded-3xl bg-gradient-to-br from-primary/15 to-secondary/15 p-3 text-primary shadow-inner">
                   <span class="pi {{ item.icon }} text-xl"></span>
                 </div>
               </div>
@@ -28,7 +93,7 @@ import { AuthService } from '../../core/services/auth.service';
         }
       </section>
 
-      <section class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <section scrollAnimate animateVariant="fade-up" animateDelay="140ms" class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <article class="card border border-base-300 bg-base-100 shadow-xl">
           <div class="card-body gap-5 p-6">
             <div class="flex items-center justify-between gap-4">
@@ -50,7 +115,7 @@ import { AuthService } from '../../core/services/auth.service';
                   </tr>
                 </thead>
                 <tbody>
-                  @for (row of transactions; track row.name) {
+                  @for (row of transactions; track $index) {
                     <tr>
                       <td>
                         <div class="font-medium text-base-content">{{ row.name }}</div>
@@ -90,7 +155,7 @@ import { AuthService } from '../../core/services/auth.service';
         </article>
       </section>
 
-      <section class="grid gap-6 md:grid-cols-3">
+      <section scrollAnimate animateVariant="fade-up" animateDelay="200ms" class="grid gap-6 md:grid-cols-3">
         <article class="card border border-base-300 bg-base-100 shadow-xl">
           <div class="card-body gap-4 p-5">
             <div>
@@ -148,53 +213,7 @@ import { AuthService } from '../../core/services/auth.service';
         </article>
       </section>
 
-      <section class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr_0.8fr]">
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
-            <div>
-              <h3 class="card-title text-xl">Forms and inputs</h3>
-              <p class="text-sm text-base-content/60">Reference layout for product entry</p>
-            </div>
-
-            <div class="space-y-3">
-              <label class="form-control w-full">
-                <div class="label"><span class="label-text">Product name</span></div>
-                <input class="input input-bordered" placeholder="Type here" />
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label"><span class="label-text">Category</span></div>
-                <select class="select select-bordered">
-                  <option>Pick</option>
-                  <option>Stationery</option>
-                  <option>Technology</option>
-                  <option>Lab</option>
-                </select>
-              </label>
-
-              <div class="grid grid-cols-2 gap-3">
-                <label class="form-control w-full">
-                  <div class="label"><span class="label-text">Width</span></div>
-                  <input class="input input-bordered" placeholder="Width" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label"><span class="label-text">Height</span></div>
-                  <input class="input input-bordered" placeholder="Height" />
-                </label>
-              </div>
-
-              <div class="flex items-center justify-between rounded-2xl bg-base-200 px-4 py-3">
-                <span class="text-sm">Visible only for managers</span>
-                <input type="radio" name="visibility" class="radio radio-primary" checked />
-              </div>
-              <div class="flex items-center justify-between rounded-2xl bg-base-200 px-4 py-3">
-                <span class="text-sm">Visible for all users</span>
-                <input type="radio" name="visibility" class="radio radio-primary" />
-              </div>
-            </div>
-          </div>
-        </article>
-
+      <section scrollAnimate animateVariant="fade-up" animateDelay="260ms" class="grid gap-6 xl:grid-cols-2">
         <article class="card border border-base-300 bg-base-100 shadow-xl">
           <div class="card-body gap-4 p-5">
             <div>
@@ -286,10 +305,10 @@ export class DashboardComponent {
   protected readonly auth = inject(AuthService);
 
   protected readonly metricCards = [
-    { label: 'Total Page Views', value: '89,400', delta: '21% more than last month', icon: 'pi-chart-line' },
-    { label: 'Total Page Views', value: '89,400', delta: '21% more than last month', icon: 'pi-users' },
-    { label: 'Total Page Views', value: '89,400', delta: '21% more than last month', icon: 'pi-box' },
-    { label: 'Total Page Views', value: '89,400', delta: '21% more than last month', icon: 'pi-book' }
+    { label: 'Active students', value: '1,284', delta: '+8.4% from last week', icon: 'pi-users' },
+    { label: 'Open classes', value: '42', delta: '6 awaiting updates', icon: 'pi-id-card' },
+    { label: 'Inventory items', value: '3,920', delta: '+124 items added', icon: 'pi-box' },
+    { label: 'Reports ready', value: '18', delta: '3 exported today', icon: 'pi-chart-bar' }
   ];
 
   protected readonly transactions = [

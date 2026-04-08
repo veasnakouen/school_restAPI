@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npm run *)",
-      "Bash(select-object *)"
+      "Bash(select-object *)",
+      "Bash(dotnet *)",
+      "Bash(taskkill *)",
+      "Bash(start-sleep *)",
+      "Bash(npx *)"
     ]
   },
   "$version": 3

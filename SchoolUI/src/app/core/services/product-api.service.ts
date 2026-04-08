@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ApiClientService } from './api-client.service';
 import { PagedResult, QueryOptions } from '../../models/paging.model';
-import { ProductDto } from '../../models/inventory.model';
+import { CreateProductRequest, ProductDto } from '../../models/inventory.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProductApiService {
@@ -15,7 +15,7 @@ export class ProductApiService {
     return this.api.get<ProductDto>(`products/${id}`);
   }
 
-  create(payload: ProductDto) {
+  create(payload: CreateProductRequest) {
     return this.api.post<ProductDto>('products', payload);
   }
 

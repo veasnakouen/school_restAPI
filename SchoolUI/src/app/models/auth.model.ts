@@ -7,7 +7,27 @@ export interface RegisterRequest {
   email: string;
   password: string;
   fullName: string;
-  roles: string[];
+  roles?: string[];
+}
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ConfirmEmailRequest {
+  userId: string;
+  token: string;
+}
+
+export interface ResendConfirmationEmailRequest {
+  email: string;
 }
 
 export interface RefreshTokenRequest {

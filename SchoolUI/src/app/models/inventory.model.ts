@@ -15,6 +15,17 @@ export interface ProductDto {
   updateDate?: string | null;
 }
 
+export interface CreateProductRequest {
+  name: string;
+  codeNumber?: string | null;
+  description?: string | null;
+  categoryId?: string | null;
+  brandId?: string | null;
+  price?: number | null;
+  quality?: string | null;
+  voucherNumber?: string | null;
+}
+
 export type TransactionType = 'Purchase' | 'Donate' | 'Resource';
 
 export interface TransactionDto {

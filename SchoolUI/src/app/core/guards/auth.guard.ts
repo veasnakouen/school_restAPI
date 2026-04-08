@@ -16,3 +16,15 @@ export const authGuard: CanActivateFn = (_route, state) => {
     }
   });
 };
+
+export const noAuthGuard: CanActivateFn = (_route, _state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+
+  // If user is already authenticated, redirect to dashboard
+  if (auth.isAuthenticated()) {
+    return router.createUrlTree(['/dashboard']);
+  }
+
+  return true;
+};

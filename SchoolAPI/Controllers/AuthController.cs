@@ -1,6 +1,7 @@
 #nullable enable
 using System.Security.Claims;
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
@@ -13,6 +14,11 @@ using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Entities;
 using SchoolAPI.Services;
+using SchoolAPI.Application.Features.Auth.Register;
+using SchoolAPI.Application.Features.Auth.ForgotPassword;
+using SchoolAPI.Application.Features.Auth.ResetPassword;
+using SchoolAPI.Application.Features.Auth.ConfirmEmail;
+using SchoolAPI.Application.Features.Auth.ResendConfirmationEmail;
 
 namespace SchoolAPI.Controllers;
 
@@ -25,19 +31,22 @@ public class AuthController : BaseController
     private readonly ITokenService _tokenService;
     private readonly IMapper _mapper;
     private readonly JwtSettings _jwtSettings;
+    private readonly IMediator _mediator;
 
     public AuthController(
         UserManager<AppUser> userManager,
         ITokenService tokenService,
         SignInManager<AppUser> signInManager,
         IMapper mapper,
-        IOptions<JwtSettings> jwtSettings)
+        IOptions<JwtSettings> jwtSettings,
+        IMediator mediator)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _signInManager = signInManager;
         _mapper = mapper;
         _jwtSettings = jwtSettings.Value;
+        _mediator = mediator;
     }
 
     private DateTime GetRefreshTokenExpiryUtc()
@@ -56,18 +65,28 @@ public class AuthController : BaseController
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var existedUser = await _userManager.FindByEmailAsync(request.Email);
-        if (existedUser != null) return BadRequest("User already exists with this email.");
+        var command = new RegisterCommand(request.Email, request.Password, request.FullName, request.Roles);
+        var result = await _mediator.Send(command);
 
-        var user = _mapper.Map<AppUser>(request);
-        user.UserName = request.Email;
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
 
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded) return BadRequest(result.Errors);
+        var response = new AuthResponse
+        {
+            AccessToken = result.Data!.AccessToken,
+            RefreshToken = result.Data.RefreshToken,
+            ExpiresAt = result.Data.ExpiresAt,
+            UserId = result.Data.UserId,
+            Email = result.Data.Email,
+            FullName = result.Data.FullName,
+            IsSuccess = true,
+            Role = result.Data.Roles.ToList(),
+            Message = "User registered successfully."
+        };
 
-        await _userManager.AddToRoleAsync(user, Roles.User);
-
-        return Ok("User registered successfully.");
+        return Ok(response);
     }
 
     [HttpPost("login")]
@@ -80,7 +99,7 @@ public class AuthController : BaseController
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user == null)
         {
-            await _userManager.AccessFailedAsync(user);
+            // Don't reveal whether user exists or not
             return Unauthorized("Invalid credentials.");
         }
 
@@ -315,5 +334,80 @@ public class AuthController : BaseController
         userDetail.Roles = roles.ToList();
 
         return Ok(userDetail);
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ForgotPasswordCommand(request.Email);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess, resetToken = result.Data.ResetToken });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ResetPasswordCommand(request.Email, request.Token, request.NewPassword);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess });
+    }
+
+    [HttpGet("confirm-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] ConfirmEmailRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ConfirmEmailCommand(request.UserId, request.Token);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage, isSuccess = false });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess });
+    }
+
+    [HttpPost("resend-confirmation-email")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResendConfirmationEmail([FromBody] ResendConfirmationEmailRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ResendConfirmationEmailCommand(request.Email);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess, 
+            // Remove these in production - only for testing
+            userId = result.Data.UserId,
+            confirmationToken = result.Data.ConfirmationToken 
+        });
     }
 }

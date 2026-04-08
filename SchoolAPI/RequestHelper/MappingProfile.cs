@@ -48,7 +48,7 @@ public class MappingProfile : Profile
         CreateMap<AppUser, UserDetail>()
             .ForMember(dest => dest.Roles, opt => opt.Ignore())
             .ForMember(dest => dest.PhoneNumberConfirm, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
-        CreateMap<RegisterDto, AppUser>().ReverseMap();
+        CreateMap<AppUser, UserListItemDto>();
         CreateMap<Brand, BrandDto>();
         CreateMap<BrandDto, Brand>();
         CreateMap<Category, CategoryDto>();

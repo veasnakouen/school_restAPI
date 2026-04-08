@@ -5,35 +5,20 @@ namespace SchoolAPI.Contracts.Auth
 {
     public class RegisterRequest
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Email is required!")]
+        [EmailAddress(ErrorMessage = "Invalid email format!")]
         public string Email { get; set; } = string.Empty;
-        [Required]
-        public string Password { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
-        [AllowNull] public List<string> Roles { get; set; } //add
-
-    }
-
-    // another styles
-    public class RegisterDto
-    {
-        [Required]
-        [DataType(DataType.EmailAddress)]
-        public string Username { get; set; }
-        public string Email { get; set; }
-
-        [Required]
+        
+        [Required(ErrorMessage = "Password is required!")]
         [DataType(DataType.Password)]
-
-        public string Password { get; set; }
-        public string[] Roles { get; set; }
-
-        // [Phone]
-        // [StringLength(maximumLength: 12)]
-        // [RegularExpression("@*\\*&&/x-z")]
-        // public string PhoneNumber { get; set; }
-
+        [MinLength(8, ErrorMessage = "Password must be at least 8 characters long.")]
+        public string Password { get; set; } = string.Empty;
+        
+        [Required(ErrorMessage = "Full name is required!")]
+        [MinLength(3, ErrorMessage = "Full name must be at least 3 characters long.")]
+        public string FullName { get; set; } = string.Empty;
+        
+        [AllowNull]
+        public List<string>? Roles { get; set; }
     }
-
 }

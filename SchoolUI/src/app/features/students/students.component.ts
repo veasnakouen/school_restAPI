@@ -3,26 +3,32 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { StudentApiService } from '../../core/services/student-api.service';
 import { StudentDto } from '../../models/academic.model';
+import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 
 @Component({
   selector: 'app-students',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective],
   template: `
-    <section class="app-card space-y-4">
-      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 class="section-title text-2xl text-base-content">Students</h2>
-          <p class="text-sm text-base-content/70">List and search students.</p>
+    <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div class="space-y-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="badge badge-primary badge-outline">People</span>
+            <span class="badge badge-ghost">{{ filteredStudents.length }} visible</span>
+          </div>
+          <h2 class="section-title text-base-content">Students</h2>
+          <p class="max-w-2xl text-sm text-base-content/65">List and search students.</p>
         </div>
-        <label class="form-control w-full max-w-sm">
-          <div class="label pb-2"><span class="label-text text-sm text-base-content/80">Search students</span></div>
+
+        <label class="form-control w-full max-w-md">
+          <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Search students</span></div>
           <input [(ngModel)]="search" placeholder="Search students" class="app-input" />
         </label>
       </div>
 
-      <div class="overflow-x-auto rounded-2xl border border-base-300">
-        <table class="table table-zebra">
+      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+        <table class="table table-zebra table-pin-rows">
           <thead>
             <tr>
               <th>Name</th>
@@ -49,10 +55,10 @@ import { StudentDto } from '../../models/academic.model';
       </div>
 
       @if (loading) {
-        <p class="text-sm text-slate-400">Loading students...</p>
+        <div class="alert alert-info border-0 bg-info/10 text-info">Loading students...</div>
       }
       @if (errorMessage) {
-        <p class="text-sm text-rose-300">{{ errorMessage }}</p>
+        <div class="alert alert-error border-0 bg-error/10 text-error">{{ errorMessage }}</div>
       }
     </section>
   `

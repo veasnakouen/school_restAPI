@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'primeicons/primeicons.css';
 
 @tailwind base;
@@ -16,15 +17,21 @@ body {
 body {
 	margin: 0;
 	font-family:
-		Inter,
+		'Manrope',
 		ui-sans-serif,
 		system-ui,
 		-apple-system,
 		BlinkMacSystemFont,
 		'Segoe UI',
 		sans-serif;
-	background: hsl(var(--b2));
+	background:
+		radial-gradient(circle at top left, hsl(var(--p) / 0.08), transparent 32%),
+		radial-gradient(circle at top right, hsl(var(--s) / 0.06), transparent 28%),
+		radial-gradient(circle at bottom center, hsl(var(--a) / 0.06), transparent 30%),
+		hsl(var(--b2));
 	color: hsl(var(--bc));
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
 }
 
 body::before {
@@ -32,29 +39,74 @@ body::before {
 	position: fixed;
 	inset: 0;
 	pointer-events: none;
-	background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-		linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-	background-size: 36px 36px;
-	mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 85%);
+	background-image: linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+	background-size: 40px 40px;
+	opacity: 0.45;
+	mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.7), transparent 88%);
+}
+
+body::after {
+	content: '';
+	position: fixed;
+	inset: 0;
+	pointer-events: none;
+	background: radial-gradient(circle at center top, rgba(255, 255, 255, 0.08), transparent 42%);
+	opacity: 0.8;
+}
+
+// Blob animation for auth page
+@keyframes blob {
+	0%, 100% {
+		transform: translate(0, 0) scale(1);
+	}
+	25% {
+		transform: translate(20px, -50px) scale(1.1);
+	}
+	50% {
+		transform: translate(-20px, 20px) scale(0.9);
+	}
+	75% {
+		transform: translate(20px, 20px) scale(1.05);
+	}
+}
+
+.animate-blob {
+	animation: blob 10s infinite;
+}
+
+.animation-delay-2000 {
+	animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+	animation-delay: 4s;
+}
+
+// Grid pattern
+.bg-grid-white\/\[0\.05\] {
+	background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+		linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
 }
 
 .app-shell-panel {
-	@apply rounded-[28px] shadow-xl backdrop-blur-xl;
-	border: 1px solid hsl(var(--b3));
-	background-color: hsl(var(--b1));
+	@apply rounded-[30px] shadow-2xl backdrop-blur-xl;
+	border: 1px solid hsl(var(--b3) / 0.75);
+	background: linear-gradient(180deg, hsl(var(--b1) / 0.94), hsl(var(--b1) / 0.88));
 }
 
 .app-card {
-	@apply rounded-2xl p-6 shadow-lg backdrop-blur-xl;
-	border: 1px solid hsl(var(--b3));
-	background-color: hsl(var(--b1));
+	@apply rounded-[24px] p-6 shadow-lg backdrop-blur-xl;
+	border: 1px solid hsl(var(--b3) / 0.75);
+	background: linear-gradient(180deg, hsl(var(--b1) / 0.96), hsl(var(--b1) / 0.9));
 }
 
 .app-input {
-	@apply w-full rounded-xl px-4 py-3 outline-none transition;
-	border: 1px solid hsl(var(--b3));
-	background-color: hsl(var(--b2));
+	@apply w-full rounded-2xl px-4 py-3 outline-none transition;
+	border: 1px solid hsl(var(--b3) / 0.85);
+	background-color: hsl(var(--b2) / 0.85);
 	color: hsl(var(--bc));
+	box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 
 	&::placeholder {
 		color: hsl(var(--bc) / 0.4);
@@ -62,7 +114,90 @@ body::before {
 
 	&:focus {
 		border-color: hsl(var(--p));
-		box-shadow: 0 0 0 2px hsl(var(--p) / 0.2);
+		box-shadow: 0 0 0 3px hsl(var(--p) / 0.16);
+	}
+}
+
+// ─── Responsive breakpoints ───────────────────────────────────────────────────
+
+// xs — very small phones (max 480px)
+@media (max-width: 480px) {
+	html {
+		font-size: 14px;
+	}
+
+	.app-shell-panel {
+		border-radius: 20px;
+	}
+
+	.app-card {
+		@apply rounded-[18px] p-4;
+	}
+
+	.app-input {
+		@apply rounded-xl px-3 py-2.5 text-sm;
+	}
+}
+
+// sm — phones (max 640px)
+@media (max-width: 640px) {
+	body {
+		background-size: cover;
+	}
+
+	.app-shell-panel {
+		border-radius: 22px;
+		backdrop-filter: blur(12px);
+	}
+
+	.app-card {
+		@apply rounded-[20px] p-5;
+	}
+
+	.app-input {
+		// ensure touch-friendly tap target
+		min-height: 44px;
+	}
+}
+
+// md — tablets portrait (641px – 1024px)
+@media (min-width: 641px) and (max-width: 1024px) {
+	.app-shell-panel {
+		border-radius: 26px;
+	}
+
+	.app-card {
+		@apply rounded-[22px];
+	}
+}
+
+// lg — desktops (1025px+)
+@media (min-width: 1025px) {
+	.app-shell-panel {
+		border-radius: 30px;
+	}
+
+	body::before {
+		opacity: 0.45;
+	}
+}
+
+// xl — large screens (1280px+)
+@media (min-width: 1280px) {
+	html {
+		font-size: 16px;
+	}
+}
+
+// ─── Reduced motion ───────────────────────────────────────────────────────────
+@media (prefers-reduced-motion: reduce) {
+	.animate-blob {
+		animation: none;
+	}
+
+	* {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
 	}
 }
 
@@ -72,9 +207,10 @@ body::before {
 	justify-content: center;
 	gap: 0.5rem;
 	border: 0;
-	border-radius: 0.75rem;
+	border-radius: 9999px;
 	padding: 0.75rem 1rem;
 	font-weight: 600;
+	letter-spacing: 0.01em;
 	color: #07111f;
 	transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -88,4 +224,62 @@ body::before {
 	background: hsl(var(--b2));
 	color: hsl(var(--bc));
 	border: 1px solid hsl(var(--b3));
+}
+
+.section-title {
+	font-size: clamp(1.5rem, 2vw, 2.35rem);
+	line-height: 1.1;
+	font-weight: 800;
+	letter-spacing: -0.03em;
+}
+
+// ─── Scroll-enter animations ───────────────────────────────────────────────
+@keyframes scroll-fade-up {
+	from { opacity: 0; transform: translateY(28px); }
+	to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes scroll-fade-in {
+	from { opacity: 0; }
+	to   { opacity: 1; }
+}
+@keyframes scroll-fade-left {
+	from { opacity: 0; transform: translateX(-28px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes scroll-fade-right {
+	from { opacity: 0; transform: translateX(28px); }
+	to   { opacity: 1; transform: translateX(0); }
+}
+
+.scroll-animate {
+	opacity: 0;
+	// preserve the transform used by the variant so nothing jumps before JS runs
+}
+.scroll-animate--fade-up    { transform: translateY(28px); }
+.scroll-animate--fade-in    { opacity: 0; }
+.scroll-animate--fade-left  { transform: translateX(-28px); }
+.scroll-animate--fade-right { transform: translateX(28px); }
+
+.scroll-animate--visible {
+	&.scroll-animate--fade-up {
+		animation: scroll-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+	&.scroll-animate--fade-in {
+		animation: scroll-fade-in 0.5s ease both;
+	}
+	&.scroll-animate--fade-left {
+		animation: scroll-fade-left 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+	&.scroll-animate--fade-right {
+		animation: scroll-fade-right 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.scroll-animate,
+	.scroll-animate--visible {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+	}
 }

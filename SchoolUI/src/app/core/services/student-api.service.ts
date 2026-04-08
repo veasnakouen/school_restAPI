@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ApiClientService } from './api-client.service';
 import { PagedResult, QueryOptions } from '../../models/paging.model';
-import { StudentDto } from '../../models/academic.model';
+import { CreateStudentRequest, StudentDto } from '../../models/academic.model';
 
 @Injectable({ providedIn: 'root' })
 export class StudentApiService {
@@ -15,7 +15,7 @@ export class StudentApiService {
     return this.api.get<StudentDto>(`Student/students/${id}`);
   }
 
-  create(payload: StudentDto) {
+  create(payload: CreateStudentRequest) {
     return this.api.post<StudentDto>('Student/students', payload);
   }
 

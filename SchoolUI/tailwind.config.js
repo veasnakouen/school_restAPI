@@ -4,7 +4,7 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+        sans: ['Manrope', 'ui-sans-serif', 'system-ui', 'sans-serif']
       },
       boxShadow: {
         glow: '0 0 50px rgba(34, 211, 238, 0.18)'
@@ -13,6 +13,6 @@ module.exports = {
   },
   plugins: [require('daisyui')],
   daisyui: {
-    themes: ['night', 'light']
+    themes: true
   }
 };

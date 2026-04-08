@@ -2,13 +2,12 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { QueryOptions } from '../../models/paging.model';
 
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
   constructor(private readonly http: HttpClient) {}
 
-  get<T>(path: string, query?: QueryOptions): Observable<T> {
+  get<T>(path: string, query?: object): Observable<T> {
     return this.http.get<T>(this.buildUrl(path), {
       params: this.buildParams(query)
     });
@@ -43,7 +42,7 @@ export class ApiClientService {
     return `${environment.apiBaseUrl}/${normalized}`;
   }
 
-  private buildParams(query?: QueryOptions): HttpParams | undefined {
+  private buildParams(query?: object): HttpParams | undefined {
     if (!query) {
       return undefined;
     }
