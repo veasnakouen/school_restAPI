@@ -1,0 +1,42 @@
+<div class="role-management">
+  <h3>Role Management</h3>
+
+  <button (click)="startCreate()">Add Role</button>
+
+  <table *ngIf="roles.length > 0">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Permissions</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let role of roles">
+        <td>{{ role.name }}</td>
+        <td>{{ role.permissions.join(', ') }}</td>
+        <td>
+          <button (click)="startEdit(role)">Edit</button>
+          <button (click)="deleteRole(role)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div *ngIf="roles.length === 0">No roles found.</div>
+
+  <div *ngIf="isEditing || isCreating" class="role-form">
+    <h4>{{ isCreating ? 'Create Role' : 'Edit Role' }}</h4>
+    <form (ngSubmit)="saveRole()">
+      <label>
+        Name:
+        <input [(ngModel)]="selectedRole!.name" name="name" required />
+      </label>
+      <label>
+        Permissions (comma separated):
+        <input [(ngModel)]="permissionsString" name="permissions" />
+      </label>
+      <button type="submit">Save</button>
+      <button type="button" (click)="cancel()">Cancel</button>
+    </form>
+  </div>
+</div>

@@ -2,19 +2,16 @@ import { CommonModule } from '@angular/common';
 import { animate, style, transition, trigger } from '@angular/animations';
 import { Component, DestroyRef, HostListener, effect, inject, OnInit } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { catchError, filter, forkJoin, of } from 'rxjs';
+import { filter } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../core/services/auth.service';
-import { ClassApiService } from '../core/services/class-api.service';
-import { ProductApiService } from '../core/services/product-api.service';
-import { StudentApiService } from '../core/services/student-api.service';
 import { ThemeName, ThemeService } from '../core/services/theme.service';
 import { UserPreferencesService } from '../core/services/user-preferences.service';
 import { DashboardComponent } from '../features/dashboard/dashboard.component';
 import { ClassDto, StudentDto } from '../models/academic.model';
+import { SidebarSummaryResponse } from '../models/auth.model';
 import { ProductDto } from '../models/inventory.model';
 import { PagedResult } from '../models/paging.model';
-import { UserProfile } from '../models/auth.model';
 import { ClickOutsideDirective } from '../shared/directives/click-outside.directive';
 
 interface NavItem {
@@ -50,8 +47,10 @@ interface NavItem {
 
       <div class="relative z-10 flex h-screen gap-4 overflow-hidden lg:h-[100dvh]" [ngClass]="preferences.compactMode() ? 'p-3' : 'p-4'" [style.marginRight]="showDataPanel && isLargeScreen ? '26rem' : '0'">
 
+      <!-- Sidebar -->
       <aside
-        class="app-shell-panel fixed inset-y-4 left-4 z-30 flex h-[calc(100dvh-2rem)] w-72 shrink-0 flex-col transition-transform duration-300"
+        class="app-shell-panel fixed left-4 z-20 flex w-72 shrink-0 flex-col transition-transform duration-200 ease-out"
+        [ngClass]="isLargeScreen ? 'inset-y-4 h-[calc(100dvh-2rem)]' : 'inset-y-20 h-[calc(100dvh-6rem)]'"
         [style.transform]="sidebarOpen ? 'translateX(0)' : 'translateX(calc(-100% - 2rem))'"
       >
         <div class="border-b border-base-300/70 px-5 py-5">
@@ -84,7 +83,6 @@ interface NavItem {
                   [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
                   [title]="item.description"
                   class="group flex items-start gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold text-base-content/75 transition hover:border-base-300 hover:bg-base-200/80 hover:text-base-content"
-                  (click)="sidebarOpen = false"
                 >
                   <span class="pi mt-0.5 text-base text-primary transition group-hover:scale-110 group-hover:text-base-content" [ngClass]="item.icon"></span>
                   <span class="flex-1">
@@ -96,20 +94,14 @@ interface NavItem {
             }
           </ul>
         </nav>
-
-
       </aside>
 
-      <!-- OVERLAY (small screens only) -->
-      @if ((sidebarOpen || showDataPanel) && !isLargeScreen) {
-        <div class="fixed inset-0 z-20 bg-black/60" (click)="closePanels()"></div>
-      }
-
-      <div class="flex h-full flex-1 flex-col gap-4 transition-[margin] duration-300"
+      <!-- Main content area -->
+      <div class="flex h-full flex-1 flex-col gap-4 transition-[margin] duration-200 ease-out"
            [style.marginLeft]="sidebarOpen && isLargeScreen ? '19rem' : '0'">
 
-        <header class="app-shell-panel relative z-20 flex min-h-20 shrink-0 items-center gap-4" [ngClass]="preferences.compactMode() ? 'px-3 py-3' : 'px-4 py-4 lg:px-6'">
-          <button class="btn btn-ghost btn-sm" (click)="toggleSidebar()">
+        <header class="app-shell-panel relative z-40 flex min-h-20 shrink-0 items-center gap-4" [ngClass]="preferences.compactMode() ? 'px-3 py-3' : 'px-4 py-4 lg:px-6'">
+          <button class="btn btn-ghost btn-sm cursor-pointer" style="pointer-events: auto;" (click)="toggleSidebar(); $event.stopPropagation(); $event.preventDefault();">
             <span class="pi pi-bars text-lg"></span>
           </button>
 
@@ -368,7 +360,7 @@ interface NavItem {
                 <p class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">Profile</p>
                 <h3 class="mt-1 text-base font-bold text-base-content">Signed-in user</h3>
               </div>
-              <span class="badge badge-ghost badge-sm">GET /api/auth/profile</span>
+              <span class="badge badge-ghost badge-sm">GET /api/auth/sidebar-summary</span>
             </div>
 
             <div class="mt-3 space-y-1 text-sm text-base-content/70">
@@ -464,18 +456,8 @@ export class AppShellComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly auth = inject(AuthService);
-  private readonly classApi = inject(ClassApiService);
-  private readonly studentApi = inject(StudentApiService);
-  private readonly productApi = inject(ProductApiService);
   protected readonly theme = inject(ThemeService);
   protected readonly preferences = inject(UserPreferencesService);
-  private readonly syncSidebarPreference = effect(() => {
-    this.preferences.sidebarOpen();
-
-    if (this.isLargeScreen) {
-      this.sidebarOpen = this.preferences.sidebarOpen();
-    }
-  });
 
   protected readonly navigationItems: NavItem[] = [
     { label: 'Dashboard', path: '/dashboard', icon: 'pi-home', description: 'Summary and quick access', exact: true },
@@ -483,7 +465,8 @@ export class AppShellComponent implements OnInit {
     { label: 'Classes', path: '/classes', icon: 'pi-id-card', description: 'Academic class list' },
     { label: 'Students', path: '/students', icon: 'pi-user', description: 'Student records' },
     { label: 'Products', path: '/products', icon: 'pi-box', description: 'Inventory and items' },
-    { label: 'Reports', path: '/reports', icon: 'pi-chart-bar', description: 'PDF and Excel exports' }
+    { label: 'Reports', path: '/reports', icon: 'pi-chart-bar', description: 'PDF and Excel exports' },
+    { label: 'Admin', path: '/admin', icon: 'pi-shield', description: 'User, role, and permission management' }
   ];
 
   private readonly pageMetadata: Record<string, { title: string; description: string }> = {
@@ -499,7 +482,19 @@ export class AppShellComponent implements OnInit {
 
   private readonly LG_BREAKPOINT = 1024;
 
-  protected sidebarOpen = window.innerWidth >= this.LG_BREAKPOINT && this.preferences.sidebarOpen();
+  protected sidebarOpen = this.initializeSidebarState();
+
+  private initializeSidebarState(): boolean {
+    const isLarge = window.innerWidth >= this.LG_BREAKPOINT;
+    if (isLarge) {
+      // On desktop, respect the saved preference
+      return this.preferences.sidebarOpen();
+    } else {
+      // On small screens, always start hidden
+      return false;
+    }
+  }
+
   protected isLargeScreen = window.innerWidth >= this.LG_BREAKPOINT;
   protected showThemeMenu = false;
   protected showUserMenu = false;
@@ -508,7 +503,7 @@ export class AppShellComponent implements OnInit {
   protected activePageDescription = 'Summary and quick access';
   protected dataPanelLoading = false;
   protected dataPanelLoadedAt = '';
-  protected profilePanel: UserProfile | null = null;
+  protected profilePanel: SidebarSummaryResponse['profile'] | null = null;
   protected classPanel: PagedResult<ClassDto> | null = null;
   protected studentPanel: PagedResult<StudentDto> | null = null;
   protected productPanel: PagedResult<ProductDto> | null = null;
@@ -520,14 +515,21 @@ export class AppShellComponent implements OnInit {
   @HostListener('window:resize')
   onResize(): void {
     const nextIsLargeScreen = window.innerWidth >= this.LG_BREAKPOINT;
-    this.isLargeScreen = nextIsLargeScreen;
-
-    if (!nextIsLargeScreen) {
+    const wasLargeScreen = this.isLargeScreen;
+    
+    // When transitioning from large to small screen
+    if (wasLargeScreen && !nextIsLargeScreen) {
+      // Auto-hide sidebar on small screens
       this.sidebarOpen = false;
-      return;
     }
-
-    this.sidebarOpen = this.preferences.sidebarOpen();
+    
+    // When transitioning from small to large screen
+    if (!wasLargeScreen && nextIsLargeScreen) {
+      // Restore the saved preference for desktop
+      this.sidebarOpen = this.preferences.sidebarOpen();
+    }
+    
+    this.isLargeScreen = nextIsLargeScreen;
   }
 
   ngOnInit(): void {
@@ -552,6 +554,10 @@ export class AppShellComponent implements OnInit {
     }
   }
 
+  protected get themePreviewOptions() {
+    return this.theme.themes.filter((option) => ['light', 'dark', 'forest', 'night', 'cupcake', 'emerald'].includes(option.id));
+  }
+
   protected toggleDataPanel(): void {
     this.showDataPanel = !this.showDataPanel;
     if (this.showDataPanel) {
@@ -571,12 +577,7 @@ export class AppShellComponent implements OnInit {
   protected loadDataPanel(): void {
     this.dataPanelLoading = true;
 
-    forkJoin({
-      profile: this.auth.profile().pipe(catchError(() => of(null))),
-      classes: this.classApi.list({ pageSize: 5 }).pipe(catchError(() => of(null))),
-      students: this.studentApi.list({ pageSize: 5 }).pipe(catchError(() => of(null))),
-      products: this.productApi.list({ pageSize: 5 }).pipe(catchError(() => of(null)))
-    })
+    this.auth.sidebarSummary()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (result) => {

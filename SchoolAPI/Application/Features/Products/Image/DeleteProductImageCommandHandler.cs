@@ -33,6 +33,7 @@ public class DeleteProductImageCommandHandler : IRequestHandler<DeleteProductIma
         var product = await _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Image)
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
         if (product == null)
@@ -40,18 +41,24 @@ public class DeleteProductImageCommandHandler : IRequestHandler<DeleteProductIma
             return Result<ProductDto>.Failure("Product not found.");
         }
 
-        var publicId = product.ImagePublicId;
-        product.ImageUrl = string.Empty;
-        product.ImagePublicId = null;
+        if (product.Image != null)
+        {
+            var publicId = product.Image.PublicId;
+            
+            // Delete from Cloudinary
+            if (!string.IsNullOrWhiteSpace(publicId))
+            {
+                await _photoService.DeletePhotoAsync(publicId);
+            }
+            
+            // Remove the ProductImage entity
+            _context.ProductImages.Remove(product.Image);
+        }
+        
         product.UpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
         _cacheVersionService.Invalidate("products");
-
-        if (!string.IsNullOrWhiteSpace(publicId))
-        {
-            await _photoService.DeletePhotoAsync(publicId);
-        }
 
         return Result<ProductDto>.Success(_mapper.Map<ProductDto>(product));
     }

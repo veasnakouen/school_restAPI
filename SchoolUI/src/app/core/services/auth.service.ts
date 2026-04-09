@@ -5,6 +5,7 @@ import { ApiClientService } from './api-client.service';
 import {
   AuthResponse,
   AuthSession,
+  SidebarSummaryResponse,
   LoginRequest,
   RefreshTokenRequest,
   RegisterRequest,
@@ -23,6 +24,12 @@ export class AuthService {
 
   readonly session = this.sessionSignal.asReadonly();
   readonly isAuthenticated = computed(() => Boolean(this.sessionSignal()?.accessToken));
+
+  /** Returns true if the current user has the 'Admin' role. */
+  isAdmin(): boolean {
+    const session = this.sessionSignal();
+    return !!session && Array.isArray(session.roles) && session.roles.includes('Admin');
+  }
 
   constructor(
     private readonly api: ApiClientService,
@@ -75,6 +82,10 @@ export class AuthService {
 
   profile() {
     return this.api.get<UserProfile>('Auth/profile');
+  }
+
+  sidebarSummary() {
+    return this.api.get<SidebarSummaryResponse>('Auth/sidebar-summary');
   }
 
   updateProfile(request: UpdateProfileRequest) {

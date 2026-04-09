@@ -6,7 +6,17 @@
       "Bash(dotnet *)",
       "Bash(taskkill *)",
       "Bash(start-sleep *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(redis-server)",
+      "Bash(npm install *)",
+      "Bash(docker ps)",
+      "Bash(docker run *)",
+      "Bash(docker start *)",
+      "Bash(timeout *)",
+      "Bash(curl *)",
+      "Bash(netstat *)",
+      "Bash(findstr *)",
+      "Bash(tasklist)"
     ]
   },
   "$version": 3

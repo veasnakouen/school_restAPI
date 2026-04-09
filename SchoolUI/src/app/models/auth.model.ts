@@ -73,3 +73,15 @@ export interface UpdateProfileRequest {
   fullName: string;
   phoneNumber: string;
 }
+
+export interface SidebarSummaryResponse {
+  profile: UserProfile;
+  classes: import('./paging.model').PagedResult<import('./academic.model').ClassDto>;
+  students: import('./paging.model').PagedResult<import('./academic.model').StudentDto>;
+  products: import('./paging.model').PagedResult<import('./inventory.model').ProductDto> | null;
+  errors: {
+    classes: string | null;
+    students: string | null;
+    products: string | null;
+  };
+}

@@ -1,8 +1,26 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { ClassApiService } from '../../core/services/class-api.service';
+import { StudentApiService } from '../../core/services/student-api.service';
+import { ProductApiService } from '../../core/services/product-api.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
+import { forkJoin, of, timeout } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import * as L from 'leaflet';
+import { Chart, registerables } from 'chart.js';
+
+Chart.register(...registerables);
+
+interface DashboardData {
+  totalClasses: number;
+  totalStudents: number;
+  totalProducts: number;
+  recentClasses: any[];
+  recentStudents: any[];
+  recentProducts: any[];
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -10,290 +28,216 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
   imports: [CommonModule, RouterLink, ScrollAnimateDirective],
   template: `
     <div class="mx-auto max-w-[1600px] space-y-6">
-      <section scrollAnimate animateVariant="fade-up" animateDelay="0ms" class="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <article class="relative overflow-hidden rounded-[30px] border border-primary/20 bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-2xl">
-          <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.18),transparent_38%)]"></div>
-          <div class="relative card-body gap-6 p-6 lg:p-8">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content">Today</span>
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/90">{{ auth.session()?.fullName || 'School user' }}</span>
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/80">{{ auth.session()?.email || 'guest' }}</span>
-            </div>
-
-            <div class="max-w-3xl space-y-3">
-              <p class="text-xs uppercase tracking-[0.45em] text-primary-content/75">Command center</p>
-              <h2 class="text-4xl font-black tracking-tight sm:text-5xl">A cleaner, faster overview of school operations.</h2>
-              <p class="max-w-2xl text-sm text-primary-content/80 sm:text-base">
-                Track enrollment, inventory, reports, and live activity from one polished dashboard surface.
-              </p>
-            </div>
-
-            <div class="flex flex-wrap gap-3">
-              <a routerLink="/reports" class="btn border-0 bg-white text-base-content shadow-lg hover:bg-white/95">Open reports</a>
-              <a routerLink="/students" class="btn btn-ghost border border-primary-content/20 text-primary-content hover:bg-primary-content/10">View students</a>
-            </div>
-          </div>
-        </article>
-
-        <article class="app-shell-panel overflow-hidden">
-          <div class="card-body gap-5 p-6 lg:p-8">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <h3 class="card-title text-2xl">Live summary</h3>
-                <p class="text-sm text-base-content/60">Quick signals for today’s session.</p>
-              </div>
-              <div class="badge badge-primary badge-outline">Synced</div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="rounded-3xl bg-base-200/80 p-4">
-                <div class="text-xs uppercase tracking-[0.35em] text-base-content/50">Current user</div>
-                <div class="mt-2 text-2xl font-extrabold text-base-content">{{ auth.session()?.fullName || 'Guest user' }}</div>
-                <div class="mt-1 text-sm text-base-content/60">{{ auth.session()?.email || 'No session available' }}</div>
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-3">
-                <div class="rounded-3xl bg-base-200/70 p-4">
-                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Theme</div>
-                  <div class="mt-2 text-lg font-bold">Night-ready</div>
-                  <div class="text-xs text-base-content/60">Adaptive visuals</div>
-                </div>
-                <div class="rounded-3xl bg-base-200/70 p-4">
-                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Reports</div>
-                  <div class="mt-2 text-lg font-bold">18</div>
-                  <div class="text-xs text-base-content/60">Ready to export</div>
-                </div>
-                <div class="rounded-3xl bg-base-200/70 p-4">
-                  <div class="text-xs uppercase tracking-[0.3em] text-base-content/50">Status</div>
-                  <div class="mt-2 text-lg font-bold text-success">Healthy</div>
-                  <div class="text-xs text-base-content/60">All services stable</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section scrollAnimate animateVariant="fade-up" animateDelay="80ms" class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        @for (item of metricCards; track $index) {
-          <article class="app-shell-panel overflow-hidden">
-            <div class="card-body gap-3 p-5">
-              <div class="text-[11px] font-semibold uppercase tracking-[0.45em] text-base-content/45">{{ item.label }}</div>
-              <div class="flex items-end justify-between gap-3">
+      <!-- Stats Cards -->
+      <section scrollAnimate animateVariant="fade-up" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        @for (stat of stats; track stat.label) {
+          <article class="app-shell-panel p-5">
+            <div class="text-[11px] font-semibold uppercase tracking-[0.45em] text-base-content/45">{{ stat.label }}</div>
+            <div class="mt-2 flex items-end justify-between">
+              @if (loading) {
+                <span class="loading loading-dots loading-sm text-primary"></span>
+              } @else {
                 <div>
-                  <div class="text-4xl font-black tracking-tight text-base-content">{{ item.value }}</div>
-                  <div class="mt-1 text-sm text-success">{{ item.delta }}</div>
+                  <div class="text-4xl font-black tracking-tight text-base-content">{{ stat.value }}</div>
+                  <div class="mt-1 text-sm text-base-content/60">{{ stat.description }}</div>
                 </div>
-                <div class="rounded-3xl bg-gradient-to-br from-primary/15 to-secondary/15 p-3 text-primary shadow-inner">
-                  <span class="pi {{ item.icon }} text-xl"></span>
-                </div>
+              }
+              <div class="rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 p-3 text-primary">
+                <span class="pi {{ stat.icon }} text-xl"></span>
               </div>
             </div>
           </article>
         }
       </section>
 
-      <section scrollAnimate animateVariant="fade-up" animateDelay="140ms" class="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+      <!-- Map and Pie Chart Section -->
+      <section scrollAnimate animateVariant="fade-up" animateDelay="150ms" class="grid gap-6 xl:grid-cols-2">
+        <!-- Map Card -->
         <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-5 p-6">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <h2 class="card-title text-2xl">Transactions</h2>
-                <p class="text-sm text-base-content/60">Recent school and inventory activity.</p>
-              </div>
-              <div class="badge badge-primary badge-outline">Live</div>
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="table table-zebra">
-                <thead>
-                  <tr>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th class="text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of transactions; track $index) {
-                    <tr>
-                      <td>
-                        <div class="font-medium text-base-content">{{ row.name }}</div>
-                        <div class="text-xs text-base-content/60">{{ row.note }}</div>
-                      </td>
-                      <td>{{ row.date }}</td>
-                      <td>
-                        <span class="badge" [class.badge-success]="row.status === 'Completed'" [class.badge-warning]="row.status === 'Pending'" [class.badge-error]="row.status === 'Failed'">
-                          {{ row.status }}
-                        </span>
-                      </td>
-                      <td class="text-right font-semibold text-base-content">{{ row.amount }}</td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </article>
-
-        <article class="card overflow-hidden border border-primary/20 bg-gradient-to-br from-primary to-secondary text-primary-content shadow-xl">
-          <div class="card-body gap-5 p-6">
-            <div class="flex items-start justify-between gap-4">
-              <div>
-                <h2 class="card-title text-2xl text-primary-content">21,500 USD</h2>
-                <p class="text-primary-content/80">Revenue report</p>
-              </div>
-              <div class="badge border-primary-content/20 bg-primary-content/10 text-primary-content">This week</div>
-            </div>
-
-            <div class="flex h-64 items-end gap-2 pt-4">
-              @for (bar of revenueBars; track $index) {
-                <div class="flex-1 rounded-t-lg bg-primary-content/90 opacity-90" [style.height.%]="bar"></div>
-              }
-            </div>
-          </div>
-        </article>
-      </section>
-
-      <section scrollAnimate animateVariant="fade-up" animateDelay="200ms" class="grid gap-6 md:grid-cols-3">
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
+          <div class="card-body gap-4 p-5 h-full flex flex-col">
             <div>
-              <h3 class="card-title text-xl">Sources</h3>
-              <p class="text-sm text-base-content/60">Traffic breakdown</p>
+              <h3 class="card-title text-xl">🗺️ Geographic Overview</h3>
+              <p class="text-sm text-base-content/60">Your current location</p>
             </div>
-            <div class="mx-auto flex h-40 w-40 items-center justify-center rounded-full"
-                 [style.background]="sourcesGradient">
-              <div class="flex h-24 w-24 items-center justify-center rounded-full bg-base-100 text-center text-sm font-semibold text-base-content shadow-md">
-                100%
-              </div>
-            </div>
-            <div class="grid gap-2 text-sm">
-              @for (source of sources; track source.label) {
-                <div class="flex items-center gap-3">
-                  <span class="h-3 w-3 rounded-full" [style.background]="source.color"></span>
-                  <span class="flex-1 text-base-content/70">{{ source.label }}</span>
-                  <span class="font-semibold">{{ source.value }}%</span>
+
+            <div class="flex-1 min-h-[20rem] rounded-2xl overflow-hidden relative w-full bg-base-200">
+              <div id="dashboard-map" class="w-full h-full absolute inset-0"></div>
+
+              @if (mapLoading) {
+                <div class="absolute inset-0 flex items-center justify-center bg-base-200 rounded-2xl">
+                  <div class="text-center">
+                    <span class="loading loading-spinner loading-lg text-primary"></span>
+                    <div class="mt-3 text-sm text-base-content/60">Loading map...</div>
+                  </div>
                 </div>
               }
             </div>
           </div>
         </article>
 
+        <!-- Pie Chart Card -->
         <article class="card border border-base-300 bg-base-100 shadow-xl">
           <div class="card-body gap-4 p-5">
             <div>
-              <h3 class="card-title text-xl">Downloads</h3>
-              <p class="text-sm text-base-content/60">Monthly file activity</p>
+              <h3 class="card-title text-xl">📊 Data Distribution</h3>
+              <p class="text-sm text-base-content/60">Classes, Students & Products</p>
             </div>
-            <div class="flex h-40 items-end gap-1 rounded-2xl bg-base-200 p-4">
-              @for (point of downloads; track $index) {
-                <div class="flex-1 rounded-t-lg bg-primary/70" [style.height.%]="point"></div>
-              }
-            </div>
-            <div class="text-2xl font-bold">19,000</div>
-            <div class="text-sm text-base-content/60">Downloads this month</div>
-          </div>
-        </article>
 
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
-            <div>
-              <h3 class="card-title text-xl">Unique visitors</h3>
-              <p class="text-sm text-base-content/60">Platform visits</p>
+            <div class="flex-1 min-h-[20rem] flex items-center justify-center">
+              <div class="w-full max-w-md">
+                <canvas id="dashboard-pie-chart"></canvas>
+              </div>
             </div>
-            <div class="flex h-40 items-end gap-1 rounded-2xl bg-base-200 p-4">
-              @for (point of visitors; track $index) {
-                <div class="flex-1 rounded-t-lg bg-secondary/70" [style.height.%]="point"></div>
-              }
-            </div>
-            <div class="text-2xl font-bold">32,800</div>
-            <div class="text-sm text-base-content/60">Unique visitors</div>
           </div>
         </article>
       </section>
 
-      <section scrollAnimate animateVariant="fade-up" animateDelay="260ms" class="grid gap-6 xl:grid-cols-2">
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
-            <div>
-              <h3 class="card-title text-xl">Map</h3>
-              <p class="text-sm text-base-content/60">Geographic overview</p>
-            </div>
-
-            <div class="grid h-full min-h-[18rem] place-items-center rounded-3xl bg-base-200 p-6">
-              <div class="text-center">
-                <span class="pi pi-globe text-6xl text-base-content/30"></span>
-                <div class="mt-4 text-sm text-base-content/60">Regional distribution placeholder</div>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
-            <div>
-              <h3 class="card-title text-xl">Recent events</h3>
-              <p class="text-sm text-base-content/60">Latest activity feed</p>
-            </div>
-
-            <ul class="space-y-3">
-              @for (event of recentEvents; track event.title) {
-                <li class="flex items-start gap-3 rounded-2xl bg-base-200 px-4 py-3">
-                  <div class="avatar placeholder">
-                    <div class="w-8 rounded-full bg-primary text-primary-content text-xs">{{ event.initial }}</div>
-                  </div>
-                  <div class="min-w-0 flex-1">
-                    <div class="text-sm font-semibold text-base-content">{{ event.title }}</div>
-                    <div class="text-xs text-base-content/60">{{ event.subtitle }}</div>
-                  </div>
-                  <div class="text-[11px] text-base-content/50">{{ event.time }}</div>
-                </li>
-              }
-            </ul>
-          </div>
-        </article>
-      </section>
-
-      <section class="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <article class="card border border-base-300 bg-base-100 shadow-xl">
-          <div class="card-body gap-4 p-5">
-            <div>
-              <h3 class="card-title text-xl">Current user</h3>
-              <p class="text-sm text-base-content/60">Session snapshot</p>
-            </div>
-
-            <div class="grid gap-3 sm:grid-cols-3">
-              <div class="rounded-2xl bg-base-200 p-4">
-                <div class="text-xs uppercase tracking-[0.3em] text-base-content/60">Email</div>
-                <div class="mt-2 font-medium">{{ auth.session()?.email || 'Not signed in' }}</div>
-              </div>
-              <div class="rounded-2xl bg-base-200 p-4">
-                <div class="text-xs uppercase tracking-[0.3em] text-base-content/60">Name</div>
-                <div class="mt-2 font-medium">{{ auth.session()?.fullName || '-' }}</div>
-              </div>
-              <div class="rounded-2xl bg-base-200 p-4">
-                <div class="text-xs uppercase tracking-[0.3em] text-base-content/60">Expiry</div>
-                <div class="mt-2 font-medium">{{ auth.session()?.expiresAt || '-' }}</div>
-              </div>
-            </div>
-          </div>
-        </article>
-
+      <!-- Recent Data from API -->
+      <section scrollAnimate animateVariant="fade-up" animateDelay="100ms" class="grid gap-6 xl:grid-cols-3">
+        <!-- Recent Classes -->
         <article class="card border border-base-300 bg-base-100 shadow-xl">
           <div class="card-body gap-4 p-5">
             <div class="flex items-center justify-between gap-4">
               <div>
-                <h3 class="card-title text-xl">Monthly reports</h3>
-                <p class="text-sm text-base-content/60">PDF / Excel / queue</p>
+                <h3 class="card-title text-xl">Recent Classes</h3>
+                <p class="text-sm text-base-content/60">Latest from API</p>
               </div>
-              <div class="badge badge-primary badge-outline">API</div>
+              <div class="badge badge-primary badge-outline">{{ dashboardData.recentClasses.length }}</div>
             </div>
 
-            <div class="grid gap-3 sm:grid-cols-3">
-              <a class="btn btn-primary btn-sm" routerLink="/reports">PDF</a>
-              <a class="btn btn-outline btn-sm" routerLink="/reports">Excel</a>
-              <a class="btn btn-ghost btn-sm" routerLink="/reports">Queue job</a>
+            @if (loading) {
+              <div class="flex h-32 items-center justify-center">
+                <span class="loading loading-spinner loading-md text-primary"></span>
+              </div>
+            } @else {
+              <div class="space-y-2">
+                @for (cls of dashboardData.recentClasses; track cls.id) {
+                  <div class="rounded-2xl bg-base-200 p-3">
+                    <div class="font-medium text-base-content">{{ cls.className }}</div>
+                    <div class="text-xs text-base-content/60">{{ cls.students?.length || 0 }} students</div>
+                  </div>
+                } @empty {
+                  <div class="py-4 text-center text-sm text-base-content/50">No classes found</div>
+                }
+              </div>
+            }
+
+            <a routerLink="/classes" class="btn btn-ghost btn-sm justify-start">
+              <span>View all classes</span>
+              <span class="pi pi-arrow-right text-xs"></span>
+            </a>
+          </div>
+        </article>
+
+        <!-- Recent Students -->
+        <article class="card border border-base-300 bg-base-100 shadow-xl">
+          <div class="card-body gap-4 p-5">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h3 class="card-title text-xl">Recent Students</h3>
+                <p class="text-sm text-base-content/60">Latest from API</p>
+              </div>
+              <div class="badge badge-secondary badge-outline">{{ dashboardData.recentStudents.length }}</div>
+            </div>
+
+            @if (loading) {
+              <div class="flex h-32 items-center justify-center">
+                <span class="loading loading-spinner loading-md text-secondary"></span>
+              </div>
+            } @else {
+              <div class="space-y-2">
+                @for (student of dashboardData.recentStudents; track student.id) {
+                  <div class="rounded-2xl bg-base-200 p-3">
+                    <div class="font-medium text-base-content">{{ student.engFirstName }} {{ student.engLastName }}</div>
+                    <div class="text-xs text-base-content/60">{{ student.gender }} • {{ student.khFirstName }} {{ student.khLastName }}</div>
+                  </div>
+                } @empty {
+                  <div class="py-4 text-center text-sm text-base-content/50">No students found</div>
+                }
+              </div>
+            }
+
+            <a routerLink="/students" class="btn btn-ghost btn-sm justify-start">
+              <span>View all students</span>
+              <span class="pi pi-arrow-right text-xs"></span>
+            </a>
+          </div>
+        </article>
+
+        <!-- Recent Products -->
+        <article class="card border border-base-300 bg-base-100 shadow-xl">
+          <div class="card-body gap-4 p-5">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <h3 class="card-title text-xl">Recent Products</h3>
+                <p class="text-sm text-base-content/60">Latest from API</p>
+              </div>
+              <div class="badge badge-accent badge-outline">{{ dashboardData.recentProducts.length }}</div>
+            </div>
+
+            @if (loading) {
+              <div class="flex h-32 items-center justify-center">
+                <span class="loading loading-spinner loading-md text-accent"></span>
+              </div>
+            } @else {
+              <div class="space-y-2">
+                @for (product of dashboardData.recentProducts; track product.id) {
+                  <div class="rounded-2xl bg-base-200 p-3">
+                    <div class="font-medium text-base-content">{{ product.name }}</div>
+                    <div class="text-xs text-base-content/60">{{ product.categoryName || 'No category' }} • {{ product.price ? (product.price | number:'1.0-2') + ' USD' : 'No price' }}</div>
+                  </div>
+                } @empty {
+                  <div class="py-4 text-center text-sm text-base-content/50">No products found</div>
+                }
+              </div>
+            }
+
+            <a routerLink="/products" class="btn btn-ghost btn-sm justify-start">
+              <span>View all products</span>
+              <span class="pi pi-arrow-right text-xs"></span>
+            </a>
+          </div>
+        </article>
+      </section>
+
+      <!-- Quick Actions -->
+      <section scrollAnimate animateVariant="fade-up" animateDelay="200ms">
+        <article class="card border border-base-300 bg-base-100 shadow-xl">
+          <div class="card-body gap-4 p-5">
+            <div>
+              <h3 class="card-title text-xl">Quick Actions</h3>
+              <p class="text-sm text-base-content/60">Navigate to key features</p>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <a routerLink="/classes" class="btn btn-ghost justify-start rounded-xl">
+                <span class="pi pi-id-card text-primary text-lg"></span>
+                <span class="flex-1 text-left">
+                  <span class="block font-medium">Manage Classes</span>
+                  <span class="block text-xs text-base-content/60">View and edit class records</span>
+                </span>
+              </a>
+              <a routerLink="/students" class="btn btn-ghost justify-start rounded-xl">
+                <span class="pi pi-user text-secondary text-lg"></span>
+                <span class="flex-1 text-left">
+                  <span class="block font-medium">Manage Students</span>
+                  <span class="block text-xs text-base-content/60">Student enrollment and records</span>
+                </span>
+              </a>
+              <a routerLink="/products" class="btn btn-ghost justify-start rounded-xl">
+                <span class="pi pi-box text-accent text-lg"></span>
+                <span class="flex-1 text-left">
+                  <span class="block font-medium">Manage Products</span>
+                  <span class="block text-xs text-base-content/60">Inventory and stock tracking</span>
+                </span>
+              </a>
+              <a routerLink="/api-console" class="btn btn-ghost justify-start rounded-xl">
+                <span class="pi pi-sliders-h text-warning text-lg"></span>
+                <span class="flex-1 text-left">
+                  <span class="block font-medium">API Console</span>
+                  <span class="block text-xs text-base-content/60">Direct API interaction</span>
+                </span>
+              </a>
             </div>
           </div>
         </article>
@@ -301,54 +245,244 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
     </div>
   `
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly auth = inject(AuthService);
+  private readonly classApi = inject(ClassApiService);
+  private readonly studentApi = inject(StudentApiService);
+  private readonly productApi = inject(ProductApiService);
 
-  protected readonly metricCards = [
-    { label: 'Active students', value: '1,284', delta: '+8.4% from last week', icon: 'pi-users' },
-    { label: 'Open classes', value: '42', delta: '6 awaiting updates', icon: 'pi-id-card' },
-    { label: 'Inventory items', value: '3,920', delta: '+124 items added', icon: 'pi-box' },
-    { label: 'Reports ready', value: '18', delta: '3 exported today', icon: 'pi-chart-bar' }
-  ];
+  protected loading = true;
+  protected mapLoading = true;
+  private map: L.Map | null = null;
+  private pieChart: Chart | null = null;
+  
+  protected dashboardData: DashboardData = {
+    totalClasses: 0,
+    totalStudents: 0,
+    totalProducts: 0,
+    recentClasses: [],
+    recentStudents: [],
+    recentProducts: []
+  };
 
-  protected readonly transactions = [
-    { name: 'Cy Ganderton', note: 'Feb 2nd', date: 'Feb 2nd', status: 'Completed', amount: '180 USD' },
-    { name: 'Hart Hagerty', note: 'Sep 2nd', date: 'Sep 2nd', status: 'Pending', amount: '250 USD' },
-    { name: 'Jim Hagerty', note: 'Sep 2nd', date: 'Sep 2nd', status: 'Pending', amount: '250 USD' },
-    { name: 'Hart Hagerty', note: 'Sep 2nd', date: 'Sep 2nd', status: 'Failed', amount: '250 USD' },
-    { name: 'Bryce Swag', note: 'Jul 2nd', date: 'Jul 2nd', status: 'Completed', amount: '300 USD' }
-  ];
+  ngOnInit(): void {
+    // Load data immediately
+    this.loadDashboardData();
+  }
 
-  protected readonly revenueBars = [
-    18, 34, 29, 42, 58, 44, 33, 38, 61, 74, 66, 81, 55, 49, 72, 63, 48, 57, 69, 77
-  ];
+  ngAfterViewInit(): void {
+    this.initMap();
+    this.initPieChart();
+  }
 
-  protected readonly sources = [
-    { label: 'Direct', value: 45, color: '#4f46e5' },
-    { label: 'Social', value: 25, color: '#8b5cf6' },
-    { label: 'Search', value: 18, color: '#22c55e' },
-    { label: 'Email', value: 12, color: '#f59e0b' }
-  ];
+  ngOnDestroy(): void {
+    if (this.map) {
+      const observer = (this.map as any)._resizeObserver;
+      if (observer) {
+        observer.disconnect();
+      }
+      this.map.remove();
+    }
+    if (this.pieChart) {
+      this.pieChart.destroy();
+    }
+  }
 
-  protected readonly downloads = [14, 32, 28, 54, 48, 61, 36, 58, 67, 55, 71, 64, 80, 59, 72, 68, 77, 85];
-  protected readonly visitors = [22, 30, 27, 36, 42, 33, 48, 40, 54, 45, 61, 57, 64, 52, 70, 58, 66, 74];
+  private loadDashboardData(): void {
+    this.loading = true;
 
-  protected readonly recentEvents = [
-    { initial: 'N', title: 'New user added', subtitle: 'You added a new school admin', time: '2m ago' },
-    { initial: 'T', title: 'Teacher updated', subtitle: 'Profile information edited', time: '15m ago' },
-    { initial: 'P', title: 'Product added', subtitle: 'Inventory updated successfully', time: '1h ago' },
-    { initial: 'R', title: 'Report queued', subtitle: 'Monthly exports started', time: '3h ago' }
-  ];
+    console.log('Starting to load dashboard data...');
 
-  protected get sourcesGradient(): string {
-    const total = this.sources.reduce((sum, item) => sum + item.value, 0);
-    let cursor = 0;
-    const stops = this.sources.map((item) => {
-      const start = cursor;
-      cursor += (item.value / total) * 100;
-      return `${item.color} ${start}% ${cursor}%`;
+    // Fetch all data in parallel with error handling and timeout
+    forkJoin({
+      classes: this.classApi.list({ pageSize: 5, sortBy: 'ClassName', isAscending: true }).pipe(
+        timeout(10000),
+        catchError(err => {
+          console.error('Failed to load classes:', err);
+          return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
+        })
+      ),
+      students: this.studentApi.list({ pageSize: 5, sortBy: 'EngFirstName', isAscending: true }).pipe(
+        timeout(10000),
+        catchError(err => {
+          console.error('Failed to load students:', err);
+          return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
+        })
+      ),
+      products: this.productApi.list({ pageSize: 5, sortBy: 'Name', isAscending: true }).pipe(
+        timeout(10000),
+        catchError(err => {
+          console.error('Failed to load products:', err);
+          return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
+        })
+      )
+    }).pipe(
+      // Force completion after 15 seconds max
+      timeout(15000)
+    ).subscribe({
+      next: (result) => {
+        console.log('Dashboard data loaded successfully:', result);
+        this.dashboardData = {
+          totalClasses: result.classes.totalCount || 0,
+          totalStudents: result.students.totalCount || 0,
+          totalProducts: result.products.totalCount || 0,
+          recentClasses: result.classes.items || [],
+          recentStudents: result.students.items || [],
+          recentProducts: result.products.items || []
+        };
+        this.loading = false;
+        console.log('Loading set to false. Dashboard data:', this.dashboardData);
+        
+        // Update pie chart with real data
+        this.updatePieChart();
+      },
+      error: (error) => {
+        console.error('Failed to load dashboard data (error handler):', error);
+        // Force stop loading even on error
+        this.loading = false;
+        this.dashboardData = {
+          totalClasses: 0,
+          totalStudents: 0,
+          totalProducts: 0,
+          recentClasses: [],
+          recentStudents: [],
+          recentProducts: []
+        };
+        console.log('Loading forced to false due to error');
+      },
+      complete: () => {
+        console.log('Dashboard data loading completed');
+        // Ensure loading is false on completion
+        this.loading = false;
+      }
+    });
+    
+    // Safety timeout: force loading to false after 20 seconds
+    setTimeout(() => {
+      if (this.loading) {
+        console.warn('Force stopping loading after timeout');
+        this.loading = false;
+      }
+    }, 20000);
+  }
+
+  protected get stats() {
+    return [
+      { label: 'Total Classes', value: this.dashboardData.totalClasses.toString(), description: 'From API', icon: 'pi-id-card' },
+      { label: 'Total Students', value: this.dashboardData.totalStudents.toString(), description: 'From API', icon: 'pi-users' },
+      { label: 'Total Products', value: this.dashboardData.totalProducts.toString(), description: 'From API', icon: 'pi-box' },
+      { label: 'Active User', value: this.auth.session()?.fullName?.split(' ')[0] || 'Guest', description: 'Current session', icon: 'pi-user' }
+    ];
+  }
+
+  private initMap(): void {
+    const mapElement = document.getElementById('dashboard-map');
+    if (!mapElement) return;
+
+    this.map = L.map('dashboard-map', {
+      zoomControl: false,
+      attributionControl: false,
+      fadeAnimation: true,
+      zoomAnimation: true
+    }).setView([11.5564, 104.9282], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors',
+      crossOrigin: true
+    }).addTo(this.map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(this.map);
+
+    setTimeout(() => {
+      this.map?.invalidateSize();
+    }, 100);
+
+    const resizeObserver = new ResizeObserver(() => {
+      setTimeout(() => {
+        this.map?.invalidateSize();
+      }, 100);
     });
 
-    return `conic-gradient(${stops.join(', ')})`;
+    resizeObserver.observe(mapElement);
+    (this.map as any)._resizeObserver = resizeObserver;
+
+    // Hide loading after map loads
+    setTimeout(() => {
+      this.mapLoading = false;
+    }, 1500);
+  }
+
+  private initPieChart(): void {
+    const canvas = document.getElementById('dashboard-pie-chart') as HTMLCanvasElement;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    this.pieChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Classes', 'Students', 'Products'],
+        datasets: [{
+          data: [
+            this.dashboardData.totalClasses || 10,
+            this.dashboardData.totalStudents || 50,
+            this.dashboardData.totalProducts || 30
+          ],
+          backgroundColor: [
+            'rgba(99, 102, 241, 0.8)',
+            'rgba(16, 185, 129, 0.8)',
+            'rgba(245, 158, 11, 0.8)'
+          ],
+          borderColor: [
+            'rgba(99, 102, 241, 1)',
+            'rgba(16, 185, 129, 1)',
+            'rgba(245, 158, 11, 1)'
+          ],
+          borderWidth: 2,
+          hoverOffset: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              font: {
+                size: 13,
+                weight: 'bold' as const
+              },
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.label || '';
+                const value = context.parsed || 0;
+                return `${label}: ${value}`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Update pie chart when data loads
+  private updatePieChart(): void {
+    if (this.pieChart) {
+      this.pieChart.data.datasets[0].data = [
+        this.dashboardData.totalClasses,
+        this.dashboardData.totalStudents,
+        this.dashboardData.totalProducts
+      ];
+      this.pieChart.update();
+    }
   }
 }

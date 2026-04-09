@@ -11,6 +11,7 @@ public interface IApplicationDbContext
     DbSet<OutReach> OutReaches { get; }
     DbSet<Attendance> Attendances { get; }
     DbSet<Product> Products { get; }
+    DbSet<ProductImage> ProductImages { get; }
     DbSet<Category> Categories { get; }
     DbSet<Brand> Brands { get; }
     DbSet<Department> Departments { get; }

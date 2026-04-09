@@ -1,3 +1,7 @@
+
+using Microsoft.AspNetCore.Authorization;
+using SchoolAPI.Authorization;
+using SchoolAPI.Data;
 using Scalar.AspNetCore;
 using Hangfire;
 using schoolAPI.Extensions;
@@ -10,6 +14,16 @@ using Microsoft.AspNetCore.HttpOverrides;
 using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+
+// Register PermissionHandler for policy-based authorization
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+
+// Register all services (including DbContext) before seeding and policy registration
+
+
+
 
 // Load secrets.json for local development (contains credentials, never commit to source control)
 if (builder.Environment.IsDevelopment())
@@ -68,7 +82,28 @@ builder.Services.AddDatabase(builder.Configuration)
         .AddFluentValidation()
         .AddSwagger();
 
+
 var app = builder.Build();
+
+
+// After app is built, seed permissions and register policies
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+    await DbInitializer.SeedPermissionsAsync(db);
+    var permissions = db.Permissions.Select(p => p.Name).ToList();
+    var authOptions = app.Services.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider>() as Microsoft.AspNetCore.Authorization.AuthorizationOptions;
+    var serviceProvider = app.Services;
+    var authorizationOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Authorization.AuthorizationOptions>>()?.Value;
+    if (authorizationOptions != null)
+    {
+        foreach (var perm in permissions)
+        {
+            if (authorizationOptions.GetPolicy(perm) == null)
+                authorizationOptions.AddPolicy(perm, policy => policy.Requirements.Add(new PermissionRequirement(perm)));
+        }
+    }
+}
 
 // Security headers — applied first so all responses are covered
 app.Use(async (ctx, next) =>

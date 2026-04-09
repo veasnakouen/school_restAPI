@@ -80,14 +80,18 @@ export class ClassesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading = true;
+    this.errorMessage = '';
     this.api.list({ pageSize: 100 }).subscribe({
       next: (result) => {
-        this.classes = result.items;
+        this.classes = result.items || [];
         this.loading = false;
+        console.log('Classes loaded:', this.classes.length);
       },
       error: (error) => {
+        console.error('Error loading classes:', error);
         this.errorMessage = error?.error?.message ?? 'Unable to load classes.';
         this.loading = false;
+        this.classes = [];
       }
     });
   }

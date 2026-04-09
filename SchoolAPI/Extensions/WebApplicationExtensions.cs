@@ -71,6 +71,27 @@ namespace SchoolAPI.Extensions
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Admin, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Admin));
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.DataEntry, Permissions.GetDefaultPermissionsForRole(Constant.Roles.DataEntry));
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Teacher, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Teacher));
+
+            // 5. Seed Sample Classes (only if no classes exist)
+            if (!await dbContext.Classes.AnyAsync())
+            {
+                var classes = new List<ClassRoom>
+                {
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 1A" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 1B" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 2A" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 2B" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 3A" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 3B" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 4A" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 4B" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 5A" },
+                    new ClassRoom { Id = Guid.NewGuid(), ClassName = "Grade 5B" }
+                };
+
+                await dbContext.Classes.AddRangeAsync(classes);
+                await dbContext.SaveChangesAsync();
+            }
         }
 
         private static async Task EnsureRolePermissionsAsync(RoleManager<AppRole> roleManager, string roleName, IEnumerable<string> permissions)

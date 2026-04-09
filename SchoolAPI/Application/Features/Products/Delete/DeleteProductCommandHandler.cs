@@ -26,15 +26,19 @@ public class DeleteProductCommandHandler : IRequestHandler<DeleteProductCommand,
             return Result.Failure("Invalid product ID.");
         }
 
-        var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
+        var product = await _context.Products
+            .Include(p => p.Image)
+            .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
+            
         if (product == null)
         {
             return Result.Failure("Product not found.");
         }
 
-        if (!string.IsNullOrWhiteSpace(product.ImagePublicId))
+        // Delete image from Cloudinary if exists
+        if (product.Image != null && !string.IsNullOrWhiteSpace(product.Image.PublicId))
         {
-            await _photoService.DeletePhotoAsync(product.ImagePublicId);
+            await _photoService.DeletePhotoAsync(product.Image.PublicId);
         }
 
         _context.Products.Remove(product);

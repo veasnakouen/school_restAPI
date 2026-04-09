@@ -4,6 +4,7 @@ export type LandingRoute = 'dashboard' | 'profile' | 'students' | 'reports' | 'a
 
 export interface UserPreferences {
   sidebarOpen: boolean;
+  sidebarOverlay: boolean;
   compactMode: boolean;
   emailNotifications: boolean;
   desktopNotifications: boolean;
@@ -12,6 +13,7 @@ export interface UserPreferences {
 
 const DEFAULT_PREFERENCES: UserPreferences = {
   sidebarOpen: true,
+  sidebarOverlay: false,
   compactMode: false,
   emailNotifications: true,
   desktopNotifications: false,
@@ -25,6 +27,7 @@ export class UserPreferencesService {
 
   readonly preferences = this.stateSignal.asReadonly();
   readonly sidebarOpen = computed(() => this.stateSignal().sidebarOpen);
+  readonly sidebarOverlay = computed(() => this.stateSignal().sidebarOverlay);
   readonly compactMode = computed(() => this.stateSignal().compactMode);
   readonly emailNotifications = computed(() => this.stateSignal().emailNotifications);
   readonly desktopNotifications = computed(() => this.stateSignal().desktopNotifications);
@@ -61,6 +64,7 @@ export class UserPreferencesService {
   private normalize(preferences: Partial<UserPreferences>, fallback: UserPreferences = DEFAULT_PREFERENCES): UserPreferences {
     return {
       sidebarOpen: typeof preferences.sidebarOpen === 'boolean' ? preferences.sidebarOpen : fallback.sidebarOpen,
+      sidebarOverlay: typeof preferences.sidebarOverlay === 'boolean' ? preferences.sidebarOverlay : fallback.sidebarOverlay,
       compactMode: typeof preferences.compactMode === 'boolean' ? preferences.compactMode : fallback.compactMode,
       emailNotifications:
         typeof preferences.emailNotifications === 'boolean' ? preferences.emailNotifications : fallback.emailNotifications,

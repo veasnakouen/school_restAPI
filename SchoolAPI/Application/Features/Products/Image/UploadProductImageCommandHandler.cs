@@ -41,6 +41,7 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
         var product = await _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Image)
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
         if (product == null)
@@ -48,7 +49,9 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
             return Result<ProductDto>.Failure("Product not found.");
         }
 
-        var existingPublicId = product.ImagePublicId;
+        // Get existing image public ID for deletion
+        var existingPublicId = product.Image?.PublicId;
+        
         ImageUploadResult uploadResult = await _photoService.UploadPhotoAsync(request.File);
 
         if (uploadResult.Error != null || uploadResult.SecureUrl == null)
@@ -56,14 +59,29 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
             return Result<ProductDto>.Failure(uploadResult.Error?.Message ?? "Image upload failed.");
         }
 
-        product.ImageUrl = uploadResult.SecureUrl.ToString();
-        product.ImagePublicId = uploadResult.PublicId;
+        // Update or create ProductImage
+        if (product.Image == null)
+        {
+            product.Image = new Entities.ProductImage
+            {
+                ProductId = product.Id,
+                Url = uploadResult.SecureUrl.ToString(),
+                PublicId = uploadResult.PublicId
+            };
+        }
+        else
+        {
+            product.Image.Url = uploadResult.SecureUrl.ToString();
+            product.Image.PublicId = uploadResult.PublicId;
+        }
+        
         product.UpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
         _cacheVersionService.Invalidate("products");
 
-        if (!string.IsNullOrWhiteSpace(existingPublicId) && !string.Equals(existingPublicId, product.ImagePublicId, StringComparison.OrdinalIgnoreCase))
+        // Delete old image from Cloudinary
+        if (!string.IsNullOrWhiteSpace(existingPublicId))
         {
             await _photoService.DeletePhotoAsync(existingPublicId);
         }

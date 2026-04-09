@@ -139,6 +139,21 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("AspNetRoles", (string)null);
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.AppRolePermission", b =>
+                {
+                    b.Property<string>("RoleId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RoleId", "PermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.ToTable("RolePermissions");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.AppUser", b =>
                 {
                     b.Property<string>("Id")
@@ -453,17 +468,32 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("OutReaches");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.Permission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Permissions");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Product", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
                     b.Property<string>("BrandId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CategoryId")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("CodeNumber")
@@ -474,13 +504,6 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("ImagePublicId")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -509,6 +532,40 @@ namespace SchoolAPI.Data.Migrations
                     b.HasIndex("CategoryId");
 
                     b.ToTable("Products");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.ProductImage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AltText")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PublicId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId")
+                        .IsUnique();
+
+                    b.ToTable("ProductImages");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Responser", b =>
@@ -675,6 +732,25 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.AppRolePermission", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.AppRole", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.AppUserRole", b =>
                 {
                     b.HasOne("SchoolAPI.Entities.AppRole", "Role")
@@ -728,19 +804,26 @@ namespace SchoolAPI.Data.Migrations
                 {
                     b.HasOne("SchoolAPI.Entities.Brand", "Brand")
                         .WithMany()
-                        .HasForeignKey("BrandId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("BrandId");
 
                     b.HasOne("SchoolAPI.Entities.Category", "Category")
                         .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("CategoryId");
 
                     b.Navigation("Brand");
 
                     b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.ProductImage", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithOne("Image")
+                        .HasForeignKey("SchoolAPI.Entities.ProductImage", "ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Student", b =>
@@ -795,6 +878,8 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.AppRole", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoles");
                 });
 
@@ -808,6 +893,16 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.OutReach", b =>
                 {
                     b.Navigation("Students");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Product", b =>
+                {
+                    b.Navigation("Image");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Student", b =>

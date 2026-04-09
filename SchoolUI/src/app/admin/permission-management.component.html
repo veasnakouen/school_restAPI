@@ -1,0 +1,42 @@
+<div class="permission-management">
+  <h3>Permission Management</h3>
+
+  <button (click)="startCreate()">Add Permission</button>
+
+  <table *ngIf="permissions.length > 0">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let permission of permissions">
+        <td>{{ permission.name }}</td>
+        <td>{{ permission.description }}</td>
+        <td>
+          <button (click)="startEdit(permission)">Edit</button>
+          <button (click)="deletePermission(permission)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div *ngIf="permissions.length === 0">No permissions found.</div>
+
+  <div *ngIf="isEditing || isCreating" class="permission-form">
+    <h4>{{ isCreating ? 'Create Permission' : 'Edit Permission' }}</h4>
+    <form (ngSubmit)="savePermission()">
+      <label>
+        Name:
+        <input [(ngModel)]="selectedPermission!.name" name="name" required />
+      </label>
+      <label>
+        Description:
+        <input [(ngModel)]="selectedPermission!.description" name="description" />
+      </label>
+      <button type="submit">Save</button>
+      <button type="button" (click)="cancel()">Cancel</button>
+    </form>
+  </div>
+</div>

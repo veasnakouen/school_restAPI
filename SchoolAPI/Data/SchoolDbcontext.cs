@@ -16,12 +16,15 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
 
     public DbSet<AppRole> AppRoles { get; set; }
     public DbSet<AppUserRole> AppUserRoles { get; set; }
+    public DbSet<Permission> Permissions { get; set; }
+    public DbSet<AppRolePermission> RolePermissions { get; set; }
     public DbSet<ClassRoom> Classes { get; set; }
     public DbSet<Student> Students { get; set; }
     public DbSet<OutReach> OutReaches { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<Product> Products{ get; set; }
+    public DbSet<ProductImage> ProductImages { get; set; }
     public DbSet<Category> Categories { get; set; }
     public DbSet<Brand> Brands { get; set; }
     public DbSet<Department> Departments { get; set; }
@@ -33,6 +36,20 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+
+        builder.Entity<AppRolePermission>()
+            .HasKey(rp => new { rp.RoleId, rp.PermissionId });
+
+        builder.Entity<AppRolePermission>()
+            .HasOne(rp => rp.Role)
+            .WithMany(r => r.RolePermissions)
+            .HasForeignKey(rp => rp.RoleId);
+
+        builder.Entity<AppRolePermission>()
+            .HasOne(rp => rp.Permission)
+            .WithMany(p => p.RolePermissions)
+            .HasForeignKey(rp => rp.PermissionId);
 
         builder.Entity<AppUserRole>(entity =>
         {
@@ -46,6 +63,13 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
                 .HasForeignKey(ur => ur.RoleId)
                 .IsRequired();
         });
+
+        // One-to-one relationship: Product - ProductImage
+        builder.Entity<ProductImage>()
+            .HasOne(pi => pi.Product)
+            .WithOne(p => p.Image)
+            .HasForeignKey<ProductImage>(pi => pi.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 
 }

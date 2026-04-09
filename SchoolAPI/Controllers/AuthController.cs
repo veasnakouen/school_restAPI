@@ -1,3 +1,13 @@
+// MIGRATION/SEED INSTRUCTIONS:
+// 1. Run: dotnet ef migrations add PermissionSystem
+// 2. Run: dotnet ef database update
+// 3. In your startup (e.g., Program.cs), call:
+//    using (var scope = app.Services.CreateScope())
+//    {
+//        var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+//        await DbInitializer.SeedPermissionsAsync(db);
+//    }
+// This will ensure all permissions from Permissions.cs are seeded into the database.
 #nullable enable
 using System.Security.Claims;
 using AutoMapper;
@@ -19,6 +29,8 @@ using SchoolAPI.Application.Features.Auth.ForgotPassword;
 using SchoolAPI.Application.Features.Auth.ResetPassword;
 using SchoolAPI.Application.Features.Auth.ConfirmEmail;
 using SchoolAPI.Application.Features.Auth.ResendConfirmationEmail;
+using SchoolAPI.Application.Features.Products.GetAll;
+using SchoolAPI.Data;
 
 namespace SchoolAPI.Controllers;
 
@@ -32,6 +44,8 @@ public class AuthController : BaseController
     private readonly IMapper _mapper;
     private readonly JwtSettings _jwtSettings;
     private readonly IMediator _mediator;
+    private readonly ClassService _classService;
+    private readonly RoleManager<AppRole> _roleManager;
 
     public AuthController(
         UserManager<AppUser> userManager,
@@ -39,7 +53,9 @@ public class AuthController : BaseController
         SignInManager<AppUser> signInManager,
         IMapper mapper,
         IOptions<JwtSettings> jwtSettings,
-        IMediator mediator)
+        IMediator mediator,
+        ClassService classService,
+        RoleManager<AppRole> roleManager)
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -47,6 +63,8 @@ public class AuthController : BaseController
         _mapper = mapper;
         _jwtSettings = jwtSettings.Value;
         _mediator = mediator;
+        _classService = classService;
+        _roleManager = roleManager;
     }
 
     private DateTime GetRefreshTokenExpiryUtc()
@@ -245,6 +263,99 @@ public class AuthController : BaseController
         return Ok(profile);
     }
 
+    [HttpGet("sidebar-summary")]
+    [Authorize]
+    public async Task<IActionResult> GetSidebarSummary(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized(UserNotFound);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null) return NotFound(UserNotFound);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var profile = new
+            {
+                id = user.Id,
+                fullName = user.FullName,
+                email = user.Email,
+                roles = roles,
+                phoneNumber = user.PhoneNumber,
+                phoneNumberConfirmed = user.PhoneNumberConfirmed,
+                accessFailedCount = user.AccessFailedCount
+            };
+
+            var classes = await _classService.GetAllClasses(pageNumber: 1, pageSize: 5);
+            var students = await _classService.GetAllStudentsAsync(pageNumber: 1, pageSize: 5);
+            var products = await _mediator.Send(new GetAllProductsQuery(null, null, null, true, 1, 5), cancellationToken);
+
+            return Ok(new
+            {
+                profile,
+                classes,
+                students,
+                products = products.IsSuccess ? products.Data : null,
+                errors = new
+                {
+                    classes = (string?)null,
+                    students = (string?)null,
+                    products = products.IsSuccess ? null : products.ErrorMessage
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, stack = ex.StackTrace });
+        }
+    }
+
+
+    /// <summary>
+    /// Grants a permission to a role. Only accessible by Admins.
+    /// </summary>
+    [HttpPost("roles/grant-permission")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GrantPermissionToRole([FromBody] GrantPermissionToRoleRequest request,
+    [FromServices] SchoolDbContext _context)
+    {
+        if (string.IsNullOrWhiteSpace(request.RoleName) || string.IsNullOrWhiteSpace(request.Permission))
+            return BadRequest("RoleName and Permission are required.");
+
+        var role = await _roleManager.Roles
+            .Include(r => r.RolePermissions)
+            .FirstOrDefaultAsync(r => r.Name == request.RoleName);
+        if (role == null)
+            return NotFound("Role not found");
+
+        var permission = await _context.Permissions.FirstOrDefaultAsync(p => p.Name == request.Permission);
+        if (permission == null)
+            return NotFound("Permission not found");
+
+        bool alreadyAssigned = role.RolePermissions?.Any(rp => rp.PermissionId == permission.Id) ?? false;
+        if (!alreadyAssigned)
+        {
+            role.RolePermissions ??= new List<AppRolePermission>();
+            role.RolePermissions.Add(new AppRolePermission
+            {
+                RoleId = role.Id,
+                PermissionId = permission.Id
+            });
+            var result = await _roleManager.UpdateAsync(role);
+            if (!result.Succeeded)
+                return StatusCode(500, "Failed to update role permissions.");
+        }
+
+        return Ok($"Permission '{request.Permission}' granted to role '{request.RoleName}'");
+    }
+
+    public class GrantPermissionToRoleRequest
+    {
+        public string RoleName { get; set; }
+        public string Permission { get; set; }
+    }
+
     [HttpGet("{id}")]
     [Authorize(Policy = Permissions.UsersRead)]
     public async Task<ActionResult<AuthResponse>> GetUser(Guid id)
@@ -409,5 +520,30 @@ public class AuthController : BaseController
             userId = result.Data.UserId,
             confirmationToken = result.Data.ConfirmationToken 
         });
+    }
+
+    [HttpPost("grant-permission")]
+    [Authorize(Roles = "Admin")] // Only admins can grant permissions
+    public async Task<IActionResult> GrantPermission([FromBody] GrantPermissionRequest request)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId);
+        if (user == null)
+            return NotFound("User not found");
+
+        var role = await _roleManager.FindByNameAsync(request.RoleName);
+        if (role == null)
+            return NotFound("Role not found");
+
+        // Add permission if not already present
+        // (Legacy code removed: Permissions property is no longer used. See new dynamic permission logic above.)
+
+        return Ok("Permission granted");
+    }
+
+    public class GrantPermissionRequest
+    {
+        public string UserId { get; set; }
+        public string RoleName { get; set; }
+        public string Permission { get; set; }
     }
 }

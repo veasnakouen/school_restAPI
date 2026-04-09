@@ -72,12 +72,6 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         product.BrandId = brand?.Id;
         product.Brand = brand;
         product.Price = request.Product.Price;
-        if (!string.IsNullOrWhiteSpace(request.Product.ImageUrl))
-        {
-            product.ImageUrl = request.Product.ImageUrl;
-            product.ImagePublicId = null;
-        }
-
         product.Quality = request.Product.Quality ?? string.Empty;
         product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
         product.UpdateDate = DateTime.UtcNow;

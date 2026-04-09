@@ -43,12 +43,18 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
             </article>
 
             <article class="rounded-[24px] border border-base-300/70 bg-base-100/85 p-4 shadow-lg backdrop-blur">
+              <div class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">Sidebar Overlay</div>
+              <div class="mt-2 text-lg font-bold text-base-content">{{ preferences.sidebarOverlay() ? 'Overlay mode' : 'Push mode' }}</div>
+              <div class="mt-1 text-xs text-base-content/60">Mobile behavior {{ preferences.sidebarOverlay() ? '(overlays content)' : '(pushes content)' }}</div>
+            </article>
+
+            <article class="rounded-[24px] border border-base-300/70 bg-base-100/85 p-4 shadow-lg backdrop-blur">
               <div class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">Notifications</div>
               <div class="mt-2 text-lg font-bold text-base-content">{{ preferences.emailNotifications() ? 'Email on' : 'Email off' }}</div>
               <div class="mt-1 text-xs text-base-content/60">Local alert preferences</div>
             </article>
 
-            <article class="rounded-[24px] border border-base-300/70 bg-base-100/85 p-4 shadow-lg backdrop-blur sm:col-span-2">
+            <article class="rounded-[24px] border border-base-300/70 bg-base-100/85 p-4 shadow-lg backdrop-blur">
               <div class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">Theme</div>
               <div class="mt-2 text-lg font-bold text-base-content">{{ theme.themeLabel() }} mode</div>
               <div class="mt-1 text-xs text-base-content/60">Managed by the shared theme service</div>
@@ -142,6 +148,14 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
 
               <label class="flex items-center justify-between gap-4 rounded-[22px] border border-base-300/70 bg-base-200/70 px-4 py-4">
                 <div>
+                  <div class="font-semibold text-base-content">Overlay mode</div>
+                  <div class="text-xs text-base-content/55">When enabled, the sidebar will overlay content on mobile screens. When disabled, it pushes content instead.</div>
+                </div>
+                <input type="checkbox" class="toggle toggle-primary" formControlName="sidebarOverlay" />
+              </label>
+
+              <label class="flex items-center justify-between gap-4 rounded-[22px] border border-base-300/70 bg-base-200/70 px-4 py-4">
+                <div>
                   <div class="font-semibold text-base-content">Compact shell spacing</div>
                   <div class="text-xs text-base-content/55">Trim the shell padding for a denser workspace.</div>
                 </div>
@@ -231,6 +245,7 @@ export class SettingsComponent {
 
   protected readonly preferencesForm = this.fb.nonNullable.group({
     sidebarOpen: [this.preferences.sidebarOpen()],
+    sidebarOverlay: [this.preferences.sidebarOverlay()],
     compactMode: [this.preferences.compactMode()],
     emailNotifications: [this.preferences.emailNotifications()],
     desktopNotifications: [this.preferences.desktopNotifications()],
@@ -256,6 +271,7 @@ export class SettingsComponent {
     this.preferences.reset();
     this.preferencesForm.reset({
       sidebarOpen: this.preferences.sidebarOpen(),
+      sidebarOverlay: this.preferences.sidebarOverlay(),
       compactMode: this.preferences.compactMode(),
       emailNotifications: this.preferences.emailNotifications(),
       desktopNotifications: this.preferences.desktopNotifications(),

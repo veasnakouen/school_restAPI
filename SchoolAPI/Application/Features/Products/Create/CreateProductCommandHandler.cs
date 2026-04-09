@@ -34,6 +34,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             return Result<ProductDto>.Failure("Product name is required.");
         }
 
+        // Handle Category - lookup by ID or Name, or create new
         Category category = null;
         if (!string.IsNullOrWhiteSpace(request.Product.CategoryId))
         {
@@ -43,15 +44,40 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                 return Result<ProductDto>.Failure("Category not found.");
             }
         }
+        else if (!string.IsNullOrWhiteSpace(request.Product.CategoryName))
+        {
+            category = await _context.Categories.FirstOrDefaultAsync(c => c.Name == request.Product.CategoryName, cancellationToken);
+            if (category == null)
+            {
+                category = new Category { Id = Guid.NewGuid().ToString(), Name = request.Product.CategoryName };
+                _context.Categories.Add(category);
+            }
+        }
 
+        // Handle Brand - lookup by ID or Name, or create new
         Brand brand = null;
         if (!string.IsNullOrWhiteSpace(request.Product.BrandId))
         {
-            brand = await _context.Brands.FirstOrDefaultAsync(c => c.Id == request.Product.BrandId, cancellationToken);
+            brand = await _context.Brands.FirstOrDefaultAsync(b => b.Id == request.Product.BrandId, cancellationToken);
             if (brand == null)
             {
                 return Result<ProductDto>.Failure("Brand not found.");
             }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Product.BrandName))
+        {
+            brand = await _context.Brands.FirstOrDefaultAsync(b => b.Name == request.Product.BrandName, cancellationToken);
+            if (brand == null)
+            {
+                brand = new Brand { Id = Guid.NewGuid().ToString(), Name = request.Product.BrandName };
+                _context.Brands.Add(brand);
+            }
+        }
+
+        // Validate that at least one of Category or Brand is provided
+        if (category == null && brand == null)
+        {
+            return Result<ProductDto>.Failure("At least one of Category or Brand must be provided.");
         }
 
         var product = _mapper.Map<Product>(request.Product);

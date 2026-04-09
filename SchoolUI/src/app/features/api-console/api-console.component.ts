@@ -269,30 +269,24 @@ interface ActivityEntry {
             <form class="grid gap-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="productForm" (ngSubmit)="createProduct()">
               <div class="grid gap-3 md:grid-cols-2">
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Name</span></div>
+                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Name <span class="text-error">*</span></span></div>
                   <input class="app-input" formControlName="name" placeholder="Projector" />
+                  @if (productForm.get('name')?.invalid && productForm.get('name')?.touched) {
+                    <div class="label"><span class="label-text-alt text-error">Name is required</span></div>
+                  }
                 </label>
                 <label class="form-control w-full">
                   <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Code number</span></div>
                   <input class="app-input" formControlName="codeNumber" placeholder="PRD-001" />
                 </label>
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Category</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="categoryId">
-                    <option value="">Select category</option>
-                    @for (item of categoryOptions; track item.value) {
-                      <option [value]="item.value">{{ item.label }}</option>
-                    }
-                  </select>
+                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Category <span class="text-error">*</span></span></div>
+                  <input class="app-input" formControlName="categoryName" placeholder="e.g. Furniture, Electronics" />
                 </label>
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Brand</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="brandId">
-                    <option value="">Select brand</option>
-                    @for (item of brandOptions; track item.value) {
-                      <option [value]="item.value">{{ item.label }}</option>
-                    }
-                  </select>
+                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Brand <span class="text-error">*</span></span></div>
+                  <input class="app-input" formControlName="brandName" placeholder="e.g. Dell, Sony, Samsung" />
+                  <div class="label"><span class="label-text-alt text-base-content/60">Provide at least Category or Brand</span></div>
                 </label>
                 <label class="form-control w-full">
                   <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Price</span></div>
@@ -325,6 +319,12 @@ interface ActivityEntry {
                   </button>
                 </div>
               </div>
+              
+              @if (productForm.errors?.['categoryOrBrandRequired'] && productForm.touched) {
+                <div class="alert alert-warning border-0 bg-warning/10 text-warning">
+                  <span>Please provide at least Category or Brand name</span>
+                </div>
+              }
             </form>
 
             <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
@@ -460,12 +460,22 @@ export class ApiConsoleComponent implements OnInit {
     name: ['', [Validators.required]],
     codeNumber: [''],
     description: [''],
-    categoryId: [''],
-    brandId: [''],
+    categoryName: [''],
+    brandName: [''],
     price: [''],
     quality: [''],
     voucherNumber: ['']
-  });
+  }, { validators: this.productCategoryOrBrandValidator });
+
+  private productCategoryOrBrandValidator(group: any) {
+    const categoryName = group.get('categoryName')?.value;
+    const brandName = group.get('brandName')?.value;
+    
+    if (!categoryName && !brandName) {
+      return { categoryOrBrandRequired: true };
+    }
+    return null;
+  }
 
   protected readonly reportForm = this.fb.nonNullable.group({
     year: [new Date().getFullYear().toString(), [Validators.required]],
@@ -593,30 +603,46 @@ export class ApiConsoleComponent implements OnInit {
   protected createProduct(): void {
     if (this.productForm.invalid) {
       this.productForm.markAllAsTouched();
+      
+      // Check for specific validation error
+      if (this.productForm.errors?.['categoryOrBrandRequired']) {
+        this.announce('Please provide at least Category or Brand name.', 'error');
+        return;
+      }
+      
       return;
     }
 
     this.busyProduct = true;
     const value = this.productForm.getRawValue();
+    
+    // Parse price - it could be a number or string from the form
+    const priceValue = value.price;
+    const parsedPrice = typeof priceValue === 'string' && priceValue.trim() ? Number(priceValue) : 
+                        typeof priceValue === 'number' && !isNaN(priceValue) ? priceValue : null;
+    
     const payload: CreateProductRequest = {
-      name: value.name.trim(),
-      codeNumber: value.codeNumber.trim() || null,
-      description: value.description.trim() || null,
-      categoryId: value.categoryId || null,
-      brandId: value.brandId || null,
-      price: value.price.trim() ? Number(value.price) : null,
-      quality: value.quality.trim() || null,
-      voucherNumber: value.voucherNumber.trim() || null
+      name: value.name?.trim() || '',
+      codeNumber: value.codeNumber?.trim() || null,
+      description: value.description?.trim() || null,
+      categoryName: value.categoryName?.trim() || null,
+      brandName: value.brandName?.trim() || null,
+      price: parsedPrice,
+      quality: value.quality?.trim() || null,
+      voucherNumber: value.voucherNumber?.trim() || null
     };
+
+    console.log('Creating product with payload:', payload);
 
     this.productApi.create(payload).subscribe({
       next: (created) => {
+        console.log('Product created successfully:', created);
         this.productForm.reset({
           name: '',
           codeNumber: '',
           description: '',
-          categoryId: '',
-          brandId: '',
+          categoryName: '',
+          brandName: '',
           price: '',
           quality: '',
           voucherNumber: ''
@@ -626,7 +652,11 @@ export class ApiConsoleComponent implements OnInit {
         this.busyProduct = false;
       },
       error: (error) => {
-        this.announce(this.extractMessage(error, 'Failed to create product.'), 'error');
+        console.error('Product creation error:', error);
+        console.error('Error status:', error?.status);
+        console.error('Error message:', error?.error?.message);
+        const errorMsg = error?.error?.message ?? error?.message ?? 'Failed to create product.';
+        this.announce(errorMsg, 'error');
         this.busyProduct = false;
       }
     });

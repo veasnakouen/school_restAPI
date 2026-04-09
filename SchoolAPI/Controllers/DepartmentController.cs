@@ -20,7 +20,7 @@ public class DepartmentController : ControllerBase
 
     public DepartmentController(ISender sender)
     {
-        _sender = sender;
+        _sender = sender ??=HttpContext.RequestServices.GetRequiredService<ISender>();
     }
 
     [HttpGet]

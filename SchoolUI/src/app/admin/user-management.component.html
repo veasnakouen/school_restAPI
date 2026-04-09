@@ -1,0 +1,48 @@
+<div class="user-management">
+  <h3>User Management</h3>
+
+  <button (click)="startCreate()">Add User</button>
+
+  <table *ngIf="users.length > 0">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Roles</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let user of users">
+        <td>{{ user.username }}</td>
+        <td>{{ user.email }}</td>
+        <td>{{ user.roles.join(', ') }}</td>
+        <td>
+          <button (click)="startEdit(user)">Edit</button>
+          <button (click)="deleteUser(user)">Delete</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <div *ngIf="users.length === 0">No users found.</div>
+
+  <div *ngIf="isEditing || isCreating" class="user-form">
+    <h4>{{ isCreating ? 'Create User' : 'Edit User' }}</h4>
+    <form (ngSubmit)="saveUser()">
+      <label>
+        Username:
+        <input [(ngModel)]="selectedUser!.username" name="username" required />
+      </label>
+      <label>
+        Email:
+        <input [(ngModel)]="selectedUser!.email" name="email" required />
+      </label>
+      <label>
+        Roles (comma separated):
+        <input [(ngModel)]="rolesString" name="roles" />
+      </label>
+      <button type="submit">Save</button>
+      <button type="button" (click)="cancel()">Cancel</button>
+    </form>
+  </div>
+</div>

@@ -70,4 +70,5 @@ public class CategoryController : ControllerBase
         var result = await _sender.Send(new DeleteCategoryCommand(id), cancellationToken);
         return result.IsSuccess ? Ok("Category deleted successfully.") : NotFound(result.ErrorMessage);
     }
+    
 }

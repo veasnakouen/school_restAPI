@@ -31,7 +31,7 @@ namespace SchoolAPI.Extensions
         // 🔧 Add Database/DbContext :register the connection string 
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnectionString");
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<SchoolDbContext>(options =>
                 options.UseNpgsql(connectionString)
                 );
@@ -198,7 +198,7 @@ namespace SchoolAPI.Extensions
 
         public static IServiceCollection AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnectionString");
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new InvalidOperationException("Default connection string is missing. Hangfire requires a PostgreSQL connection string.");
@@ -273,7 +273,6 @@ namespace SchoolAPI.Extensions
                         cancellationToken);
                 };
             });
-
             return services;
         }   
 

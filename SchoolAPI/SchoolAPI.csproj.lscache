@@ -197,6 +197,7 @@ Application/Features/Transactions/Update/
  UpdateTransactionCommandHandler.cs
 Authorization/
  PermissionAuthorizationHandler.cs
+ PermissionHandler.cs
  PermissionPolicyProvider.cs
  PermissionRequirement.cs
 Constant/
@@ -250,8 +251,10 @@ Controllers/
  RolesController.cs
  StudentController.cs
  TransactionController.cs
+ UserManagementController.cs
 Data/
  DbInitialize.cs
+ DbInitializer.cs
  Migrations/
   20250824155134_initial.cs
   20250824155134_initial.Designer.cs
@@ -275,6 +278,14 @@ Data/
   20260329163844_AddModel.Designer.cs
   20260331161646_AddProductImagePublicId.cs
   20260331161646_AddProductImagePublicId.Designer.cs
+  20260408095548_AddPermissionsToAppRole.cs
+  20260408095548_AddPermissionsToAppRole.Designer.cs
+  20260408153550_AddPermissionSystem.cs
+  20260408153550_AddPermissionSystem.Designer.cs
+  20260409034821_MakeProductCategoryAndBrandNullable.cs
+  20260409034821_MakeProductCategoryAndBrandNullable.Designer.cs
+  20260409100642_AddProductImageRelationship.cs
+  20260409100642_AddProductImageRelationship.Designer.cs
   SchoolDbContextModelSnapshot.cs
  SchoolDbcontext.cs
 DTOs/
@@ -285,6 +296,7 @@ DTOs/
  StudentDto.cs
 Entities/
  AppRole.cs
+ AppRolePermission.cs
  AppUser.cs
  AppUserRole.cs
  Attendance.cs
@@ -301,8 +313,10 @@ Entities/
  Member.cs
  Order.cs
  OutReach.cs
+ Permission.cs
  Photo.cs
  Product.cs
+ ProductImage.cs
  Responser.cs
  Student.cs
  Transaction.cs

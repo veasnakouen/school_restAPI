@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, noAuthGuard } from './core/guards/auth.guard';
+import { ADMIN_ROUTES } from './admin/admin.routes';
 
 export const routes: Routes = [
 	{
@@ -58,6 +59,10 @@ export const routes: Routes = [
 				path: 'settings',
 				loadComponent: () =>
 					import('./features/settings/settings.component').then((m) => m.SettingsComponent)
+			},
+			{
+				path: 'admin',
+				children: ADMIN_ROUTES
 			}
 		]
 	},

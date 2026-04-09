@@ -1,6 +1,6 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { catchError, finalize, switchMap, throwError } from 'rxjs';
+import { catchError, finalize, switchMap, throwError, timeout } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { TokenStorageService } from '../services/token-storage.service';
 
@@ -33,13 +33,21 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       }
     })
   ).pipe(
-    catchError((error: HttpErrorResponse) => {
-      if (error.status === 401 && !req.url.includes('/auth/refresh')) {
+    timeout(30000), // 30 second timeout
+    catchError((error: any) => {
+      // Handle timeout errors
+      if (error?.name === 'TimeoutError') {
+        console.error('Request timed out in auth interceptor');
+        return throwError(() => new Error('Request timed out. Please check your connection and try again.'));
+      }
+
+      if (error?.status === 401 && !req.url.includes('/auth/refresh')) {
         // Token expired, try to refresh
         if (!isRefreshing) {
           isRefreshing = true;
 
           return auth.refresh().pipe(
+            timeout(15000), // 15 second timeout for refresh
             switchMap(() => {
               const newToken = auth.session()?.accessToken;
 
@@ -52,9 +60,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
                 })
               );
             }),
-            catchError((refreshError: HttpErrorResponse) => {
+            catchError((refreshError: any) => {
               isRefreshing = false;
-              if (refreshError.status === 401) {
+              console.error('Token refresh failed:', refreshError);
+              if (refreshError?.status === 401) {
                 // Refresh token also expired, logout user
                 tokenStorage.clear();
                 auth.logout();

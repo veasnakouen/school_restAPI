@@ -36,7 +36,7 @@ public class ClassController : BaseController
 
             var createdClassId = createdClass.Id;
             return CreatedAtAction(nameof(GetClass), new { classId = createdClass.Id }, createdClass);
-            // Using  CQRS : example 
+            // Using  CQRS : example
             // var createdClass = await _service.GetClassAsync(createdClassId);
             // var createdClassId = await _sender.Send(command);
             // return Ok(createdClassId);

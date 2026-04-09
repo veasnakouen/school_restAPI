@@ -1,40 +1,99 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, throwError, TimeoutError } from 'rxjs';
+import { timeout, catchError } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
+  private readonly DEFAULT_TIMEOUT = 30000; // 30 seconds
+
   constructor(private readonly http: HttpClient) {}
 
   get<T>(path: string, query?: object): Observable<T> {
     return this.http.get<T>(this.buildUrl(path), {
       params: this.buildParams(query)
-    });
+    }).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   getBlob(path: string): Observable<Blob> {
-    return this.http.get(this.buildUrl(path), { responseType: 'blob' });
+    return this.http.get(this.buildUrl(path), { responseType: 'blob' }).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   post<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(this.buildUrl(path), body);
+    return this.http.post<T>(this.buildUrl(path), body).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   postBlob(path: string, body: unknown): Observable<Blob> {
-    return this.http.post(this.buildUrl(path), body, { responseType: 'blob' });
+    return this.http.post(this.buildUrl(path), body, { responseType: 'blob' }).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   put<T>(path: string, body: unknown): Observable<T> {
-    return this.http.put<T>(this.buildUrl(path), body);
+    return this.http.put<T>(this.buildUrl(path), body).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   delete<T>(path: string): Observable<T> {
-    return this.http.delete<T>(this.buildUrl(path));
+    return this.http.delete<T>(this.buildUrl(path)).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   upload<T>(path: string, formData: FormData): Observable<T> {
-    return this.http.post<T>(this.buildUrl(path), formData);
+    return this.http.post<T>(this.buildUrl(path), formData).pipe(
+      timeout(this.DEFAULT_TIMEOUT),
+      catchError((error) => {
+        if (error instanceof TimeoutError) {
+          return throwError(() => new Error('Request timed out. Please try again.'));
+        }
+        return throwError(() => error);
+      })
+    );
   }
 
   private buildUrl(path: string): string {
@@ -50,10 +109,10 @@ export class ApiClientService {
     let params = new HttpParams();
     for (const [key, value] of Object.entries(query)) {
       if (value === null || value === undefined || value === '') {
-        continue;
-      }
+      continue;
+    }
 
-      params = params.set(key, String(value));
+    params = params.set(key, String(value));
     }
 
     return params;

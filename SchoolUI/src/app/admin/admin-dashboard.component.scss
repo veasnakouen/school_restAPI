@@ -1,0 +1,122 @@
+.admin-dashboard {
+  padding: 2.5rem 2rem;
+  max-width: 1400px;
+  width: 100%;
+  margin: 2rem auto;
+  background: rgba(30, 41, 59, 0.7);
+  border-radius: 1.5rem;
+  box-shadow: 0 4px 32px 0 rgba(25, 118, 210, 0.08);
+
+  @media (max-width: 768px) {
+    padding: 1.5rem 1rem;
+    margin: 1rem;
+    border-radius: 1rem;
+  }
+
+  .admin-title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    color: #e3f2fd;
+    letter-spacing: 0.02em;
+    text-align: left;
+
+    @media (max-width: 768px) {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+  }
+
+  // Animated Tab Menu - ultra smooth with GPU acceleration
+  .admin-tab-menu {
+    display: flex;
+    position: relative;
+    margin-bottom: 1.5rem;
+    background: rgba(25, 118, 210, 0.08);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    box-shadow: 0 2px 8px 0 rgba(25, 118, 210, 0.04);
+    padding: 0.35rem;
+    width: fit-content;
+
+    @media (max-width: 768px) {
+      width: 100%;
+      justify-content: space-around;
+      padding: 0.25rem;
+    }
+
+    .admin-tab {
+      flex: 1 1 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.65rem 1.5rem;
+      border-radius: 0.5rem;
+      color: #42a5f5;
+      font-weight: 600;
+      font-size: 0.95rem;
+      text-decoration: none;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      transition: color 0.25s ease;
+      background: transparent;
+      cursor: pointer;
+      user-select: none;
+
+      @media (max-width: 768px) {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+
+        .pi {
+          font-size: 0.85rem;
+        }
+      }
+
+      &.active {
+        color: #fff;
+      }
+
+      &:hover:not(.active) {
+        color: #90caf9;
+      }
+    }
+
+    // Animated sliding background - GPU accelerated
+    .admin-tab-bg {
+      position: absolute;
+      top: 0.35rem;
+      bottom: 0.35rem;
+      left: 0.35rem;
+      width: calc((100% - 0.7rem) / 3);
+      border-radius: 0.5rem;
+      background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
+      box-shadow: 0 4px 16px 0 rgba(25, 118, 210, 0.35);
+      z-index: 1;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      perspective: 1000;
+      -webkit-perspective: 1000;
+    }
+
+    .admin-tab-bg.users { transform: translate3d(0, 0, 0); }
+    .admin-tab-bg.roles { transform: translate3d(calc(100% + 0.35rem), 0, 0); }
+    .admin-tab-bg.permissions { transform: translate3d(calc(200% + 0.7rem), 0, 0); }
+  }
+
+  .admin-content {
+    margin-top: 1.5rem;
+    min-height: 300px;
+    color: #e3f2fd;
+    font-size: 1.2rem;
+
+    @media (max-width: 768px) {
+      margin-top: 1rem;
+      font-size: 1rem;
+    }
+  }
+}

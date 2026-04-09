@@ -3,6 +3,7 @@ import { ApiClientService } from './api-client.service';
 import { ClassDto, CreateClassRequest } from '../../models/academic.model';
 import { PagedResult, QueryOptions } from '../../models/paging.model';
 
+
 @Injectable({ providedIn: 'root' })
 export class ClassApiService {
   constructor(private readonly api: ApiClientService) {}

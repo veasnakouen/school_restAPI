@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AuthService } from '../../core/services/auth.service';
 import { UserProfile } from '../../models/auth.model';
+import { UserPreferencesService } from '../../core/services/user-preferences.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 
 @Component({
@@ -201,8 +202,26 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
           <article scrollAnimate animateVariant="fade-up" animateDelay="180ms" class="app-shell-panel overflow-hidden">
             <div class="card-body gap-4 p-6 lg:p-8">
               <div>
-                <h3 class="text-xl font-black tracking-tight text-base-content">Quick actions</h3>
-                <p class="text-sm text-base-content/60">Keep account tasks one click away.</p>
+                <h3 class="text-xl font-black tracking-tight text-base-content">Sidebar behavior</h3>
+                <p class="text-sm text-base-content/60">Control how the sidebar interacts with content.</p>
+              </div>
+
+              <div class="rounded-[22px] bg-base-200/75 p-4">
+                <div class="flex items-center justify-between gap-4">
+                  <div class="flex-1">
+                    <div class="font-semibold text-base-content">Overlay mode</div>
+                    <div class="text-xs text-base-content/55">When enabled, the sidebar will overlay content on mobile screens. When disabled, it pushes content instead.</div>
+                  </div>
+                  <label class="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      class="peer sr-only"
+                      [checked]="preferences.sidebarOverlay()"
+                      (change)="preferences.update({ sidebarOverlay: !preferences.sidebarOverlay() })"
+                    />
+                    <div class="peer h-6 w-11 rounded-full bg-base-300 after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-base-300 after:bg-base-100 after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-2 peer-focus:ring-primary/20"></div>
+                  </label>
+                </div>
               </div>
 
               <div class="grid gap-3">
@@ -233,6 +252,7 @@ export class ProfileComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fb = inject(FormBuilder);
   protected readonly auth = inject(AuthService);
+  protected readonly preferences = inject(UserPreferencesService);
 
   protected readonly profileForm = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.minLength(2)]],
