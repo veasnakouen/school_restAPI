@@ -91,6 +91,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
         var createdProduct = await _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Image)
             .FirstOrDefaultAsync(p => p.Id == product.Id, cancellationToken);
 
         if (createdProduct == null)

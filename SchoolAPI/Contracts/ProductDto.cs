@@ -22,5 +22,5 @@ public class ProductDto
     public string? VoucherNumber { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdateDate { get; set; }
-    // public string PictureUrl { get; set; }
 }
+ 

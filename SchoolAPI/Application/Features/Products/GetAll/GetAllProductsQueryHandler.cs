@@ -37,6 +37,7 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         var query = _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Image)
             .AsNoTracking()
             .AsQueryable();
 

@@ -29,7 +29,8 @@ export class ProductApiService {
 
   uploadImage(productId: string, file: File) {
     const formData = new FormData();
-    formData.append('File', file);
+    // The backend expects the form field name to match the model property 'File'
+    formData.append('File', file, file.name);
     return this.api.upload<ProductDto>(`products/${productId}/image`, formData);
   }
 

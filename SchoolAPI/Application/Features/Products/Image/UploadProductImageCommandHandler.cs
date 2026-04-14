@@ -15,6 +15,7 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
     private readonly IApplicationDbContext _context;
     private readonly IPhotoService _photoService;
     private readonly IMapper _mapper;
+    private readonly ILogger<UploadProductImageCommandHandler> _logger;
     private readonly ICacheVersionService _cacheVersionService;
 
     public UploadProductImageCommandHandler(IApplicationDbContext context, IPhotoService photoService, IMapper mapper, ICacheVersionService cacheVersionService)
@@ -56,7 +57,10 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
 
         if (uploadResult.Error != null || uploadResult.SecureUrl == null)
         {
-            return Result<ProductDto>.Failure(uploadResult.Error?.Message ?? "Image upload failed.");
+            var errorMessage = uploadResult.Error?.Message ?? "Unknown error during image upload.";
+            _logger.LogError("Image upload failed: {ErrorMessage}", errorMessage);
+            return Result<ProductDto>.Failure(errorMessage);
+            
         }
 
         // Update or create ProductImage

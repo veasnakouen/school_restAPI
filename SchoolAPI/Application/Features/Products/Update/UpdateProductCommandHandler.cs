@@ -79,6 +79,9 @@ public class UpdateProductCommandHandler(
         product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
         product.UpdateDate = DateTime.UtcNow;
 
+        // Note: Image is handled separately via UploadProductImage endpoint
+        // Do not set product.Image.Url here to avoid NullReferenceException
+
         await context.SaveChangesAsync(cancellationToken);
         
         cacheVersionService.Invalidate("products");

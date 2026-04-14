@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { CategoryApiService } from '../../core/services/category-api.service';
 import { ProductDto, CreateProductRequest, CategoryDto } from '../../models/inventory.model';
+import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize } from 'rxjs/operators';
 
@@ -17,7 +18,7 @@ import { finalize } from 'rxjs/operators';
         <div class="space-y-2">
           <div class="flex flex-wrap items-center gap-2">
             <span class="badge badge-primary badge-outline">Inventory</span>
-            <span class="badge badge-ghost">{{ filteredProducts.length }} visible</span>
+            <span class="badge badge-ghost">{{ totalItems }} total</span>
           </div>
           <h2 class="section-title text-base-content">Products</h2>
           <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p>
@@ -52,7 +53,7 @@ import { finalize } from 'rxjs/operators';
               </tr>
             </thead>
             <tbody>
-              @for (item of paginatedProducts; track item.id) {
+              @for (item of products; track item.id) {
                 <tr>
                   <td class="font-medium">{{ item.name }}</td>
                   <td>{{ item.categoryName || '-' }}</td>
@@ -93,77 +94,103 @@ import { finalize } from 'rxjs/operators';
                 </tr>
               }
             </tbody>
-          </table>
-        </div>
-      </div>
+            <tfoot *ngIf="totalItems > 0">
+              <tr>
+                <td colspan="5" class="p-0 border-t border-base-200">
+                  <div class="px-4 py-4 w-full bg-base-100">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <!-- Rows per page selector (Left) -->
+                      <div class="flex items-center gap-2 flex-1 sm:flex-initial">
+                        <span class="text-sm opacity-70">Rows per page:</span>
+                        <select
+                          [(ngModel)]="pageSize"
+                          (ngModelChange)="onPageSizeChange()"
+                          class="select select-bordered select-sm"
+                        >
+                          <option [value]="5">5</option>
+                          <option [value]="10">10</option>
+                          <option [value]="20">20</option>
+                          <option [value]="50">50</option>
+                        </select>
+                      </div>
 
-      <!-- Pagination - Outside the card -->
-      <div class="mt-4">
-        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
-          <div class="text-sm text-base-content/60">
-            Showing {{ startIndex }}-{{ endIndex }} of {{ filteredProducts.length }} products
-          </div>
-          <div class="flex items-center gap-3">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-base-content/60">Rows per page:</span>
-              <select
-                [(ngModel)]="pageSize"
-                (ngModelChange)="onPageSizeChange()"
-                class="select select-bordered select-sm"
-              >
-                <option [value]="5">5</option>
-                <option [value]="10">10</option>
-                <option [value]="20">20</option>
-                <option [value]="50">50</option>
-              </select>
-            </div>
-            @if (totalPages > 1) {
-              <div class="join">
-                <button
-                  type="button"
-                  class="join-item btn btn-sm"
-                  (click)="goToFirstPage()"
-                  [disabled]="currentPage === 1"
-                >
-                  «
-                </button>
-                <button
-                  type="button"
-                  class="join-item btn btn-sm"
-                  (click)="previousPage()"
-                  [disabled]="currentPage === 1"
-                >
-                  ‹
-                </button>
-                @for (page of visiblePages; track page) {
-                  <button
-                    type="button"
-                    class="join-item btn btn-sm"
-                    [class.btn-active]="page === currentPage"
-                    (click)="goToPage(page)"
-                  >
-                    {{ page }}
-                  </button>
-                }
-                <button
-                  type="button"
-                  class="join-item btn btn-sm"
-                  (click)="nextPage()"
-                  [disabled]="currentPage === totalPages"
-                >
-                  ›
-                </button>
-                <button
-                  type="button"
-                  class="join-item btn btn-sm"
-                  (click)="goToLastPage()"
-                  [disabled]="currentPage === totalPages"
-                >
-                  »
-                </button>
-              </div>
-            }
-          </div>
+                      <!-- Page Info (Center) -->
+                      <div class="text-sm opacity-70 text-center">
+                        Showing {{ startIndex }}-{{ endIndex }} of {{ totalItems }} products
+                      </div>
+
+                      <!-- Pagination Controls (Right) -->
+                      <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalItems > pageSize">
+                        <!-- First Page -->
+                        <button
+                          type="button"
+                          class="join-item btn btn-sm btn-ghost"
+                          aria-label="Go to first page"
+                          (click)="goToFirstPage()"
+                          [disabled]="currentPage === 1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                          </svg>
+                        </button>
+
+                        <!-- Previous Page -->
+                        <button
+                          type="button"
+                          class="join-item btn btn-sm btn-ghost"
+                          aria-label="Go to previous page"
+                          (click)="previousPage()"
+                          [disabled]="currentPage === 1"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                          </svg>
+                        </button>
+
+                        <!-- Page Numbers -->
+                        @for (page of visiblePages; track page) {
+                          <button
+                            type="button"
+                            class="join-item btn btn-sm"
+                            [class.btn-active]="page === currentPage"
+                            (click)="goToPage(page)"
+                          >
+                            {{ page }}
+                          </button>
+                        }
+
+                        <!-- Next Page -->
+                        <button
+                          type="button"
+                          class="join-item btn btn-sm btn-ghost"
+                          aria-label="Go to next page"
+                          (click)="nextPage()"
+                          [disabled]="currentPage === totalPages"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+
+                        <!-- Last Page -->
+                        <button
+                          type="button"
+                          class="join-item btn btn-sm btn-ghost"
+                          aria-label="Go to last page"
+                          (click)="goToLastPage()"
+                          [disabled]="currentPage === totalPages"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
       </div>
 
@@ -457,7 +484,7 @@ import { finalize } from 'rxjs/operators';
       </form>
     </dialog>
 
-    <!-- Success/Error Message Modal -->
+    <!-- Success/Error/Warning Message Modal -->
     <dialog id="product-message-modal" class="modal modal-bottom sm:modal-middle">
       <div class="modal-box">
         <form method="dialog">
@@ -465,10 +492,15 @@ import { finalize } from 'rxjs/operators';
         </form>
         <div class="flex flex-col items-center text-center">
           <div class="mb-4">
-            <div class="rounded-full p-4" [class]="messageType === 'success' ? 'bg-success/10' : 'bg-error/10'">
+            <div class="rounded-full p-4" [class]="messageType === 'success' ? 'bg-success/10' : messageType === 'warning' ? 'bg-warning/10' : 'bg-error/10'">
               @if (messageType === 'success') {
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              }
+              @if (messageType === 'warning') {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               }
               @if (messageType === 'error') {
@@ -479,7 +511,7 @@ import { finalize } from 'rxjs/operators';
             </div>
           </div>
 
-          <h3 class="font-bold text-lg mb-2" [class]="messageType === 'success' ? 'text-success' : 'text-error'">{{ messageTitle }}</h3>
+          <h3 class="font-bold text-lg mb-2" [class]="messageType === 'success' ? 'text-success' : messageType === 'warning' ? 'text-warning' : 'text-error'">{{ messageTitle }}</h3>
           <p class="text-base-content/70 mb-4">{{ messageContent }}</p>
 
           <div class="flex w-full">
@@ -506,13 +538,13 @@ export class ProductsComponent implements OnInit {
 
   // Pagination states
   protected currentPage = 1;
-  protected pageSize = 10;
+  protected pageSize = 5;
 
   // Modal states
   protected isEditing = false;
   protected selectedProduct: ProductDto = this.getEmptyProduct();
   protected productToDelete: ProductDto | null = null;
-  protected messageType: 'success' | 'error' = 'success';
+  protected messageType: 'success' | 'error' | 'warning' = 'success';
   protected messageTitle = '';
   protected messageContent = '';
 
@@ -699,73 +731,97 @@ export class ProductsComponent implements OnInit {
     this.clearImageState();
   }
 
-  protected async saveProduct(): Promise<void> {
+  protected saveProduct(): void {
     if (!this.selectedProduct.name || this.selectedProduct.price === null || this.selectedProduct.price === undefined) {
       this.showMessage('error', 'Validation Error', 'Product name and price are required.');
       return;
     }
 
     this.isUploading = true;
+    this.imageLoading = true;
 
-    try {
-      if (this.isEditing && this.selectedProduct.id) {
-        // Update existing product
-        this.api.update(this.selectedProduct.id, this.selectedProduct).subscribe({
-          next: async (updated) => {
-            // Upload image if selected
-            if (this.selectedImage && updated?.id) {
-              await this.uploadProductImage(updated.id);
-            }
-            // Wait a bit for backend to process, then reload
-            setTimeout(() => {
-              this.loadProducts();
-              this.closeModal();
-              this.showMessage('success', 'Product Updated', `${this.selectedProduct.name} has been updated successfully.`);
-            }, 500);
-          },
-          error: (err) => {
-            this.isUploading = false;
-            this.showMessage('error', 'Update Failed', 'Could not update the product. Please try again.');
-            console.error('Error updating product:', err);
-          }
-        });
-      } else {
-        // Create new product
-        const createRequest: CreateProductRequest = {
-          name: this.selectedProduct.name,
-          codeNumber: this.selectedProduct.codeNumber,
-          description: this.selectedProduct.description,
-          categoryId: this.selectedProduct.categoryId,
-          brandId: this.selectedProduct.brandId,
-          price: this.selectedProduct.price,
-          quality: this.selectedProduct.quality,
-          voucherNumber: this.selectedProduct.voucherNumber
-        };
-
-        this.api.create(createRequest).subscribe({
-          next: async (created) => {
-            // Upload image if selected
-            if (this.selectedImage && created?.id) {
-              await this.uploadProductImage(created.id);
-            }
-            // Wait a bit for backend to process, then reload
-            setTimeout(() => {
-              this.loadProducts();
-              this.closeModal();
-              this.showMessage('success', 'Product Created', `${this.selectedProduct.name} has been created successfully.`);
-            }, 500);
-          },
-          error: (err) => {
-            this.isUploading = false;
-            this.showMessage('error', 'Create Failed', 'Could not create the product. Please try again.');
-            console.error('Error creating product:', err);
-          }
-        });
-      }
-    } catch (error) {
+    const finalizeAndClose = (success: boolean, action: string, productName: string, errorMsg?: string) => {
       this.isUploading = false;
-      this.showMessage('error', 'Error', 'An unexpected error occurred.');
-      console.error('Error saving product:', error);
+      this.imageLoading = false;
+      // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.loadProducts();
+        this.closeModal();
+        if (success) {
+          this.showMessage('success', `${action} Successful`, `${productName} has been ${action.toLowerCase()} successfully.`);
+        } else if (errorMsg) {
+          this.showMessage('error', `${action} Failed`, errorMsg);
+        } else {
+          this.showMessage('warning', `${action} Partially Successful`, `${productName} was ${action.toLowerCase()} but image upload failed. You can upload the image later.`);
+        }
+      });
+    };
+
+    if (this.isEditing && this.selectedProduct.id) {
+      // Update existing product
+      this.api.update(this.selectedProduct.id, this.selectedProduct).subscribe({
+        next: (updated) => {
+          // Upload image if selected
+          if (this.selectedImage && updated?.id) {
+            this.uploadProductImage(updated.id)
+              .then(() => {
+                finalizeAndClose(true, 'Update', this.selectedProduct.name);
+              })
+              .catch((err) => {
+                console.error('Image upload failed:', err);
+                finalizeAndClose(false, 'Update', this.selectedProduct.name);
+              });
+          } else {
+            finalizeAndClose(true, 'Update', this.selectedProduct.name);
+          }
+        },
+        error: (err) => {
+          this.isUploading = false;
+          this.imageLoading = false;
+          setTimeout(() => {
+            this.showMessage('error', 'Update Failed', 'Could not update the product. Please try again.');
+          });
+          console.error('Error updating product:', err);
+        }
+      });
+    } else {
+      // Create new product
+      const createRequest: CreateProductRequest = {
+        name: this.selectedProduct.name,
+        codeNumber: this.selectedProduct.codeNumber,
+        description: this.selectedProduct.description,
+        categoryId: this.selectedProduct.categoryId,
+        brandId: this.selectedProduct.brandId,
+        price: this.selectedProduct.price,
+        quality: this.selectedProduct.quality,
+        voucherNumber: this.selectedProduct.voucherNumber
+      };
+
+      this.api.create(createRequest).subscribe({
+        next: (created) => {
+          // Upload image if selected
+          if (this.selectedImage && created?.id) {
+            this.uploadProductImage(created.id)
+              .then(() => {
+                finalizeAndClose(true, 'Create', this.selectedProduct.name);
+              })
+              .catch((err) => {
+                console.error('Image upload failed:', err);
+                finalizeAndClose(false, 'Create', this.selectedProduct.name);
+              });
+          } else {
+            finalizeAndClose(true, 'Create', this.selectedProduct.name);
+          }
+        },
+        error: (err) => {
+          this.isUploading = false;
+          this.imageLoading = false;
+          setTimeout(() => {
+            this.showMessage('error', 'Create Failed', 'Could not create the product. Please try again.');
+          });
+          console.error('Error creating product:', err);
+        }
+      });
     }
   }
 
@@ -801,7 +857,7 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  protected showMessage(type: 'success' | 'error', title: string, content: string): void {
+  protected showMessage(type: 'success' | 'error' | 'warning', title: string, content: string): void {
     this.messageType = type;
     this.messageTitle = title;
     this.messageContent = content;
@@ -863,14 +919,20 @@ export class ProductsComponent implements OnInit {
     }
   }
 
-  protected async uploadProductImage(productId: string): Promise<void> {
-    if (!this.selectedImage) return;
+  protected uploadProductImage(productId: string): Promise<void> {
+    if (!this.selectedImage) return Promise.resolve();
 
     this.imageLoading = true;
     this.imageUploadProgress = 10;
 
-    try {
-      this.api.uploadImage(productId, this.selectedImage).subscribe({
+    return new Promise((resolve, reject) => {
+      const fileToUpload = this.selectedImage;
+      if (!fileToUpload) {
+        reject(new Error('No image selected'));
+        return;
+      }
+
+      this.api.uploadImage(productId, fileToUpload).subscribe({
         next: (result) => {
           if (result?.imageUrl) {
             this.selectedProduct.imageUrl = result.imageUrl;
@@ -884,21 +946,21 @@ export class ProductsComponent implements OnInit {
 
           setTimeout(() => {
             this.imageUploadProgress = 0;
+            this.cdr.detectChanges();
           }, 1500);
+
+          resolve();
         },
         error: (err) => {
           this.imageLoading = false;
           this.isUploading = false;
           this.imageUploadProgress = 0;
+          this.cdr.detectChanges();
           console.error('Error uploading image:', err);
+          reject(err);
         }
       });
-    } catch (error) {
-      this.imageLoading = false;
-      this.isUploading = false;
-      this.imageUploadProgress = 0;
-      console.error('Error uploading image:', error);
-    }
+    });
   }
 
   protected async deleteProductImage(productId: string): Promise<void> {

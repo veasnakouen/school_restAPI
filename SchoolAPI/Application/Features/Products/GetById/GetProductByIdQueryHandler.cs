@@ -42,6 +42,7 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
         var product = await _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Image)
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
         if (product == null)
