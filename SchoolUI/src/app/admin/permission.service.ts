@@ -1,23 +1,31 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable } from 'rxjs';
 import { Permission } from './permission.model';
+import { HttpClient } from '@angular/common/http';
 
 @Injectable({ providedIn: 'root' })
 export class PermissionService {
-  // Replace with real API integration
+  private apiUrl = 'http://localhost:5001/api/permissions'; // Updated to HTTPS
+
+  constructor(private http: HttpClient) {}
+
   getPermissions(): Observable<Permission[]> {
-    return of([]);
+    return this.http.get<Permission[]>(this.apiUrl);
   }
-  getPermission(id: string): Observable<Permission | undefined> {
-    return of(undefined);
+
+  getPermission(id: string): Observable<Permission> {
+    return this.http.get<Permission>(`${this.apiUrl}/${id}`);
   }
+
   createPermission(permission: Permission): Observable<Permission> {
-    return of(permission);
+    return this.http.post<Permission>(this.apiUrl, permission);
   }
+
   updatePermission(permission: Permission): Observable<Permission> {
-    return of(permission);
+    return this.http.put<Permission>(`${this.apiUrl}/${permission.id}`, permission);
   }
+
   deletePermission(id: string): Observable<void> {
-    return of();
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 }

@@ -39,35 +39,30 @@ public class RolesController : ControllerBase
         }
 
         var roleExist = await _roleManager.RoleExistsAsync(createRoleRequest.RoleName);
-        // role existed
         if (roleExist)
         {
             return BadRequest("Role already existed!.");
         }
 
-        if (!roleExist) //check on the role exist status
+        var role = new AppRole { Name = createRoleRequest.RoleName };
+        var roleResult = await _roleManager.CreateAsync(role);
+        if (!roleResult.Succeeded)
         {
-            var roleResult = await _roleManager.CreateAsync(new AppRole { Name = createRoleRequest.RoleName });
-            // check if the role has been added successfully
-            if (roleResult.Succeeded)
-            {
-                _logger.LogInformation("The role {RoleName} was added successfully", createRoleRequest.RoleName);
+            _logger.LogInformation("The role {RoleName} was not added successfully", createRoleRequest.RoleName);
+            return BadRequest(new { error = $"The role {createRoleRequest.RoleName} Has not been added!." });
+        }
 
-                return Ok(new
-                {
-                    result = $"The role {createRoleRequest.RoleName} Has been added successfully"
-                });
-            }
-            else
+        // Assign permissions if provided
+        if (createRoleRequest.Permissions != null)
+        {
+            foreach (var perm in createRoleRequest.Permissions.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                _logger.LogInformation("The role {RoleName} was not added successfully", createRoleRequest.RoleName);
-                return BadRequest(new
-                {
-                    error = $"The role {createRoleRequest.RoleName} Has not been added!."
-                });
+                await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, perm));
             }
         }
-        return BadRequest(new { error = "Role already existed!." });
+
+        _logger.LogInformation("The role {RoleName} was added successfully", createRoleRequest.RoleName);
+        return Ok(new { result = $"The role {createRoleRequest.RoleName} Has been added successfully" });
     }
 
     [HttpPost("AddUserToRole")]
@@ -114,7 +109,26 @@ public class RolesController : ControllerBase
         }
     }
 
-    // [HttpGet("GetUserRole")]
+    // ...existing code...
+
+    [HttpPut("{id}")]
+    [Authorize(Policy = Permissions.RolesUpdate)]
+    public async Task<IActionResult> UpdateRole(string id, [FromBody] UpdateRoleRequest updateRoleRequest)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var role = await _roleManager.FindByIdAsync(id);
+        if (role == null)
+        {
+            return NotFound(new { error = "Role not found." });
+        }
+        role.Name = updateRoleRequest.RoleName;
+        var result = await _roleManager.UpdateAsync(role);
+        if (result.Succeeded)
+        {
+            return Ok(new { result = $"Role {role.Name} updated successfully." });
+        }
+        return BadRequest(result.Errors);
+    }
     [HttpGet]
     [Route("GetUserRole")]
     public async Task<IActionResult> GetUserRoles(string email)

@@ -1,6 +1,18 @@
 export interface Role {
   id: string;
   name: string;
+  description?: string;
   permissions: string[];
-  // Add more fields as needed
+  isSystem?: boolean;
+}
+
+export interface ResourcePermission {
+  resource: string;
+  icon: string;
+  actions: {
+    id: string;
+    name: string;
+    description: string;
+    checked: boolean;
+  }[];
 }

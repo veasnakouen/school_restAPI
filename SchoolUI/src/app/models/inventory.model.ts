@@ -1,3 +1,13 @@
+export interface CategoryDto {
+  id?: string | null;
+  name: string;
+}
+
+export interface BrandDto {
+  id?: string | null;
+  name: string;
+}
+
 export interface ProductDto {
   id?: string | null;
   name: string;
@@ -19,8 +29,8 @@ export interface CreateProductRequest {
   name: string;
   codeNumber?: string | null;
   description?: string | null;
-  categoryName?: string | null;
-  brandName?: string | null;
+  categoryId?: string | null;
+  brandId?: string | null;
   price?: number | null;
   quality?: string | null;
   voucherNumber?: string | null;

@@ -464,7 +464,9 @@ export class AppShellComponent implements OnInit {
     { label: 'API Console', path: '/api-console', icon: 'pi-sliders-h', description: 'Direct SchoolAPI interaction' },
     { label: 'Classes', path: '/classes', icon: 'pi-id-card', description: 'Academic class list' },
     { label: 'Students', path: '/students', icon: 'pi-user', description: 'Student records' },
-    { label: 'Products', path: '/products', icon: 'pi-box', description: 'Inventory and items' },
+    { label: 'Products', path: '/products', icon: 'pi-box', description: 'Inventory items' },
+    { label: 'Categories', path: '/categories', icon: 'pi-tags', description: 'Product categories' },
+    { label: 'Brands', path: '/brands', icon: 'pi-clone', description: 'Product brands' },
     { label: 'Reports', path: '/reports', icon: 'pi-chart-bar', description: 'PDF and Excel exports' },
     { label: 'Admin', path: '/admin', icon: 'pi-shield', description: 'User, role, and permission management' }
   ];

@@ -14,6 +14,11 @@ body {
 	min-height: 100%;
 }
 
+// Prevent background scrolling when dialog modal is open
+html:has(dialog[open]) {
+	overflow: hidden;
+}
+
 body {
 	margin: 0;
 	font-family:

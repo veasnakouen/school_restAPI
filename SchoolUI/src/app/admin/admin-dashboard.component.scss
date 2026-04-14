@@ -13,61 +13,63 @@
     border-radius: 1rem;
   }
 
-  .admin-title {
-    font-size: 2rem;
-    font-weight: 700;
-    margin-bottom: 2rem;
-    color: #e3f2fd;
-    letter-spacing: 0.02em;
-    text-align: left;
+  // .admin-title styles removed; use Tailwind/DaisyUI classes in HTML for theme compliance
 
-    @media (max-width: 768px) {
-      font-size: 1.5rem;
-      margin-bottom: 1.5rem;
-    }
-  }
-
-  // Animated Tab Menu - ultra smooth with GPU acceleration
+  // Animated Tab Menu - Content-Adaptive with Sliding Indicator
   .admin-tab-menu {
-    display: flex;
+    $gap: 0.5rem;
+    $padding: 0.5rem;
+
+    display: inline-flex;
     position: relative;
-    margin-bottom: 1.5rem;
-    background: rgba(25, 118, 210, 0.08);
+    margin-bottom: 2rem;
+    background: rgba(255, 255, 255, 0.04);
     border-radius: 0.75rem;
     overflow: hidden;
-    box-shadow: 0 2px 8px 0 rgba(25, 118, 210, 0.04);
-    padding: 0.35rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: $padding;
+    gap: $gap;
+    border: 1px solid rgba(255, 255, 255, 0.08);
     width: fit-content;
+    min-width: 280px; // Minimum width for small screens
+    box-sizing: border-box;
 
     @media (max-width: 768px) {
+      display: flex;
       width: 100%;
-      justify-content: space-around;
+      min-width: auto;
       padding: 0.25rem;
+      margin-bottom: 1.5rem;
     }
 
     .admin-tab {
       flex: 1 1 0;
+      min-width: max-content;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 0.65rem 1.5rem;
+      padding: 0.6rem 1.25rem;
       border-radius: 0.5rem;
-      color: #42a5f5;
-      font-weight: 600;
-      font-size: 0.95rem;
+      color: hsl(var(--bc) / 0.55);
+      font-weight: 500;
+      font-size: 0.9rem;
       text-decoration: none;
       text-align: center;
       position: relative;
       z-index: 2;
-      transition: color 0.25s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       background: transparent;
       cursor: pointer;
       user-select: none;
+      white-space: nowrap;
 
       @media (max-width: 768px) {
-        padding: 0.5rem 0.75rem;
-        font-size: 0.85rem;
+        padding: 0.5rem 0.5rem;
+        font-size: 0.8rem;
+        gap: 0.35rem;
 
         .pi {
           font-size: 0.85rem;
@@ -75,43 +77,47 @@
       }
 
       &.active {
-        color: #fff;
+        color: hsl(var(--pc));
+        font-weight: 600;
       }
 
       &:hover:not(.active) {
-        color: #90caf9;
+        color: hsl(var(--bc) / 0.75);
+        background: hsl(var(--bc) / 0.06);
       }
     }
 
-    // Animated sliding background - GPU accelerated
+    // Sliding background indicator
     .admin-tab-bg {
       position: absolute;
-      top: 0.35rem;
-      bottom: 0.35rem;
-      left: 0.35rem;
-      width: calc((100% - 0.7rem) / 3);
+      top: $padding;
+      bottom: $padding;
+      left: $padding;
+      width: calc((100% - #{$padding * 4} - #{$gap * 2}) / 3);
       border-radius: 0.5rem;
-      background: linear-gradient(135deg, #1976d2 0%, #42a5f5 100%);
-      box-shadow: 0 4px 16px 0 rgba(25, 118, 210, 0.35);
+      background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+      box-shadow:
+        0 2px 8px rgba(59, 130, 246, 0.35),
+        0 1px 3px rgba(59, 130, 246, 0.2);
       z-index: 1;
-      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      transform: translate3d(0, 0, 0);
-      will-change: transform;
-      backface-visibility: hidden;
-      -webkit-backface-visibility: hidden;
-      perspective: 1000;
-      -webkit-perspective: 1000;
+      transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .admin-tab-bg.users { transform: translate3d(0, 0, 0); }
-    .admin-tab-bg.roles { transform: translate3d(calc(100% + 0.35rem), 0, 0); }
-    .admin-tab-bg.permissions { transform: translate3d(calc(200% + 0.7rem), 0, 0); }
+    // Tab positions - each tab takes 1/3 of available space
+    .admin-tab-bg.users {
+      left: $padding;
+    }
+    .admin-tab-bg.roles {
+      left: calc(#{$padding} + ((100% - #{$padding * 4} - #{$gap * 2}) / 3) + #{$gap});
+    }
+    .admin-tab-bg.permissions {
+      left: calc(#{$padding} + 2 * (((100% - #{$padding * 4} - #{$gap * 2}) / 3) + #{$gap}));
+    }
   }
 
   .admin-content {
     margin-top: 1.5rem;
     min-height: 300px;
-    color: #e3f2fd;
     font-size: 1.2rem;
 
     @media (max-width: 768px) {

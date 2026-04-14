@@ -1,24 +1,24 @@
 <div class="admin-dashboard">
-  <h2 class="admin-title">Admin Dashboard</h2>
-  
+  <h2 class="text-3xl font-bold text-base-content mb-8">Admin Dashboard</h2>
+
   <!-- Animated Tab Menu -->
   <nav class="admin-tab-menu">
-    <a routerLink="users" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="admin-tab">
+    <a routerLink="users" routerLinkActive="active" #rlaUsers="routerLinkActive" class="admin-tab">
       <span class="pi pi-users"></span>
       Users
     </a>
-    <a routerLink="roles" routerLinkActive="active" class="admin-tab">
+    <a routerLink="roles" routerLinkActive="active" #rlaRoles="routerLinkActive" class="admin-tab">
       <span class="pi pi-shield"></span>
       Roles
     </a>
-    <a routerLink="permissions" routerLinkActive="active" class="admin-tab">
+    <a routerLink="permissions" routerLinkActive="active" #rlaPerms="routerLinkActive" class="admin-tab">
       <span class="pi pi-lock"></span>
       Permissions
     </a>
     <div class="admin-tab-bg" [ngClass]="{
-      'users': location.pathname.endsWith('/users') || location.pathname.endsWith('/admin'),
-      'roles': location.pathname.endsWith('/roles'),
-      'permissions': location.pathname.endsWith('/permissions')
+      'users': rlaUsers.isActive,
+      'roles': rlaRoles.isActive,
+      'permissions': rlaPerms.isActive
     }"></div>
   </nav>
 

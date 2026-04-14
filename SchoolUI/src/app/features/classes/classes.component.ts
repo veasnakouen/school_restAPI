@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ClassApiService } from '../../core/services/class-api.service';
 import { ClassDto } from '../../models/academic.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-classes',
@@ -27,7 +28,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
         </label>
       </div>
 
-      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6 px-4">
         <table class="table table-zebra table-pin-rows">
           <thead>
             <tr>
@@ -63,6 +64,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
 })
 export class ClassesComponent implements OnInit {
   private readonly api = inject(ClassApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   protected classes: ClassDto[] = [];
   protected loading = false;
@@ -81,17 +83,22 @@ export class ClassesComponent implements OnInit {
   ngOnInit(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.api.list({ pageSize: 100 }).subscribe({
+    this.cdr.detectChanges();
+    this.api.list({ pageSize: 100 }).pipe(
+      finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (result) => {
         this.classes = result.items || [];
-        this.loading = false;
         console.log('Classes loaded:', this.classes.length);
       },
       error: (error) => {
         console.error('Error loading classes:', error);
         this.errorMessage = error?.error?.message ?? 'Unable to load classes.';
-        this.loading = false;
         this.classes = [];
+        this.cdr.detectChanges();
       }
     });
   }

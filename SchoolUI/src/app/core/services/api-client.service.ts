@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, throwError, TimeoutError } from 'rxjs';
 import { timeout, catchError } from 'rxjs/operators';
@@ -11,8 +11,16 @@ export class ApiClientService {
   constructor(private readonly http: HttpClient) {}
 
   get<T>(path: string, query?: object): Observable<T> {
+    // Add cache-busting headers to prevent browser caching
+    const headers = new HttpHeaders({
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+
     return this.http.get<T>(this.buildUrl(path), {
-      params: this.buildParams(query)
+      params: this.buildParams(query),
+      headers
     }).pipe(
       timeout(this.DEFAULT_TIMEOUT),
       catchError((error) => {
@@ -37,7 +45,12 @@ export class ApiClientService {
   }
 
   post<T>(path: string, body: unknown): Observable<T> {
-    return this.http.post<T>(this.buildUrl(path), body).pipe(
+    // Set Content-Type header to application/json
+    const headers = new HttpHeaders({
+      'Content-Type': 'application/json'
+    });
+    
+    return this.http.post<T>(this.buildUrl(path), body, { headers }).pipe(
       timeout(this.DEFAULT_TIMEOUT),
       catchError((error) => {
         if (error instanceof TimeoutError) {

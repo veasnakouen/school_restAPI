@@ -10,7 +10,9 @@ public class DbInitialize
     public static void InitDb(WebApplication app)
     {
         using var scope = app.Services.CreateScope();
-        SeedingData(scope.ServiceProvider.GetService<SchoolDbContext>());
+        var context = scope.ServiceProvider.GetRequiredService<SchoolDbContext>() ?? throw new InvalidOperationException("Failed to get SchoolDbContext from service provider.");
+        
+        SeedingData(context);
     }
 
 
@@ -22,7 +24,7 @@ public class DbInitialize
             Console.WriteLine("Already have data");
             return;   // DB has been seeded
         }
-
+        // var student = new List<Student> { new Student { } ,new Student { } }
         var student = new Student
         {
             KhFirstName = "សុខ",
@@ -32,6 +34,7 @@ public class DbInitialize
         };
 
         context.Students.Add(student);
+        // context.Students.AddRange(student)
         context.SaveChanges();
     }
 }

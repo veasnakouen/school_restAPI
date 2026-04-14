@@ -68,7 +68,9 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Brand, opt => opt.Ignore())
             .ForMember(dest => dest.Image, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore());
+            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.Quality, opt => opt.MapFrom(src => src.Quality ?? string.Empty))
+            .ForMember(dest => dest.VoucherNumber, opt => opt.MapFrom(src => src.VoucherNumber ?? string.Empty));
 
         CreateMap<Transaction, TransactionDto>()
             .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.Name : string.Empty))

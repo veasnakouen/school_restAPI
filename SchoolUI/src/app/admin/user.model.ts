@@ -1,7 +1,11 @@
 export interface User {
   id: string;
-  username: string;
+  userName: string;
+  fullName?: string;
   email: string;
-  roles: string[];
-  // Add more fields as needed
+  phoneNumber?: string;
+  password?: string; // Only used for editing, not displayed
+  lockoutEnd?: string;
+  createdAt?: string;
+  roles?: string[];
 }

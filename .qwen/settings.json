@@ -16,7 +16,11 @@
       "Bash(curl *)",
       "Bash(netstat *)",
       "Bash(findstr *)",
-      "Bash(tasklist)"
+      "Bash(tasklist)",
+      "Bash(dir *)",
+      "Bash(copy *)",
+      "Bash(select-string *)",
+      "Bash(ng *)"
     ]
   },
   "$version": 3

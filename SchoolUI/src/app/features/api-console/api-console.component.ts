@@ -1,18 +1,20 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ApplicationRef, ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { catchError, forkJoin, map, of } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of, Observable } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ClassApiService } from '../../core/services/class-api.service';
+import { CategoryApiService } from '../../core/services/category-api.service';
+import { BrandApiService } from '../../core/services/brand-api.service';
 import { LookupService } from '../../core/services/lookup.service';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { ReportApiService } from '../../core/services/report-api.service';
 import { StudentApiService } from '../../core/services/student-api.service';
 import { ClassDto, CreateClassRequest, CreateStudentRequest, Gender, StudentDto } from '../../models/academic.model';
 import { LookupOption } from '../../models/lookup.model';
-import { CreateProductRequest, ProductDto } from '../../models/inventory.model';
+import { BrandDto, CategoryDto, CreateProductRequest, ProductDto } from '../../models/inventory.model';
 
 interface ActivityEntry {
   tone: 'success' | 'error' | 'info';
@@ -178,7 +180,7 @@ interface ActivityEntry {
           </div>
 
           <div class="grid gap-4 xl:grid-cols-2">
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
               <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
                 <div>
                   <div class="font-bold text-base-content">Classes</div>
@@ -186,7 +188,7 @@ interface ActivityEntry {
                 </div>
                 <button class="btn btn-ghost btn-xs" type="button" (click)="loadClasses()">Reload</button>
               </div>
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto px-4">
                 <table class="table table-zebra">
                   <thead>
                     <tr>
@@ -201,7 +203,7 @@ interface ActivityEntry {
                         <td class="font-medium">{{ item.className }}</td>
                         <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
                         <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteClass(item.id)">Delete</button>
+                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteClass(item.id, item.className)">Delete</button>
                         </td>
                       </tr>
                     } @empty {
@@ -212,7 +214,7 @@ interface ActivityEntry {
               </div>
             </div>
 
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
               <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
                 <div>
                   <div class="font-bold text-base-content">Students</div>
@@ -220,7 +222,7 @@ interface ActivityEntry {
                 </div>
                 <button class="btn btn-ghost btn-xs" type="button" (click)="loadStudents()">Reload</button>
               </div>
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto px-4">
                 <table class="table table-zebra">
                   <thead>
                     <tr>
@@ -238,7 +240,7 @@ interface ActivityEntry {
                         </td>
                         <td class="font-mono text-xs text-base-content/60">{{ item.classId || '-' }}</td>
                         <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteStudent(item.id)">Delete</button>
+                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteStudent(item.id, item.engFirstName, item.engLastName)">Delete</button>
                         </td>
                       </tr>
                     } @empty {
@@ -280,13 +282,22 @@ interface ActivityEntry {
                   <input class="app-input" formControlName="codeNumber" placeholder="PRD-001" />
                 </label>
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Category <span class="text-error">*</span></span></div>
-                  <input class="app-input" formControlName="categoryName" placeholder="e.g. Furniture, Electronics" />
+                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Category</span></div>
+                  <select class="select select-bordered rounded-2xl" formControlName="categoryId">
+                    <option value="">Select Category</option>
+                    @for (cat of categoryOptions; track cat.value) {
+                      <option [value]="cat.value">{{ cat.label }}</option>
+                    }
+                  </select>
                 </label>
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Brand <span class="text-error">*</span></span></div>
-                  <input class="app-input" formControlName="brandName" placeholder="e.g. Dell, Sony, Samsung" />
-                  <div class="label"><span class="label-text-alt text-base-content/60">Provide at least Category or Brand</span></div>
+                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Brand</span></div>
+                  <select class="select select-bordered rounded-2xl" formControlName="brandId">
+                    <option value="">Select Brand</option>
+                    @for (brand of brandOptions; track brand.value) {
+                      <option [value]="brand.value">{{ brand.label }}</option>
+                    }
+                  </select>
                 </label>
                 <label class="form-control w-full">
                   <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Price</span></div>
@@ -301,6 +312,14 @@ interface ActivityEntry {
               <label class="form-control w-full">
                 <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Description</span></div>
                 <textarea class="textarea textarea-bordered min-h-28 rounded-2xl" formControlName="description" placeholder="Optional product description"></textarea>
+              </label>
+
+              <label class="form-control w-full">
+                <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Product Image</span></div>
+                <input type="file" class="file-input file-input-bordered w-full" (change)="onFileSelected($event)" accept="image/*" />
+                @if (selectedImage) {
+                  <div class="label"><span class="label-text-alt text-success">Selected: {{ selectedImage.name }}</span></div>
+                }
               </label>
 
               <div class="grid gap-3 md:grid-cols-[1fr_auto]">
@@ -319,15 +338,9 @@ interface ActivityEntry {
                   </button>
                 </div>
               </div>
-              
-              @if (productForm.errors?.['categoryOrBrandRequired'] && productForm.touched) {
-                <div class="alert alert-warning border-0 bg-warning/10 text-warning">
-                  <span>Please provide at least Category or Brand name</span>
-                </div>
-              }
             </form>
 
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
               <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
                 <div>
                   <div class="font-bold text-base-content">Products</div>
@@ -335,7 +348,7 @@ interface ActivityEntry {
                 </div>
                 <button class="btn btn-ghost btn-xs" type="button" (click)="loadProducts()">Reload</button>
               </div>
-              <div class="overflow-x-auto">
+              <div class="overflow-x-auto px-4">
                 <table class="table table-zebra">
                   <thead>
                     <tr>
@@ -355,7 +368,7 @@ interface ActivityEntry {
                         <td>{{ item.brandName || '-' }}</td>
                         <td>{{ item.categoryName || '-' }}</td>
                         <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteProduct(item.id || '')">Delete</button>
+                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteProduct(item.id || '', item.name)">Delete</button>
                         </td>
                       </tr>
                     } @empty {
@@ -428,15 +441,62 @@ interface ActivityEntry {
         </div>
       </section>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <dialog id="delete-modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-md py-6">
+        <div class="flex flex-col items-center text-center">
+          <!-- Warning Icon -->
+          <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-error/10">
+            <span class="pi pi-exclamation-triangle text-2xl text-error"></span>
+          </div>
+
+          <!-- Title -->
+          <h3 class="mb-2 text-xl font-bold text-base-content">Confirm Deletion</h3>
+
+          <!-- Message -->
+          <p class="mb-5 text-base text-base-content/70">
+            Are you sure you want to delete <strong class="text-base-content">{{ deleteItemName }}</strong>?
+          </p>
+
+          <!-- Action Buttons -->
+          <div class="flex w-full gap-3">
+            <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()">
+              Cancel
+            </button>
+            <button 
+              class="btn btn-error flex-1" 
+              type="button" 
+              [class.loading]="deletingInProgress"
+              (click)="confirmDelete()">
+              @if (deletingInProgress) {
+                <span class="loading loading-spinner loading-sm"></span>
+                Deleting...
+              } @else {
+                Yes, Delete
+              }
+            </button>
+          </div>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="button" (click)="closeDeleteModal()">close</button>
+      </form>
+    </dialog>
   `
 })
 export class ApiConsoleComponent implements OnInit {
   private readonly fb = inject(FormBuilder);
   protected readonly auth = inject(AuthService);
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly appRef = inject(ApplicationRef);
+  private readonly ngZone = inject(NgZone);
   private readonly lookup = inject(LookupService);
   private readonly classApi = inject(ClassApiService);
   private readonly studentApi = inject(StudentApiService);
   private readonly productApi = inject(ProductApiService);
+  private readonly categoryApi = inject(CategoryApiService);
+  private readonly brandApi = inject(BrandApiService);
   private readonly reportApi = inject(ReportApiService);
 
   protected readonly genderOptions: Gender[] = ['Female', 'Male', 'Other'];
@@ -460,21 +520,20 @@ export class ApiConsoleComponent implements OnInit {
     name: ['', [Validators.required]],
     codeNumber: [''],
     description: [''],
-    categoryName: [''],
-    brandName: [''],
+    categoryId: [''],
+    brandId: [''],
     price: [''],
     quality: [''],
     voucherNumber: ['']
-  }, { validators: this.productCategoryOrBrandValidator });
+  });
 
-  private productCategoryOrBrandValidator(group: any) {
-    const categoryName = group.get('categoryName')?.value;
-    const brandName = group.get('brandName')?.value;
-    
-    if (!categoryName && !brandName) {
-      return { categoryOrBrandRequired: true };
+  protected selectedImage: File | null = null;
+
+  onFileSelected(event: any) {
+    const file: File = event.target.files[0];
+    if (file) {
+      this.selectedImage = file;
     }
-    return null;
   }
 
   protected readonly reportForm = this.fb.nonNullable.group({
@@ -487,14 +546,22 @@ export class ApiConsoleComponent implements OnInit {
   protected products: ProductDto[] = [];
   protected classOptions: LookupOption[] = [];
   protected outreachOptions: LookupOption[] = [];
-  protected brandOptions: LookupOption[] = [];
   protected categoryOptions: LookupOption[] = [];
+  protected brandOptions: LookupOption[] = [];
   protected activityLog: ActivityEntry[] = [];
-  protected statusMessage = 'Ready to call SchoolAPI.';
-  protected statusTone: 'success' | 'error' | 'info' = 'info';
+  protected statusMessage = 'Ready';
   protected busyClass = false;
   protected busyStudent = false;
   protected busyProduct = false;
+  protected reloadTrigger = 0; // Increment to force reload
+
+  // Delete confirmation modal properties
+  protected deleteItemName = '';
+  protected deleteItemType = 'item';
+  protected deleteItemId: string | null = null;
+  protected deleteItemTypeEnum: 'class' | 'student' | 'product' | null = null;
+  protected deletingInProgress = false;
+  protected statusTone: 'success' | 'error' | 'info' = 'info';
 
   ngOnInit(): void {
     this.refreshAll();
@@ -522,30 +589,30 @@ export class ApiConsoleComponent implements OnInit {
       className: this.classForm.getRawValue().className.trim()
     };
 
-    this.classApi.create(payload).subscribe({
+    this.classApi.create(payload).pipe(
+      finalize(() => {
+        this.busyClass = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (created) => {
         this.classForm.reset({ className: '' });
         this.loadClasses();
         this.loadLookups();
         this.announce(`Created class ${created.className}.`, 'success');
-        this.busyClass = false;
       },
       error: (error) => {
         this.announce(this.extractMessage(error, 'Failed to create class.'), 'error');
-        this.busyClass = false;
       }
     });
   }
 
-  protected deleteClass(id: string): void {
-    this.classApi.delete(id).subscribe({
-      next: () => {
-        this.loadClasses();
-        this.loadLookups();
-        this.announce('Class deleted.', 'success');
-      },
-      error: (error) => this.announce(this.extractMessage(error, 'Failed to delete class.'), 'error')
-    });
+  protected deleteClass(id: string, className: string): void {
+    this.deleteItemId = id;
+    this.deleteItemName = className;
+    this.deleteItemType = 'class';
+    this.deleteItemTypeEnum = 'class';
+    this.openDeleteModal();
   }
 
   protected createStudent(): void {
@@ -567,7 +634,12 @@ export class ApiConsoleComponent implements OnInit {
       outReachId: value.outReachId || null
     };
 
-    this.studentApi.create(payload).subscribe({
+    this.studentApi.create(payload).pipe(
+      finalize(() => {
+        this.busyStudent = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (created) => {
         this.studentForm.reset({
           khFirstName: '',
@@ -581,100 +653,89 @@ export class ApiConsoleComponent implements OnInit {
         });
         this.loadStudents();
         this.announce(`Created student ${created.engFirstName} ${created.engLastName}.`, 'success');
-        this.busyStudent = false;
       },
       error: (error) => {
         this.announce(this.extractMessage(error, 'Failed to create student.'), 'error');
-        this.busyStudent = false;
       }
     });
   }
 
-  protected deleteStudent(id: string): void {
-    this.studentApi.delete(id).subscribe({
-      next: () => {
-        this.loadStudents();
-        this.announce('Student deleted.', 'success');
-      },
-      error: (error) => this.announce(this.extractMessage(error, 'Failed to delete student.'), 'error')
-    });
+  protected deleteStudent(id: string, firstName: string, lastName: string): void {
+    this.deleteItemId = id;
+    this.deleteItemName = `${firstName} ${lastName}`;
+    this.deleteItemType = 'student';
+    this.deleteItemTypeEnum = 'student';
+    this.openDeleteModal();
   }
 
   protected createProduct(): void {
     if (this.productForm.invalid) {
       this.productForm.markAllAsTouched();
-      
-      // Check for specific validation error
-      if (this.productForm.errors?.['categoryOrBrandRequired']) {
-        this.announce('Please provide at least Category or Brand name.', 'error');
-        return;
-      }
-      
       return;
     }
 
     this.busyProduct = true;
     const value = this.productForm.getRawValue();
-    
-    // Parse price - it could be a number or string from the form
+
+    // Parse price
     const priceValue = value.price;
-    const parsedPrice = typeof priceValue === 'string' && priceValue.trim() ? Number(priceValue) : 
+    const parsedPrice = typeof priceValue === 'string' && priceValue.trim() ? Number(priceValue) :
                         typeof priceValue === 'number' && !isNaN(priceValue) ? priceValue : null;
-    
+
     const payload: CreateProductRequest = {
       name: value.name?.trim() || '',
       codeNumber: value.codeNumber?.trim() || null,
       description: value.description?.trim() || null,
-      categoryName: value.categoryName?.trim() || null,
-      brandName: value.brandName?.trim() || null,
+      categoryId: value.categoryId || null,
+      brandId: value.brandId || null,
       price: parsedPrice,
       quality: value.quality?.trim() || null,
       voucherNumber: value.voucherNumber?.trim() || null
     };
 
-    console.log('Creating product with payload:', payload);
-
-    this.productApi.create(payload).subscribe({
+    this.productApi.create(payload).pipe(
+      finalize(() => {
+        this.busyProduct = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (created) => {
-        console.log('Product created successfully:', created);
+        // Upload image if selected
+        if (this.selectedImage && created.id) {
+          this.productApi.uploadImage(created.id, this.selectedImage).subscribe();
+        }
+
         this.productForm.reset({
           name: '',
           codeNumber: '',
           description: '',
-          categoryName: '',
-          brandName: '',
+          categoryId: '',
+          brandId: '',
           price: '',
           quality: '',
           voucherNumber: ''
         });
+        this.selectedImage = null;
         this.loadProducts();
         this.announce(`Created product ${created.name}.`, 'success');
-        this.busyProduct = false;
       },
       error: (error) => {
-        console.error('Product creation error:', error);
-        console.error('Error status:', error?.status);
-        console.error('Error message:', error?.error?.message);
         const errorMsg = error?.error?.message ?? error?.message ?? 'Failed to create product.';
         this.announce(errorMsg, 'error');
-        this.busyProduct = false;
       }
     });
   }
 
-  protected deleteProduct(id: string): void {
+  protected deleteProduct(id: string, productName: string): void {
     if (!id) {
       this.announce('Product id is missing.', 'error');
       return;
     }
-
-    this.productApi.delete(id).subscribe({
-      next: () => {
-        this.loadProducts();
-        this.announce('Product deleted.', 'success');
-      },
-      error: (error) => this.announce(this.extractMessage(error, 'Failed to delete product.'), 'error')
-    });
+    this.deleteItemId = id;
+    this.deleteItemName = productName;
+    this.deleteItemType = 'product';
+    this.deleteItemTypeEnum = 'product';
+    this.openDeleteModal();
   }
 
   protected downloadMonthlyPdf(): void {
@@ -731,25 +792,58 @@ export class ApiConsoleComponent implements OnInit {
   }
 
   protected loadClasses(): void {
-    this.classApi.list({ pageSize: 100 }).pipe(catchError(() => of({ items: [] as ClassDto[] }))).subscribe({
+    this.classApi.list({ pageSize: 100 }).pipe(
+      catchError(() => of({ items: [] as ClassDto[] })),
+      finalize(() => {
+        this.cdr.detectChanges();
+        this.appRef.tick();
+      })
+    ).subscribe({
       next: (result) => {
         this.classes = result.items;
+        this.cdr.detectChanges();
+        this.appRef.tick();
       }
     });
   }
 
   protected loadStudents(): void {
-    this.studentApi.list({ pageSize: 100 }).pipe(catchError(() => of({ items: [] as StudentDto[] }))).subscribe({
+    this.studentApi.list({ pageSize: 100 }).pipe(
+      catchError(() => of({ items: [] as StudentDto[] })),
+      finalize(() => {
+        this.cdr.detectChanges();
+        this.appRef.tick();
+      })
+    ).subscribe({
       next: (result) => {
         this.students = result.items;
+        this.cdr.detectChanges();
+        this.appRef.tick();
       }
     });
   }
 
   protected loadProducts(): void {
-    this.productApi.list({ pageSize: 100 }).pipe(catchError(() => of({ items: [] as ProductDto[] }))).subscribe({
+    forkJoin({
+      products: this.productApi.list({ pageSize: 100 }).pipe(catchError(() => of({ items: [] as ProductDto[] }))),
+      categories: this.categoryApi.list().pipe(catchError(() => of([] as CategoryDto[]))),
+      brands: this.brandApi.list().pipe(catchError(() => of([] as BrandDto[])))
+    }).pipe(
+      finalize(() => {
+        this.cdr.detectChanges();
+        this.appRef.tick();
+      })
+    ).subscribe({
       next: (result) => {
-        this.products = result.items;
+        this.products = result.products.items;
+        this.categoryOptions = result.categories
+          .filter(c => !!c.id)
+          .map(c => ({ value: c.id!, label: c.name }));
+        this.brandOptions = result.brands
+          .filter(b => !!b.id)
+          .map(b => ({ value: b.id!, label: b.name }));
+        this.cdr.detectChanges();
+        this.appRef.tick();
       }
     });
   }
@@ -806,5 +900,96 @@ export class ApiConsoleComponent implements OnInit {
     }
 
     return fallback;
+  }
+
+  // Delete confirmation modal methods
+  protected openDeleteModal(): void {
+    const modal = document.getElementById('delete-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.showModal();
+      this.cdr.detectChanges();
+    }
+  }
+
+  protected closeDeleteModal(): void {
+    const modal = document.getElementById('delete-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.close();
+      this.deleteItemId = null;
+      this.deleteItemName = '';
+      this.deleteItemType = 'item';
+      this.deleteItemTypeEnum = null;
+      this.deletingInProgress = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  protected confirmDelete(): void {
+    if (!this.deleteItemId || !this.deleteItemTypeEnum) {
+      this.announce('No item selected for deletion.', 'error');
+      return;
+    }
+
+    this.deletingInProgress = true;
+    this.cdr.detectChanges();
+
+    // Perform the actual deletion based on item type
+    switch (this.deleteItemTypeEnum) {
+      case 'class':
+        this.performDeleteClass(this.deleteItemId);
+        break;
+      case 'student':
+        this.performDeleteStudent(this.deleteItemId);
+        break;
+      case 'product':
+        this.performDeleteProduct(this.deleteItemId);
+        break;
+    }
+  }
+
+  private performDeleteClass(id: string): void {
+    this.classApi.delete(id).subscribe({
+      next: () => {
+        this.announce('Class deleted.', 'success');
+        this.closeDeleteModal();
+        // Small delay to ensure backend cache invalidation completes
+        setTimeout(() => {
+          this.loadClasses();
+          this.loadLookups();
+        }, 200);
+      },
+      error: (error) => {
+        this.announce(this.extractMessage(error, 'Failed to delete class.'), 'error');
+        this.closeDeleteModal();
+      }
+    });
+  }
+
+  private performDeleteStudent(id: string): void {
+    this.studentApi.delete(id).subscribe({
+      next: () => {
+        this.announce('Student deleted.', 'success');
+        this.closeDeleteModal();
+        setTimeout(() => this.loadStudents(), 200);
+      },
+      error: (error) => {
+        this.announce(this.extractMessage(error, 'Failed to delete student.'), 'error');
+        this.closeDeleteModal();
+      }
+    });
+  }
+
+  private performDeleteProduct(id: string): void {
+    this.productApi.delete(id).subscribe({
+      next: () => {
+        this.announce('Product deleted.', 'success');
+        this.closeDeleteModal();
+        setTimeout(() => this.loadProducts(), 200);
+      },
+      error: (error) => {
+        this.announce(this.extractMessage(error, 'Failed to delete product.'), 'error');
+        this.closeDeleteModal();
+      }
+    });
   }
 }

@@ -1,42 +1,140 @@
-<div class="permission-management">
-  <h3>Permission Management</h3>
 
-  <button (click)="startCreate()">Add Permission</button>
-
-  <table *ngIf="permissions.length > 0">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Description</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let permission of permissions">
-        <td>{{ permission.name }}</td>
-        <td>{{ permission.description }}</td>
-        <td>
-          <button (click)="startEdit(permission)">Edit</button>
-          <button (click)="deletePermission(permission)">Delete</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-  <div *ngIf="permissions.length === 0">No permissions found.</div>
-
-  <div *ngIf="isEditing || isCreating" class="permission-form">
-    <h4>{{ isCreating ? 'Create Permission' : 'Edit Permission' }}</h4>
-    <form (ngSubmit)="savePermission()">
-      <label>
-        Name:
-        <input [(ngModel)]="selectedPermission!.name" name="name" required />
-      </label>
-      <label>
-        Description:
-        <input [(ngModel)]="selectedPermission!.description" name="description" />
-      </label>
-      <button type="submit">Save</button>
-      <button type="button" (click)="cancel()">Cancel</button>
-    </form>
+<div class="p-6 max-w-3xl mx-auto">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-2xl font-bold flex items-center gap-2"><span class="text-primary">🔑</span> Permission Management</h2>
+    <button class="btn btn-primary" (click)="startCreate()">
+      <span class="mr-1">➕</span> Add Permission
+    </button>
   </div>
+
+  <div class="card bg-base-100 shadow-xl my-6">
+    <div class="overflow-x-auto px-4">
+      <table class="table w-full" *ngIf="permissions.length > 0">
+        <thead class="border-b border-base-300">
+          <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let permission of pagedPermissions">
+            <td>{{ permission.name }}</td>
+            <td>{{ permission.description }}</td>
+            <td>
+              <button class="btn btn-warning btn-sm mr-2" (click)="startEdit(permission)">✏️ Edit</button>
+              <button class="btn btn-error btn-sm" (click)="openDeleteModal(permission)">🗑️ Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="text-center text-gray-400 py-8" *ngIf="permissions.length === 0">No permissions found.</div>
+          <!-- Pagination Bar -->
+          <div class="flex flex-col sm:flex-row items-center justify-between py-4 gap-2" *ngIf="totalPages > 1 || permissions.length > 5">
+            <div class="flex items-center gap-2 mb-2 sm:mb-0">
+              <label class="label-text">Page size:</label>
+              <select class="select select-bordered select-sm w-auto" [(ngModel)]="pageSize" (ngModelChange)="setPage(1)">
+                <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
+              </select>
+            </div>
+            <div class="join">
+              <button class="join-item btn btn-sm"
+                [disabled]="page === 1"
+                (click)="setPage(page - 1)">
+                «
+              </button>
+              <button
+                *ngFor="let p of [].constructor(totalPages); let i = index"
+                class="join-item btn btn-sm"
+                [ngClass]="{'btn-active': page === i + 1}"
+                (click)="setPage(i + 1)">
+                {{ i + 1 }}
+              </button>
+              <button class="join-item btn btn-sm"
+                [disabled]="page === totalPages"
+                (click)="setPage(page + 1)">
+                »
+              </button>
+            </div>
+          </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <dialog id="permission-form-modal" class="modal modal-bottom sm:modal-middle" (click)="onBackdropClick($event)">
+    <div class="modal-box relative">
+      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" (click)="cancel()">✕</button>
+      <h3 class="font-bold text-lg mb-4">{{ isCreating ? 'Create Permission' : 'Edit Permission' }}</h3>
+      <form (ngSubmit)="savePermission()" #permissionForm="ngForm" class="space-y-4" *ngIf="selectedPermission">
+        <div *ngIf="saveError" class="alert alert-error shadow-sm mb-2">{{ saveError }}</div>
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Resource</span>
+          </label>
+          <select [(ngModel)]="selectedPermission.resource" name="resource" required class="select select-bordered w-full">
+            <option value="">Select resource...</option>
+            <option *ngFor="let res of resourceOptions" [value]="res">{{ res }}</option>
+          </select>
+        </div>
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Actions</span>
+          </label>
+          <div class="flex gap-4 flex-wrap">
+            <label class="cursor-pointer flex items-center gap-2">
+              <input type="checkbox" [(ngModel)]="actionSelections.add" name="actionAdd" class="checkbox checkbox-sm" /> Add
+            </label>
+            <label class="cursor-pointer flex items-center gap-2">
+              <input type="checkbox" [(ngModel)]="actionSelections.edit" name="actionEdit" class="checkbox checkbox-sm" /> Edit
+            </label>
+            <label class="cursor-pointer flex items-center gap-2">
+              <input type="checkbox" [(ngModel)]="actionSelections.view" name="actionView" class="checkbox checkbox-sm" /> View
+            </label>
+            <label class="cursor-pointer flex items-center gap-2">
+              <input type="checkbox" [(ngModel)]="actionSelections.delete" name="actionDelete" class="checkbox checkbox-sm" /> Delete
+            </label>
+          </div>
+        </div>
+        <div class="form-control mb-4">
+          <label class="label">
+            <span class="label-text">Description</span>
+          </label>
+          <input [(ngModel)]="selectedPermission.description" name="description" class="input input-bordered w-full" />
+        </div>
+        <div class="modal-action">
+          <button class="btn" type="button" (click)="cancel()">Cancel</button>
+          <button class="btn btn-primary" type="submit" [disabled]="!permissionForm.form.valid">💾 Save</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Delete Confirmation Modal -->
+  <dialog id="permission-delete-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box max-w-md py-6">
+      <div class="flex flex-col items-center text-center">
+        <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-error/10">
+          <span class="pi pi-exclamation-triangle text-2xl text-error"></span>
+        </div>
+        <h3 class="mb-2 text-xl font-bold text-base-content">Confirm Deletion</h3>
+        <p class="mb-5 text-base text-base-content/70">
+          Are you sure you want to delete <strong class="text-base-content">{{ deleteItemName }}</strong>?
+        </p>
+        <div class="flex w-full gap-3">
+          <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()">Cancel</button>
+          <button class="btn btn-error flex-1" type="button" [class.loading]="deletingInProgress" (click)="confirmDelete()">
+            @if (deletingInProgress) {
+              <span class="loading loading-spinner loading-sm"></span>
+              Deleting...
+            } @else {
+              Yes, Delete
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button type="button" (click)="closeDeleteModal()">close</button>
+    </form>
+  </dialog>
 </div>

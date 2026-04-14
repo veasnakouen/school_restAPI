@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ClassApiService } from '../../core/services/class-api.service';
@@ -7,7 +7,7 @@ import { StudentApiService } from '../../core/services/student-api.service';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { forkJoin, of, timeout } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { catchError, finalize } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { Chart, registerables } from 'chart.js';
 
@@ -37,12 +37,12 @@ interface DashboardData {
               @if (loading) {
                 <span class="loading loading-dots loading-sm text-primary"></span>
               } @else {
-                <div>
-                  <div class="text-4xl font-black tracking-tight text-base-content">{{ stat.value }}</div>
-                  <div class="mt-1 text-sm text-base-content/60">{{ stat.description }}</div>
+                <div class="min-w-0 flex-1">
+                  <div class="font-black tracking-tight text-base-content truncate" [class.text-4xl]="!stat.isUser" [class.text-2xl]="stat.isUser" [title]="stat.value">{{ stat.value }}</div>
+                  <div class="mt-1 text-sm text-base-content/60 truncate" [title]="stat.description">{{ stat.description }}</div>
                 </div>
               }
-              <div class="rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 p-3 text-primary">
+              <div class="rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/15 p-3 text-primary shrink-0">
                 <span class="pi {{ stat.icon }} text-xl"></span>
               </div>
             </div>
@@ -250,12 +250,13 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly classApi = inject(ClassApiService);
   private readonly studentApi = inject(StudentApiService);
   private readonly productApi = inject(ProductApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   protected loading = true;
   protected mapLoading = true;
   private map: L.Map | null = null;
   private pieChart: Chart | null = null;
-  
+
   protected dashboardData: DashboardData = {
     totalClasses: 0,
     totalStudents: 0,
@@ -290,6 +291,7 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private loadDashboardData(): void {
     this.loading = true;
+    this.cdr.detectChanges();
 
     console.log('Starting to load dashboard data...');
 
@@ -318,7 +320,12 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
       )
     }).pipe(
       // Force completion after 15 seconds max
-      timeout(15000)
+      timeout(15000),
+      finalize(() => {
+        // Ensure loading is stopped after all operations complete
+        this.loading = false;
+        this.cdr.detectChanges();
+      })
     ).subscribe({
       next: (result) => {
         console.log('Dashboard data loaded successfully:', result);
@@ -330,9 +337,8 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           recentStudents: result.students.items || [],
           recentProducts: result.products.items || []
         };
-        this.loading = false;
-        console.log('Loading set to false. Dashboard data:', this.dashboardData);
-        
+        console.log('Dashboard data:', this.dashboardData);
+
         // Update pie chart with real data
         this.updatePieChart();
       },
@@ -349,29 +355,33 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           recentProducts: []
         };
         console.log('Loading forced to false due to error');
+        this.cdr.detectChanges();
       },
       complete: () => {
         console.log('Dashboard data loading completed');
-        // Ensure loading is false on completion
-        this.loading = false;
+        this.cdr.detectChanges();
       }
     });
-    
+
     // Safety timeout: force loading to false after 20 seconds
     setTimeout(() => {
       if (this.loading) {
         console.warn('Force stopping loading after timeout');
         this.loading = false;
+        this.cdr.detectChanges();
       }
     }, 20000);
   }
 
   protected get stats() {
+    const fullName = this.auth.session()?.fullName || 'Guest';
+    const displayName = fullName.length > 15 ? fullName.substring(0, 15) + '…' : fullName;
+    
     return [
       { label: 'Total Classes', value: this.dashboardData.totalClasses.toString(), description: 'From API', icon: 'pi-id-card' },
       { label: 'Total Students', value: this.dashboardData.totalStudents.toString(), description: 'From API', icon: 'pi-users' },
       { label: 'Total Products', value: this.dashboardData.totalProducts.toString(), description: 'From API', icon: 'pi-box' },
-      { label: 'Active User', value: this.auth.session()?.fullName?.split(' ')[0] || 'Guest', description: 'Current session', icon: 'pi-user' }
+      { label: 'Active User', value: displayName, description: 'Current session', icon: 'pi-user', isUser: true }
     ];
   }
 

@@ -1,3 +1,50 @@
-.user-management {
-  padding: 1rem;
+/* User Management Component Styles */
+
+.table {
+  thead th {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    color: hsl(var(--bc) / 0.8) !important;
+  }
+
+  tbody tr td {
+    color: hsl(var(--bc)) !important;
+
+    * {
+      color: inherit !important;
+    }
+
+    svg {
+      color: inherit !important;
+    }
+  }
+}
+
+/* High-specificity overrides - use DaisyUI theme variable */
+.table thead th,
+.table tbody tr td,
+.table tbody tr td div,
+.table tbody tr td span {
+  color: inherit !important;
+}
+
+.btn-square {
+  transition: all 0.2s ease;
+
+  &.btn-outline {
+    border-width: 1.5px;
+  }
+}
+
+.avatar {
+  .mask-squircle {
+    overflow: hidden;
+    border-radius: 8px;
+  }
+}
+
+.modal-box {
+  max-width: 32rem;
 }

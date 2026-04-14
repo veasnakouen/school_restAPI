@@ -10,6 +10,7 @@ public class Product : BaseEntity
     public string? BrandId { get; set; }
     public Brand? Brand { get; set; }
     public decimal? Price { get; set; }
+    // public int QuantityInStock { get; set; }
     
     // One-to-one relationship with ProductImage
     public ProductImage? Image { get; set; }

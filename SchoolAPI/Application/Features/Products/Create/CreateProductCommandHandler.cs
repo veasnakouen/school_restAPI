@@ -34,8 +34,8 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             return Result<ProductDto>.Failure("Product name is required.");
         }
 
-        // Handle Category - lookup by ID or Name, or create new
-        Category category = null;
+        // Handle Category - lookup by ID (preferred) or Name (fallback)
+        Category? category = null;
         if (!string.IsNullOrWhiteSpace(request.Product.CategoryId))
         {
             category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == request.Product.CategoryId, cancellationToken);
@@ -49,13 +49,14 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             category = await _context.Categories.FirstOrDefaultAsync(c => c.Name == request.Product.CategoryName, cancellationToken);
             if (category == null)
             {
-                category = new Category { Id = Guid.NewGuid().ToString(), Name = request.Product.CategoryName };
+                category = new Category { Name = request.Product.CategoryName };
                 _context.Categories.Add(category);
+                await _context.SaveChangesAsync(cancellationToken);
             }
         }
 
-        // Handle Brand - lookup by ID or Name, or create new
-        Brand brand = null;
+        // Handle Brand - lookup by ID (preferred) or Name (fallback)
+        Brand? brand = null;
         if (!string.IsNullOrWhiteSpace(request.Product.BrandId))
         {
             brand = await _context.Brands.FirstOrDefaultAsync(b => b.Id == request.Product.BrandId, cancellationToken);
@@ -69,22 +70,16 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             brand = await _context.Brands.FirstOrDefaultAsync(b => b.Name == request.Product.BrandName, cancellationToken);
             if (brand == null)
             {
-                brand = new Brand { Id = Guid.NewGuid().ToString(), Name = request.Product.BrandName };
+                brand = new Brand { Name = request.Product.BrandName };
                 _context.Brands.Add(brand);
+                await _context.SaveChangesAsync(cancellationToken);
             }
         }
 
-        // Validate that at least one of Category or Brand is provided
-        if (category == null && brand == null)
-        {
-            return Result<ProductDto>.Failure("At least one of Category or Brand must be provided.");
-        }
-
+        // Map the DTO to entity
         var product = _mapper.Map<Product>(request.Product);
         product.Id = Guid.NewGuid().ToString();
-        product.Category = category;
         product.CategoryId = category?.Id;
-        product.Brand = brand;
         product.BrandId = brand?.Id;
         product.CreatedDate = DateTime.UtcNow;
         product.UpdateDate = null;
@@ -93,7 +88,17 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
         await _context.SaveChangesAsync(cancellationToken);
         _cacheVersionService.Invalidate("products");
 
-        var productDto = _mapper.Map<ProductDto>(product);
+        var createdProduct = await _context.Products
+            .Include(p => p.Category)
+            .Include(p => p.Brand)
+            .FirstOrDefaultAsync(p => p.Id == product.Id, cancellationToken);
+
+        if (createdProduct == null)
+        {
+            return Result<ProductDto>.Failure("Product was created but could not be retrieved.");
+        }
+
+        var productDto = _mapper.Map<ProductDto>(createdProduct);
         return Result<ProductDto>.Success(productDto);
     }
 }

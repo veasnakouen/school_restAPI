@@ -1,9 +1,10 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { StudentApiService } from '../../core/services/student-api.service';
 import { StudentDto } from '../../models/academic.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-students',
@@ -27,7 +28,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
         </label>
       </div>
 
-      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg">
+      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6 px-4">
         <table class="table table-zebra table-pin-rows">
           <thead>
             <tr>
@@ -65,6 +66,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
 })
 export class StudentsComponent implements OnInit {
   private readonly api = inject(StudentApiService);
+  private readonly cdr = inject(ChangeDetectorRef);
 
   protected students: StudentDto[] = [];
   protected loading = false;
@@ -87,14 +89,19 @@ export class StudentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.loading = true;
-    this.api.list({ pageSize: 100 }).subscribe({
+    this.cdr.detectChanges();
+    this.api.list({ pageSize: 100 }).pipe(
+      finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      })
+    ).subscribe({
       next: (result) => {
         this.students = result.items;
-        this.loading = false;
       },
       error: (error) => {
         this.errorMessage = error?.error?.message ?? 'Unable to load students.';
-        this.loading = false;
+        this.cdr.detectChanges();
       }
     });
   }

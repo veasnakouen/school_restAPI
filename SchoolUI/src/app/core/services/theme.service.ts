@@ -95,6 +95,7 @@ export class ThemeService {
     this.theme.set(theme);
     this.applyTheme(theme);
     this.persistTheme(theme);
+    
   }
 
   toggle(): void {

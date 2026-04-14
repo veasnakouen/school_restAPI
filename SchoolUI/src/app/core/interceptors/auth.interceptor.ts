@@ -11,7 +11,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const tokenStorage = inject(TokenStorageService);
   const token = auth.session()?.accessToken;
 
-  if (!token || !req.url.startsWith('/api')) {
+  if (!token || !req.url.includes('/api')) {
     return next(req);
   }
 

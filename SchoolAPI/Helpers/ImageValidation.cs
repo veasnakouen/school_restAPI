@@ -34,7 +34,6 @@ public static class ImageValidation
         {
             return "The uploaded file must be an image.";
         }
-
         return null;
     }
 }
