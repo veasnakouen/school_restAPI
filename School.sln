@@ -5,6 +5,8 @@ VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolAPI", "SchoolAPI\SchoolAPI.csproj", "{7B271B77-BC53-4501-930A-985E575858D5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SchoolAPI.Tests", "SchoolAPI.Tests\SchoolAPI.Tests.csproj", "{0008E89E-58BA-423D-B8B1-0329B102DDDC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,18 @@ Global
 		{7B271B77-BC53-4501-930A-985E575858D5}.Release|x64.Build.0 = Release|Any CPU
 		{7B271B77-BC53-4501-930A-985E575858D5}.Release|x86.ActiveCfg = Release|Any CPU
 		{7B271B77-BC53-4501-930A-985E575858D5}.Release|x86.Build.0 = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|x64.Build.0 = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Debug|x86.Build.0 = Debug|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|x64.ActiveCfg = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|x64.Build.0 = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|x86.ActiveCfg = Release|Any CPU
+		{0008E89E-58BA-423D-B8B1-0329B102DDDC}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
