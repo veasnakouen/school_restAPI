@@ -7,6 +7,8 @@ import { ProductDto, CreateProductRequest, CategoryDto } from '../../models/inve
 import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize } from 'rxjs/operators';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 @Component({
   selector: 'app-products',
@@ -31,12 +33,63 @@ import { finalize } from 'rxjs/operators';
             placeholder="Search products"
             class="input input-bordered w-full max-w-md"
           />
+          <select
+            [(ngModel)]="filterCategory"
+            (ngModelChange)="onFilterChange()"
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="">All Categories</option>
+            @for (cat of categories; track cat.id) {
+              <option [value]="cat.name">{{ cat.name }}</option>
+            }
+          </select>
           <button type="button" class="btn btn-primary gap-2" (click)="openCreateModal()">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
             </svg>
             Add Product
           </button>
+        </div>
+
+        <!-- Export Buttons -->
+        <div class="flex flex-wrap gap-2 items-center">
+          <div class="dropdown">
+            <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
+              <li>
+                <button type="button" (click)="exportToCSV()" [disabled]="products.length === 0" class="gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  CSV
+                </button>
+              </li>
+              <li>
+                <button type="button" (click)="exportToPDF()" [disabled]="products.length === 0" class="gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                  PDF
+                </button>
+              </li>
+              <li>
+                <button type="button" (click)="printProducts()" [disabled]="products.length === 0" class="gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  Print
+                </button>
+              </li>
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -45,10 +98,38 @@ import { finalize } from 'rxjs/operators';
           <table class="table table-zebra table-pin-rows">
             <thead>
               <tr>
-                <th class="text-base font-bold">Name</th>
-                <th class="text-base font-bold">Category</th>
-                <th class="text-base font-bold">Brand</th>
-                <th class="text-base font-bold">Price</th>
+                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('name')">
+                  <div class="flex items-center gap-1">
+                    Name
+                    @if (sortBy === 'name') {
+                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                    }
+                  </div>
+                </th>
+                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('category')">
+                  <div class="flex items-center gap-1">
+                    Category
+                    @if (sortBy === 'category') {
+                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                    }
+                  </div>
+                </th>
+                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('brand')">
+                  <div class="flex items-center gap-1">
+                    Brand
+                    @if (sortBy === 'brand') {
+                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                    }
+                  </div>
+                </th>
+                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('price')">
+                  <div class="flex items-center gap-1">
+                    Price
+                    @if (sortBy === 'price') {
+                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                    }
+                  </div>
+                </th>
                 <th class="text-center text-base font-bold">Actions</th>
               </tr>
             </thead>
@@ -61,6 +142,19 @@ import { finalize } from 'rxjs/operators';
                   <td>{{ item.price | number:'1.2-2' }}</td>
                   <td>
                     <div class="flex gap-2 justify-center">
+                      <div class="tooltip tooltip-top" data-tip="View Product">
+                        <button
+                          type="button"
+                          aria-label="View product"
+                          class="btn btn-info btn-sm btn-square text-primary-content"
+                          (click)="openViewModal(item)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        </button>
+                      </div>
                       <div class="tooltip tooltip-top" data-tip="Edit Product">
                         <button
                           type="button"
@@ -104,13 +198,14 @@ import { finalize } from 'rxjs/operators';
                         <span class="text-sm opacity-70">Rows per page:</span>
                         <select
                           [(ngModel)]="pageSize"
-                          (ngModelChange)="onPageSizeChange()"
+                          (ngModelChange)="onPageSizeChange($event)"
                           class="select select-bordered select-sm"
                         >
-                          <option [value]="5">5</option>
-                          <option [value]="10">10</option>
-                          <option [value]="20">20</option>
-                          <option [value]="50">50</option>
+                          <option [ngValue]="5">5</option>
+                          <option [ngValue]="10">10</option>
+                          <option [ngValue]="20">20</option>
+                          <option [ngValue]="50">50</option>
+                          <option [ngValue]="100">100</option>
                         </select>
                       </div>
 
@@ -120,7 +215,7 @@ import { finalize } from 'rxjs/operators';
                       </div>
 
                       <!-- Pagination Controls (Right) -->
-                      <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalItems > pageSize">
+                      <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalPages > 1">
                         <!-- First Page -->
                         <button
                           type="button"
@@ -149,14 +244,18 @@ import { finalize } from 'rxjs/operators';
 
                         <!-- Page Numbers -->
                         @for (page of visiblePages; track page) {
-                          <button
-                            type="button"
-                            class="join-item btn btn-sm"
-                            [class.btn-active]="page === currentPage"
-                            (click)="goToPage(page)"
-                          >
-                            {{ page }}
-                          </button>
+                          @if (page === '...') {
+                            <span class="join-item btn btn-sm btn-disabled">...</span>
+                          } @else {
+                            <button
+                              type="button"
+                              class="join-item btn btn-sm"
+                              [class.btn-active]="page === currentPage"
+                              (click)="goToPage(+page)"
+                            >
+                              {{ page }}
+                            </button>
+                          }
                         }
 
                         <!-- Next Page -->
@@ -431,6 +530,101 @@ import { finalize } from 'rxjs/operators';
       </form>
     </dialog>
 
+    <!-- View Product Modal -->
+    <dialog id="product-view-modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box max-w-3xl">
+        <form method="dialog">
+          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 z-10">✕</button>
+        </form>
+        @if (viewProduct) {
+          <div class="space-y-6">
+            <!-- Header -->
+            <div class="flex items-start gap-6">
+              @if (viewProduct.imageUrl) {
+                <div class="w-32 h-32 rounded-xl overflow-hidden border-2 border-base-300 flex-shrink-0">
+                  <img [src]="viewProduct.imageUrl" [alt]="viewProduct.name" class="w-full h-full object-cover" />
+                </div>
+              } @else {
+                <div class="w-32 h-32 rounded-xl bg-base-200 flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+              }
+              <div class="flex-1">
+                <h3 class="font-bold text-2xl mb-2">{{ viewProduct.name }}</h3>
+                <div class="flex flex-wrap gap-2">
+                  @if (viewProduct.categoryName) {
+                    <span class="badge badge-primary badge-outline">{{ viewProduct.categoryName }}</span>
+                  }
+                  @if (viewProduct.brandName) {
+                    <span class="badge badge-secondary badge-outline">{{ viewProduct.brandName }}</span>
+                  }
+                  @if (viewProduct.quality) {
+                    <span class="badge" [class.badge-success]="viewProduct.quality === 'Excellent'" [class.badge-warning]="viewProduct.quality === 'Good'" [class.badge-info]="viewProduct.quality === 'Fair'" [class.badge-error]="viewProduct.quality === 'Poor'">{{ viewProduct.quality }}</span>
+                  }
+                </div>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="divider my-2"></div>
+
+            <!-- Product Details Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <!-- Code Number -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Code Number</p>
+                <p class="text-base font-medium">{{ viewProduct.codeNumber || '-' }}</p>
+              </div>
+
+              <!-- Price -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Price</p>
+                <p class="text-base font-medium text-primary">{{ viewProduct.price ? '$' + (viewProduct.price | number:'1.2-2') : '-' }}</p>
+              </div>
+
+              <!-- Voucher Number -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Voucher Number</p>
+                <p class="text-base font-medium">{{ viewProduct.voucherNumber || '-' }}</p>
+              </div>
+
+              <!-- Created Date -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Created Date</p>
+                <p class="text-base font-medium">{{ viewProduct.createdDate ? (viewProduct.createdDate | date:'shortDate') : '-' }}</p>
+              </div>
+            </div>
+
+            <!-- Description -->
+            @if (viewProduct.description) {
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Description</p>
+                <p class="text-base whitespace-pre-wrap">{{ viewProduct.description }}</p>
+              </div>
+            }
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="modal-action">
+            <form method="dialog">
+              <button type="submit" class="btn btn-ghost">Close</button>
+            </form>
+            <button type="button" class="btn btn-warning gap-2" (click)="closeViewAndEdit()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Product
+            </button>
+          </div>
+        }
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="submit" aria-label="Close dialog">close</button>
+      </form>
+    </dialog>
+
     <!-- Delete Confirmation Modal -->
     <dialog id="product-delete-confirm-modal" class="modal modal-bottom sm:modal-middle">
       <div class="modal-box">
@@ -539,11 +733,22 @@ export class ProductsComponent implements OnInit {
   // Pagination states
   protected currentPage = 1;
   protected pageSize = 5;
+  protected totalItems = 0;
+  protected totalPages = 0;
+
+  // Sorting states
+  protected sortBy: string = '';
+  protected isAscending = true;
+
+  // Filtering states
+  protected filterCategory = '';
+  protected filterBrand = '';
 
   // Modal states
   protected isEditing = false;
   protected selectedProduct: ProductDto = this.getEmptyProduct();
   protected productToDelete: ProductDto | null = null;
+  protected viewProduct: ProductDto | null = null;
   protected messageType: 'success' | 'error' | 'warning' = 'success';
   protected messageTitle = '';
   protected messageContent = '';
@@ -564,13 +769,38 @@ export class ProductsComponent implements OnInit {
   protected loadProducts(): void {
     this.loading = true;
     this.errorMessage = '';
-    this.currentPage = 1; // Reset to first page
-    this.api.list().pipe(
+
+    const query: QueryOptions = {
+      pageNumber: this.currentPage,
+      pageSize: this.pageSize
+    };
+
+    // Add sorting
+    if (this.sortBy) {
+      query.sortBy = this.sortBy;
+      query.isAscending = this.isAscending;
+    }
+
+    // Add category filter
+    if (this.filterCategory) {
+      query.filterOn = 'category';
+      query.filterQuery = this.filterCategory;
+    }
+
+    // Add search filter
+    if (this.search && this.search.trim() !== '') {
+      query.filterOn = query.filterOn || 'name';
+      query.filterQuery = this.search.trim();
+    }
+
+    this.api.list(query).pipe(
       finalize(() => this.loading = false)
     ).subscribe({
       next: (result) => {
-        if (result?.items) {
-          this.products = result.items;
+        if (result) {
+          this.products = result.items || [];
+          this.totalItems = result.totalCount || 0;
+          this.totalPages = Math.ceil(this.totalItems / this.pageSize);
         }
         this.cdr.detectChanges();
       },
@@ -614,34 +844,6 @@ export class ProductsComponent implements OnInit {
     };
   }
 
-  protected get filteredProducts(): ProductDto[] {
-    if (!this.search || this.search.trim() === '') {
-      return this.products;
-    }
-    const searchLower = this.search.toLowerCase();
-    return this.products.filter(p =>
-      p.name?.toLowerCase().includes(searchLower) ||
-      p.categoryName?.toLowerCase().includes(searchLower) ||
-      p.brandName?.toLowerCase().includes(searchLower) ||
-      p.codeNumber?.toLowerCase().includes(searchLower) ||
-      p.description?.toLowerCase().includes(searchLower)
-    );
-  }
-
-  protected get totalItems(): number {
-    return this.filteredProducts.length;
-  }
-
-  protected get totalPages(): number {
-    return Math.ceil(this.totalItems / this.pageSize);
-  }
-
-  protected get paginatedProducts(): ProductDto[] {
-    const startIndex = (this.currentPage - 1) * this.pageSize;
-    const endIndex = startIndex + this.pageSize;
-    return this.filteredProducts.slice(startIndex, endIndex);
-  }
-
   protected get startIndex(): number {
     return this.totalItems === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1;
   }
@@ -650,55 +852,127 @@ export class ProductsComponent implements OnInit {
     return Math.min(this.currentPage * this.pageSize, this.totalItems);
   }
 
-  protected get visiblePages(): number[] {
-    const pages: number[] = [];
+  protected get visiblePages(): (number | string)[] {
+    const pages: (number | string)[] = [];
     const maxVisible = 5;
-    let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
-    let end = Math.min(this.totalPages, start + maxVisible - 1);
-    
-    if (end - start < maxVisible - 1) {
-      start = Math.max(1, end - maxVisible + 1);
+    const totalPages = this.totalPages;
+
+    if (totalPages <= maxVisible + 2) {
+      // Show all pages if total pages fit comfortably
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Always show first page
+      pages.push(1);
+
+      // Calculate start and end of visible range
+      let start = Math.max(2, this.currentPage - Math.floor(maxVisible / 2));
+      let end = Math.min(totalPages - 1, start + maxVisible - 1);
+
+      // Adjust if we're near the end
+      if (end - start < maxVisible - 1) {
+        start = Math.max(2, end - maxVisible + 1);
+      }
+
+      // Add ellipsis if there's a gap after page 1
+      if (start > 2) {
+        pages.push('...');
+      }
+
+      // Add visible page numbers
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      // Add ellipsis if there's a gap before last page
+      if (end < totalPages - 1) {
+        pages.push('...');
+      }
+
+      // Always show last page
+      pages.push(totalPages);
     }
-    
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
+
     return pages;
   }
 
-  protected goToPage(page: number): void {
-    if (page >= 1 && page <= this.totalPages) {
-      this.currentPage = page;
+  protected goToPage(page: number | string): void {
+    const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
+    if (pageNum >= 1 && pageNum <= this.totalPages && pageNum !== this.currentPage) {
+      this.currentPage = pageNum;
+      this.loadProducts();
     }
   }
 
   protected goToFirstPage(): void {
-    this.currentPage = 1;
+    if (this.currentPage !== 1) {
+      this.currentPage = 1;
+      this.loadProducts();
+    }
   }
 
   protected goToLastPage(): void {
-    this.currentPage = this.totalPages;
+    if (this.currentPage !== this.totalPages) {
+      this.currentPage = this.totalPages;
+      this.loadProducts();
+    }
   }
 
   protected nextPage(): void {
     if (this.currentPage < this.totalPages) {
       this.currentPage++;
+      this.loadProducts();
     }
   }
 
   protected previousPage(): void {
     if (this.currentPage > 1) {
       this.currentPage--;
+      this.loadProducts();
     }
   }
 
-  protected onPageSizeChange(): void {
+  protected onPageSizeChange(value: number | string): void {
+    this.pageSize = typeof value === 'string' ? parseInt(value, 10) : value;
     this.currentPage = 1;
-    this.cdr.detectChanges();
+    this.totalPages = Math.ceil(this.totalItems / this.pageSize);
+    this.loadProducts();
   }
 
+  protected sortTable(field: string): void {
+    if (this.sortBy === field) {
+      this.isAscending = !this.isAscending;
+    } else {
+      this.sortBy = field;
+      this.isAscending = true;
+    }
+    this.currentPage = 1;
+    this.loadProducts();
+  }
+
+  private filterTimeout: any;
+
+  protected onFilterChange(): void {
+    if (this.filterTimeout) {
+      clearTimeout(this.filterTimeout);
+    }
+    this.filterTimeout = setTimeout(() => {
+      this.currentPage = 1;
+      this.loadProducts();
+    }, 300);
+  }
+
+  private searchTimeout: any;
+
   protected onSearchChange(): void {
-    this.currentPage = 1; // Reset to first page when searching
+    if (this.searchTimeout) {
+      clearTimeout(this.searchTimeout);
+    }
+    this.searchTimeout = setTimeout(() => {
+      this.currentPage = 1;
+      this.loadProducts();
+    }, 300);
   }
 
   protected openCreateModal(): void {
@@ -708,6 +982,31 @@ export class ProductsComponent implements OnInit {
     const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
     if (modal) {
       modal.showModal();
+    }
+  }
+
+  protected openViewModal(product: ProductDto): void {
+    this.viewProduct = { ...product };
+    const modal = document.getElementById('product-view-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.showModal();
+    }
+  }
+
+  protected closeViewModal(): void {
+    this.viewProduct = null;
+    const modal = document.getElementById('product-view-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.close();
+    }
+  }
+
+  protected closeViewAndEdit(): void {
+    this.closeViewModal();
+    if (this.viewProduct) {
+      setTimeout(() => {
+        this.openEditModal(this.viewProduct!);
+      }, 300);
     }
   }
 
@@ -791,7 +1090,9 @@ export class ProductsComponent implements OnInit {
         codeNumber: this.selectedProduct.codeNumber,
         description: this.selectedProduct.description,
         categoryId: this.selectedProduct.categoryId,
+        categoryName: this.selectedProduct.categoryName,
         brandId: this.selectedProduct.brandId,
+        brandName: this.selectedProduct.brandName,
         price: this.selectedProduct.price,
         quality: this.selectedProduct.quality,
         voucherNumber: this.selectedProduct.voucherNumber
@@ -994,5 +1295,207 @@ export class ProductsComponent implements OnInit {
     if (fileInput) {
       fileInput.value = '';
     }
+  }
+
+  // ===== EXPORT METHODS =====
+
+  protected exportToCSV(): void {
+    if (this.products.length === 0) return;
+
+    // CSV Headers
+    const headers = ['Name', 'Code Number', 'Category', 'Brand', 'Price', 'Quality', 'Voucher Number', 'Description'];
+    
+    // CSV Rows
+    const rows = this.products.map(p => [
+      this.escapeCsvValue(p.name),
+      this.escapeCsvValue(p.codeNumber),
+      this.escapeCsvValue(p.categoryName),
+      this.escapeCsvValue(p.brandName),
+      p.price?.toFixed(2) || '',
+      this.escapeCsvValue(p.quality),
+      this.escapeCsvValue(p.voucherNumber),
+      this.escapeCsvValue(p.description)
+    ]);
+
+    // Build CSV content
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `products_${this.getTimestamp()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private escapeCsvValue(value: string | null | undefined): string {
+    if (!value) return '';
+    // Escape quotes and wrap in quotes if contains comma
+    const escaped = value.replace(/"/g, '""');
+    return escaped.includes(',') ? `"${escaped}"` : escaped;
+  }
+
+  protected exportToPDF(): void {
+    if (this.products.length === 0) return;
+
+    const doc = new jsPDF();
+    
+    // Title
+    doc.setFontSize(18);
+    doc.text('Products Report', 14, 22);
+    
+    // Subtitle with filters info
+    doc.setFontSize(10);
+    const filterInfo = this.getFilterInfo();
+    if (filterInfo) {
+      doc.text(filterInfo, 14, 30);
+    }
+    
+    // Table
+    const tableData = this.products.map(p => [
+      p.name,
+      p.codeNumber || '-',
+      p.categoryName || '-',
+      p.brandName || '-',
+      p.price ? `$${p.price.toFixed(2)}` : '-',
+      p.quality || '-',
+      p.voucherNumber || '-'
+    ]);
+
+    autoTable(doc, {
+      startY: filterInfo ? 35 : 30,
+      head: [['Name', 'Code', 'Category', 'Brand', 'Price', 'Quality', 'Voucher #']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [59, 130, 246],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 40 },
+        4: { cellWidth: 20, halign: 'right' }
+      }
+    });
+
+    // Footer with total count
+    const pageCount = (doc as any).internal.getNumberOfPages();
+    doc.setFontSize(10);
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text(
+        `Total Products: ${this.products.length}`,
+        14,
+        doc.internal.pageSize.height - 10
+      );
+    }
+
+    // Save
+    doc.save(`products_${this.getTimestamp()}.pdf`);
+  }
+
+  protected printProducts(): void {
+    if (this.products.length === 0) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Please allow popups to print');
+      return;
+    }
+
+    const filterInfo = this.getFilterInfo();
+    
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Products Report</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { font-size: 24px; margin-bottom: 10px; color: #1f2937; }
+          .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #e5e7eb; padding: 8px 12px; text-align: left; font-size: 11px; }
+          th { background-color: #3b82f6; color: white; font-weight: bold; }
+          tr:nth-child(even) { background-color: #f9fafb; }
+          .footer { margin-top: 20px; font-size: 12px; color: #6b7280; }
+          @media print {
+            body { padding: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Products Report</h1>
+        ${filterInfo ? `<p class="subtitle">${filterInfo}</p>` : ''}
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Code Number</th>
+              <th>Category</th>
+              <th>Brand</th>
+              <th>Price</th>
+              <th>Quality</th>
+              <th>Voucher #</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.products.map(p => `
+              <tr>
+                <td>${p.name}</td>
+                <td>${p.codeNumber || '-'}</td>
+                <td>${p.categoryName || '-'}</td>
+                <td>${p.brandName || '-'}</td>
+                <td>${p.price ? '$' + p.price.toFixed(2) : '-'}</td>
+                <td>${p.quality || '-'}</td>
+                <td>${p.voucherNumber || '-'}</td>
+                <td>${p.description || '-'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <div class="footer">
+          Total Products: ${this.products.length} | Generated: ${new Date().toLocaleString()}
+        </div>
+        <script>
+          window.onload = function() {
+            window.print();
+            window.onafterprint = function() { window.close(); };
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  private getFilterInfo(): string {
+    const filters: string[] = [];
+    if (this.search) filters.push(`Search: ${this.search}`);
+    if (this.filterCategory) filters.push(`Category: ${this.filterCategory}`);
+    if (this.sortBy) {
+      const sortDirection = this.isAscending ? 'Ascending' : 'Descending';
+      filters.push(`Sort: ${this.sortBy} (${sortDirection})`);
+    }
+    return filters.length > 0 ? filters.join(' | ') : '';
+  }
+
+  private getTimestamp(): string {
+    const now = new Date();
+    return now.toISOString().slice(0, 10);
   }
 }

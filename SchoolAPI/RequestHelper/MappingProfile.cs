@@ -69,6 +69,8 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Image, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CodeNumber, opt => opt.MapFrom(src => src.CodeNumber ?? string.Empty))
+            .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description ?? string.Empty))
             .ForMember(dest => dest.Quality, opt => opt.MapFrom(src => src.Quality ?? string.Empty))
             .ForMember(dest => dest.VoucherNumber, opt => opt.MapFrom(src => src.VoucherNumber ?? string.Empty));
 

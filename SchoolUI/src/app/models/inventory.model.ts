@@ -30,7 +30,9 @@ export interface CreateProductRequest {
   codeNumber?: string | null;
   description?: string | null;
   categoryId?: string | null;
+  categoryName?: string | null;
   brandId?: string | null;
+  brandName?: string | null;
   price?: number | null;
   quality?: string | null;
   voucherNumber?: string | null;

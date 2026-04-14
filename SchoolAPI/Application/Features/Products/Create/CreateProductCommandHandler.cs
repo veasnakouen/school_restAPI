@@ -83,6 +83,10 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
         product.BrandId = brand?.Id;
         product.CreatedDate = DateTime.UtcNow;
         product.UpdateDate = null;
+        product.Description = request.Product.Description ?? string.Empty;
+        product.Quality = request.Product.Quality ?? string.Empty;
+        product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
+        product.CodeNumber = request.Product.CodeNumber ?? string.Empty;
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync(cancellationToken);
