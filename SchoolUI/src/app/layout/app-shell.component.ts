@@ -8,6 +8,7 @@ import { AuthService } from '../core/services/auth.service';
 import { ThemeName, ThemeService } from '../core/services/theme.service';
 import { UserPreferencesService } from '../core/services/user-preferences.service';
 import { DashboardComponent } from '../features/dashboard/dashboard.component';
+import { AvatarComponent } from '../shared/avatar/avatar.component';
 import { ClassDto, StudentDto } from '../models/academic.model';
 import { SidebarSummaryResponse } from '../models/auth.model';
 import { ProductDto } from '../models/inventory.model';
@@ -25,7 +26,7 @@ interface NavItem {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, DashboardComponent, ClickOutsideDirective],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, DashboardComponent, ClickOutsideDirective, AvatarComponent],
   animations: [
     trigger('dropdownEnter', [
       transition(':enter', [
@@ -39,11 +40,6 @@ interface NavItem {
   ],
   template: `
     <div class="relative min-h-screen overflow-x-clip bg-base-200 text-base-content">
-      <div class="pointer-events-none absolute inset-0">
-        <div class="absolute -left-24 top-0 h-72 w-72 rounded-full bg-primary/5 blur-3xl"></div>
-        <div class="absolute right-0 top-24 h-80 w-80 rounded-full bg-secondary/5 blur-3xl"></div>
-        <div class="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-accent/5 blur-3xl"></div>
-      </div>
 
       <div class="relative z-10 flex h-screen gap-4 overflow-hidden lg:h-[100dvh]" [ngClass]="preferences.compactMode() ? 'p-3' : 'p-4'" [style.marginRight]="showDataPanel && isLargeScreen ? '26rem' : '0'">
 
@@ -55,7 +51,7 @@ interface NavItem {
       >
         <div class="border-b border-base-300/70 px-5 py-5">
           <div class="flex items-center gap-3">
-            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content shadow-lg shadow-primary/20">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-primary-content shadow-sm">
               <span class="text-lg font-black">S</span>
             </div>
             <div class="min-w-0 flex-1">
@@ -79,7 +75,7 @@ interface NavItem {
               <li>
                 <a
                   [routerLink]="item.path"
-                  routerLinkActive="bg-gradient-to-r from-primary to-secondary text-primary-content shadow-lg shadow-primary/20"
+                  routerLinkActive="bg-primary text-primary-content shadow-sm"
                   [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
                   [title]="item.description"
                   class="group flex items-start gap-3 rounded-2xl border border-transparent px-4 py-3 text-sm font-semibold text-base-content/75 transition hover:border-base-300 hover:bg-base-200/80 hover:text-base-content"
@@ -153,8 +149,8 @@ interface NavItem {
               </button>
 
               @if (showThemeMenu) {
-                <div class="absolute right-0 top-full z-50 mt-3 flex max-h-[65vh] w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-[26px] bg-base-100/95 p-2 shadow-2xl backdrop-blur-xl" @dropdownEnter>
-                  <div class="flex-none flex items-start justify-between gap-3 border-b border-base-300/70 bg-base-100/95 px-1 pb-2 pt-1 backdrop-blur-xl">
+                <div class="absolute right-0 top-full z-50 mt-3 flex max-h-[65vh] w-[24rem] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-base-300 bg-base-100 p-2 shadow-lg" @dropdownEnter>
+                  <div class="flex-none flex items-start justify-between gap-3 border-b border-base-300/70 bg-base-100 px-1 pb-2 pt-1">
                     <div>
                       <p class="text-xs font-bold text-base-content">Theme library</p>
                       <p class="text-[11px] text-base-content/55">Preview every DaisyUI palette.</p>
@@ -162,16 +158,16 @@ interface NavItem {
                     <span class="badge badge-ghost badge-sm">{{ theme.themes.length }} themes</span>
                   </div>
 
-                  <div class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-[20px] bg-base-200/40 p-1.5">
+                  <div class="mt-2 flex-1 min-h-0 overflow-y-auto rounded-xl bg-base-200 p-1.5">
                     <div class="grid gap-1.5 sm:grid-cols-2">
                       @for (option of theme.themes; track option.id) {
                         <button
                           type="button"
-                          class="rounded-[16px] bg-base-200/60 p-1.5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:bg-base-200/80 hover:shadow-lg"
+                          class="rounded-xl bg-base-200 p-1.5 text-left shadow-sm transition duration-200 hover:bg-base-200/80"
                           [ngClass]="theme.themeName() === option.id ? 'bg-primary/10 shadow-lg shadow-primary/10' : ''"
                           (click)="selectTheme(option.id)"
                         >
-                          <div [attr.data-theme]="option.id" class="rounded-[14px] bg-base-100 p-2 shadow-sm">
+                          <div [attr.data-theme]="option.id" class="rounded-lg bg-base-100 p-2 shadow-sm">
                             <div class="flex items-start justify-between gap-2">
                               <div>
                                 <p class="text-[11px] font-semibold text-base-content">{{ option.name }}</p>
@@ -214,26 +210,20 @@ interface NavItem {
             <div class="relative" (clickOutside)="showUserMenu = false">
               <button
                 type="button"
-                class="avatar placeholder cursor-pointer transition hover:opacity-85"
+                class="cursor-pointer transition hover:opacity-85"
                 (click)="showUserMenu = !showUserMenu"
                 [attr.aria-expanded]="showUserMenu"
                 aria-label="User menu"
                 title="{{ auth.session()?.fullName || 'User' }}"
               >
-                <div class="w-10 rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content shadow-md">
-                  <span class="text-sm font-bold">{{ (auth.session()?.fullName || 'U').charAt(0).toUpperCase() }}</span>
-                </div>
+                <app-avatar [src]="auth.session()?.imageUrl" [initials]="(auth.session()?.fullName || 'U').charAt(0).toUpperCase()" alt="{{auth.session()?.fullName}}" size="sm" shape="rounded"></app-avatar>
               </button>
 
               @if (showUserMenu) {
-                <div class="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-[22px] border border-base-300/70 bg-base-100/95 shadow-2xl backdrop-blur-xl" @dropdownEnter>
-                  <div class="bg-gradient-to-r from-primary/10 via-secondary/10 to-accent/10 px-4 py-4">
+                <div class="absolute right-0 top-full z-50 mt-3 w-64 overflow-hidden rounded-2xl border border-base-300/70 bg-base-100 shadow-lg" @dropdownEnter>
+                  <div class="bg-base-200 px-4 py-4">
                     <div class="flex items-center gap-3">
-                      <div class="avatar placeholder shrink-0">
-                        <div class="w-12 rounded-2xl bg-gradient-to-br from-primary to-secondary text-primary-content shadow-md">
-                          <span class="text-base font-bold">{{ (auth.session()?.fullName || 'U').charAt(0).toUpperCase() }}</span>
-                        </div>
-                      </div>
+                      <app-avatar [src]="auth.session()?.imageUrl" [initials]="(auth.session()?.fullName || 'U').charAt(0).toUpperCase()" alt="{{auth.session()?.fullName}}" size="lg" shape="rounded"></app-avatar>
                       <div class="min-w-0">
                         <p class="truncate text-sm font-bold text-base-content">{{ auth.session()?.fullName || 'School User' }}</p>
                         <p class="truncate text-xs text-base-content/60">{{ auth.session()?.email || 'guest' }}</p>
@@ -282,7 +272,7 @@ interface NavItem {
           </div>
         </header>
 
-        <main class="app-shell-panel min-h-0 flex-1 overflow-y-auto" [ngClass]="preferences.compactMode() ? 'p-3 lg:p-4' : 'p-4 lg:p-6'">
+        <main class="app-shell-panel min-h-0 flex-1 overflow-y-auto" [ngClass]="mainContentClass">
           <div class="mx-auto max-w-[1520px]">
             @if (showDashboard) {
               <app-dashboard></app-dashboard>
@@ -512,6 +502,20 @@ export class AppShellComponent implements OnInit {
 
   protected get showDashboard(): boolean {
     return this.router.url === '/' || this.router.url === '/dashboard';
+  }
+
+  protected get mainContentClass(): string {
+    const isAdminRoute = this.router.url.startsWith('/admin');
+
+    if (this.preferences.compactMode()) {
+      return isAdminRoute
+        ? 'px-3 pb-3 pt-1 lg:px-4 lg:pb-4 lg:pt-2'
+        : 'p-3 lg:p-4';
+    }
+
+    return isAdminRoute
+      ? 'px-4 pb-4 pt-1 lg:px-6 lg:pb-6 lg:pt-2'
+      : 'p-4 lg:p-6';
   }
 
   @HostListener('window:resize')

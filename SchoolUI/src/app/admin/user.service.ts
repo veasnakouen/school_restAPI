@@ -43,8 +43,8 @@ export class UserService {
   }
 
   assignRoleToUser(id: string, roleName: string): Observable<any> {
-    // Backend expects [FromBody] string wrapped in quotes for JSON deserialization
-    return this.api.post<any>(`UserManagement/${id}/roles`, JSON.stringify(roleName));
+    // Send proper JSON body object to backend endpoint
+    return this.api.post<any>(`UserManagement/${id}/roles`, { roleName });
   }
 
   removeRoleFromUser(id: string, roleName: string): Observable<any> {

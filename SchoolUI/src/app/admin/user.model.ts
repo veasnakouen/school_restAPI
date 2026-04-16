@@ -3,6 +3,7 @@ export interface User {
   userName: string;
   fullName?: string;
   email: string;
+  imageUrl?: string | null;
   phoneNumber?: string;
   password?: string; // Only used for editing, not displayed
   lockoutEnd?: string;

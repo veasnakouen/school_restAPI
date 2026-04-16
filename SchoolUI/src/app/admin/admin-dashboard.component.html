@@ -1,27 +1,22 @@
 <div class="admin-dashboard">
-  <h2 class="text-3xl font-bold text-base-content mb-8">Admin Dashboard</h2>
+  <h2 class="text-3xl font-bold text-base-content mb-3">Admin Dashboard</h2>
 
-  <!-- Animated Tab Menu -->
-  <nav class="admin-tab-menu">
-    <a routerLink="users" routerLinkActive="active" #rlaUsers="routerLinkActive" class="admin-tab">
-      <span class="pi pi-users"></span>
+  <nav class=" tabs tabs-box bg-base-200 p-1" aria-label="Admin sections">
+    <a routerLink="users" class="tab gap-2 rounded-lg" [class.tab-active]="isTabActive('users')">
+      <span class="pi pi-users text-sm"></span>
       Users
     </a>
-    <a routerLink="roles" routerLinkActive="active" #rlaRoles="routerLinkActive" class="admin-tab">
-      <span class="pi pi-shield"></span>
+    <a routerLink="roles" class="tab gap-2 rounded-lg" [class.tab-active]="isTabActive('roles')">
+      <span class="pi pi-shield text-sm"></span>
       Roles
     </a>
-    <a routerLink="permissions" routerLinkActive="active" #rlaPerms="routerLinkActive" class="admin-tab">
-      <span class="pi pi-lock"></span>
+    <a routerLink="permissions" class="tab gap-2 rounded-lg" [class.tab-active]="isTabActive('permissions')">
+      <span class="pi pi-lock text-sm"></span>
       Permissions
     </a>
-    <div class="admin-tab-bg" [ngClass]="{
-      'users': rlaUsers.isActive,
-      'roles': rlaRoles.isActive,
-      'permissions': rlaPerms.isActive
-    }"></div>
+    <input type="radio" name="my_tabs_6" class="tab" aria-label="Tab 1" >
+    <!-- <div class="tab-content bg-base-100 border-base-300 p-6">Tab content 1</div> -->
   </nav>
-
   <div class="admin-content">
     <router-outlet></router-outlet>
   </div>

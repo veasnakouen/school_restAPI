@@ -121,6 +121,7 @@ export class AuthService {
       userId: response.userId,
       email: response.email,
       fullName: response.fullName,
+      imageUrl: response.imageUrl ?? null,
       roles: response.role ?? []
     };
 

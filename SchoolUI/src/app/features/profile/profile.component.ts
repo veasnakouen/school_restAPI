@@ -7,11 +7,12 @@ import { AuthService } from '../../core/services/auth.service';
 import { UserProfile } from '../../models/auth.model';
 import { UserPreferencesService } from '../../core/services/user-preferences.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
+import { AvatarComponent } from '../../shared/avatar/avatar.component';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, ScrollAnimateDirective],
+  imports: [CommonModule, ReactiveFormsModule, RouterLink, ScrollAnimateDirective, AvatarComponent],
   template: `
     <div class="mx-auto max-w-7xl space-y-6">
       <section scrollAnimate animateVariant="fade-up" class="overflow-hidden rounded-[34px] border border-base-300/70 bg-base-100/95 shadow-2xl backdrop-blur-xl">
@@ -25,11 +26,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
               </div>
 
               <div class="flex items-center gap-4">
-                <div class="avatar placeholder shrink-0">
-                  <div class="w-16 rounded-[1.4rem] bg-gradient-to-br from-primary to-secondary text-primary-content shadow-xl shadow-primary/20">
-                    <span class="text-xl font-black">{{ initial }}</span>
-                  </div>
-                </div>
+                <app-avatar [src]="profile?.imageUrl || auth.session()?.imageUrl" [initials]="initial" alt="{{profile?.fullName || auth.session()?.fullName}}" size="lg" shape="squircle"></app-avatar>
 
                 <div class="min-w-0">
                   <p class="text-xs uppercase tracking-[0.45em] text-base-content/45">Account center</p>

@@ -1,13 +1,16 @@
 
-<div class="p-6 max-w-3xl mx-auto">
-  <div class="flex items-center justify-between mb-6">
+<div class="pt-0 px-3 pb-3 max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-3">
     <h2 class="text-2xl font-bold flex items-center gap-2"><span class="text-primary">🔑</span> Permission Management</h2>
-    <button class="btn btn-primary" (click)="startCreate()">
-      <span class="mr-1">➕</span> Add Permission
+    <button type="button" class="btn btn-primary btn-sm gap-2" (click)="startCreate()" [disabled]="isSaving">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>
+      <span>Add Permission</span>
     </button>
   </div>
 
-  <div class="card bg-base-100 shadow-xl my-6">
+  <div class="card bg-base-100 shadow-sm my-3">
     <div class="overflow-x-auto px-4">
       <table class="table w-full" *ngIf="permissions.length > 0">
         <thead class="border-b border-base-300">
@@ -22,39 +25,99 @@
             <td>{{ permission.name }}</td>
             <td>{{ permission.description }}</td>
             <td>
-              <button class="btn btn-warning btn-sm mr-2" (click)="startEdit(permission)">✏️ Edit</button>
-              <button class="btn btn-error btn-sm" (click)="openDeleteModal(permission)">🗑️ Delete</button>
+              <div class="flex gap-2">
+                <button type="button" class="btn btn-ghost btn-sm btn-square" (click)="startEdit(permission)" [disabled]="isSaving || isDeleting" aria-label="Edit permission" title="Edit">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M9 11l6-6 3 3L12 14H9v-3z" />
+                  </svg>
+                </button>
+                <button type="button" class="btn btn-error btn-sm btn-square" (click)="openDeleteModal(permission)" [disabled]="isSaving || isDeleting" aria-label="Delete permission" title="Delete">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6v12a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2V6M10 6V4a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
       <div class="text-center text-gray-400 py-8" *ngIf="permissions.length === 0">No permissions found.</div>
-          <!-- Pagination Bar -->
-          <div class="flex flex-col sm:flex-row items-center justify-between py-4 gap-2" *ngIf="totalPages > 1 || permissions.length > 5">
-            <div class="flex items-center gap-2 mb-2 sm:mb-0">
-              <label class="label-text">Page size:</label>
-              <select class="select select-bordered select-sm w-auto" [(ngModel)]="pageSize" (ngModelChange)="setPage(1)">
-                <option *ngFor="let size of [5, 10, 20, 50]" [value]="size">{{ size }}</option>
-              </select>
-            </div>
-            <div class="join">
-              <button class="join-item btn btn-sm"
-                [disabled]="page === 1"
-                (click)="setPage(page - 1)">
-                «
-              </button>
-              <button
-                *ngFor="let p of [].constructor(totalPages); let i = index"
-                class="join-item btn btn-sm"
-                [ngClass]="{'btn-active': page === i + 1}"
-                (click)="setPage(i + 1)">
-                {{ i + 1 }}
-              </button>
-              <button class="join-item btn btn-sm"
-                [disabled]="page === totalPages"
-                (click)="setPage(page + 1)">
-                »
-              </button>
+          <div class="px-2 py-4 border-t border-base-200" *ngIf="permissions.length > 0">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="flex items-center gap-2 flex-1 sm:flex-initial">
+                <span class="text-sm opacity-70">Rows per page:</span>
+                <select
+                  class="select select-bordered select-sm"
+                  [(ngModel)]="pageSize"
+                  (ngModelChange)="onPageSizeChange()"
+                >
+                  <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+                </select>
+              </div>
+
+              <div class="text-sm opacity-70 text-center">
+                Showing {{ startIndex }}-{{ endIndex }} of {{ totalItems }} permissions
+              </div>
+
+              <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalItems > pageSize">
+                <button
+                  type="button"
+                  class="join-item btn btn-sm btn-ghost"
+                  aria-label="Go to first page"
+                  (click)="goToFirstPage()"
+                  [disabled]="currentPage === 1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  class="join-item btn btn-sm btn-ghost"
+                  aria-label="Go to previous page"
+                  (click)="previousPage()"
+                  [disabled]="currentPage === 1"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  *ngFor="let page of pages"
+                  class="join-item btn btn-sm"
+                  [class.btn-active]="page === currentPage"
+                  (click)="goToPage(page)"
+                >
+                  {{ page }}
+                </button>
+
+                <button
+                  type="button"
+                  class="join-item btn btn-sm btn-ghost"
+                  aria-label="Go to next page"
+                  (click)="nextPage()"
+                  [disabled]="currentPage === totalPages"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  class="join-item btn btn-sm btn-ghost"
+                  aria-label="Go to last page"
+                  (click)="goToLastPage()"
+                  [disabled]="currentPage === totalPages"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
     </div>
@@ -63,7 +126,7 @@
   <!-- Modal -->
   <dialog id="permission-form-modal" class="modal modal-bottom sm:modal-middle" (click)="onBackdropClick($event)">
     <div class="modal-box relative">
-      <button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" (click)="cancel()">✕</button>
+      <button type="button" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2" (click)="cancel()" aria-label="Close">✕</button>
       <h3 class="font-bold text-lg mb-4">{{ isCreating ? 'Create Permission' : 'Edit Permission' }}</h3>
       <form (ngSubmit)="savePermission()" #permissionForm="ngForm" class="space-y-4" *ngIf="selectedPermission">
         <div *ngIf="saveError" class="alert alert-error shadow-sm mb-2">{{ saveError }}</div>
@@ -99,11 +162,20 @@
           <label class="label">
             <span class="label-text">Description</span>
           </label>
-          <input [(ngModel)]="selectedPermission.description" name="description" class="input input-bordered w-full" />
+          <input type="text" [(ngModel)]="selectedPermission.description" name="description" class="input input-bordered w-full" />
         </div>
         <div class="modal-action">
-          <button class="btn" type="button" (click)="cancel()">Cancel</button>
-          <button class="btn btn-primary" type="submit" [disabled]="!permissionForm.form.valid">💾 Save</button>
+          <button class="btn" type="button" (click)="cancel()" [disabled]="isSaving">Cancel</button>
+          <button class="btn btn-primary" type="submit" [disabled]="!permissionForm.form.valid || isSaving">
+            <ng-container *ngIf="isSaving"><span class="loading loading-spinner loading-sm mr-2"></span>Saving...</ng-container>
+            <ng-container *ngIf="!isSaving">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21H5a2 2 0 01-2-2V7a2 2 0 012-2h3l2-2h4l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 21v-8H7v8" />
+              </svg>
+              Save
+            </ng-container>
+          </button>
         </div>
       </form>
     </div>
@@ -121,14 +193,10 @@
           Are you sure you want to delete <strong class="text-base-content">{{ deleteItemName }}</strong>?
         </p>
         <div class="flex w-full gap-3">
-          <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()">Cancel</button>
-          <button class="btn btn-error flex-1" type="button" [class.loading]="deletingInProgress" (click)="confirmDelete()">
-            @if (deletingInProgress) {
-              <span class="loading loading-spinner loading-sm"></span>
-              Deleting...
-            } @else {
-              Yes, Delete
-            }
+          <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()" [disabled]="deletingInProgress">Cancel</button>
+          <button class="btn btn-error flex-1" type="button" (click)="confirmDelete()" [disabled]="deletingInProgress">
+            <ng-container *ngIf="deletingInProgress"><span class="loading loading-spinner loading-sm mr-2"></span>Deleting...</ng-container>
+            <ng-container *ngIf="!deletingInProgress">Yes, Delete</ng-container>
           </button>
         </div>
       </div>

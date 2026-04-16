@@ -5,7 +5,8 @@ import { HttpClient } from '@angular/common/http';
 
 @Injectable({ providedIn: 'root' })
 export class PermissionService {
-  private apiUrl = 'http://localhost:5001/api/permissions'; // Updated to HTTPS
+  // Development API URL - change to production HTTPS endpoint as needed
+  private apiUrl = 'http://localhost:5001/api/permissions';
 
   constructor(private http: HttpClient) {}
 

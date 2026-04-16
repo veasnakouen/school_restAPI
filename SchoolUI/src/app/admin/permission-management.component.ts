@@ -1,7 +1,8 @@
-import { Component, ChangeDetectorRef, OnInit, inject } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit, OnDestroy, inject } from '@angular/core';
 import { PermissionService } from './permission.service';
 import { Permission } from './permission.model';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subject } from 'rxjs';
+import { takeUntil, finalize } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -15,6 +16,10 @@ import { FormsModule } from '@angular/forms';
 export class PermissionManagementComponent implements OnInit {
     saveError: string | null = null;
   private readonly cdr = inject(ChangeDetectorRef);
+  private destroy$ = new Subject<void>();
+  isLoading = false;
+  isSaving = false;
+  isDeleting = false;
   permissions: Permission[] = [];
   selectedPermission: Permission | null = null;
   isEditing = false;
@@ -33,22 +38,76 @@ export class PermissionManagementComponent implements OnInit {
   constructor(private permissionService: PermissionService) {}
 
   // Pagination properties
-  page = 1;
+  currentPage = 1;
   pageSize = 5;
+  totalItems = 0;
+  pageSizeOptions = [5, 10, 20, 50];
 
   get pagedPermissions() {
-    const start = (this.page - 1) * this.pageSize;
+    const start = (this.currentPage - 1) * this.pageSize;
     return this.permissions.slice(start, start + this.pageSize);
   }
 
   get totalPages() {
-    return Math.ceil(this.permissions.length / this.pageSize);
+    return Math.ceil(this.totalItems / this.pageSize);
   }
 
-  setPage(newPage: number) {
-    if (newPage >= 1 && newPage <= this.totalPages) {
-      this.page = newPage;
+  get pages(): number[] {
+    const pages: number[] = [];
+    const maxVisiblePages = 5;
+
+    let startPage = Math.max(1, this.currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(this.totalPages, startPage + maxVisiblePages - 1);
+
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
+
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return pages;
+  }
+
+  get startIndex(): number {
+    if (this.totalItems === 0) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  get endIndex(): number {
+    return Math.min(this.currentPage * this.pageSize, this.totalItems);
+  }
+
+  goToPage(page: number) {
+    if (page >= 1 && page <= this.totalPages) {
+      this.currentPage = page;
+    }
+  }
+
+  goToFirstPage() {
+    this.currentPage = 1;
+  }
+
+  goToLastPage() {
+    this.currentPage = this.totalPages;
+  }
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+    }
+  }
+
+  previousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  onPageSizeChange() {
+    this.currentPage = 1;
+    this.cdr.detectChanges();
   }
 
   ngOnInit(): void {
@@ -56,8 +115,14 @@ export class PermissionManagementComponent implements OnInit {
   }
 
   loadPermissions() {
-    this.permissionService.getPermissions().subscribe(perms => {
+    this.isLoading = true;
+    this.permissionService.getPermissions().pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.isLoading = false; this.cdr.detectChanges(); })
+    ).subscribe(perms => {
       this.permissions = perms;
+      this.totalItems = this.permissions.length;
+      this.currentPage = 1;
       this.cdr.detectChanges();
     });
   }
@@ -143,10 +208,14 @@ export class PermissionManagementComponent implements OnInit {
     if (this.isCreating) {
       // Save all new permissions in parallel, then reload
       this.saveError = null;
+      this.isSaving = true;
       forkJoin(permsToSave.map(perm => {
         console.log('Saving permission:', perm);
         return this.permissionService.createPermission(perm);
-      })).subscribe({
+      })).pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.isSaving = false; this.cdr.detectChanges(); })
+      ).subscribe({
         next: () => {
           this.loadPermissions();
           this.cancel();
@@ -161,8 +230,12 @@ export class PermissionManagementComponent implements OnInit {
     } else if (this.isEditing) {
       // Only update the current action
       this.saveError = null;
+      this.isSaving = true;
       console.log('Updating permission:', permsToSave[0]);
-      this.permissionService.updatePermission(permsToSave[0]).subscribe({
+      this.permissionService.updatePermission(permsToSave[0]).pipe(
+        takeUntil(this.destroy$),
+        finalize(() => { this.isSaving = false; this.cdr.detectChanges(); })
+      ).subscribe({
         next: () => {
           this.loadPermissions();
           this.cancel();
@@ -197,17 +270,22 @@ export class PermissionManagementComponent implements OnInit {
     if (!this.deleteItemId) return;
     this.deletingInProgress = true;
     this.cdr.detectChanges();
-    
-    this.permissionService.deletePermission(this.deleteItemId).subscribe({
+    this.permissionService.deletePermission(this.deleteItemId).pipe(
+      takeUntil(this.destroy$),
+      finalize(() => { this.deletingInProgress = false; this.cdr.detectChanges(); })
+    ).subscribe({
       next: () => {
         this.loadPermissions();
         this.closeDeleteModal();
       },
       error: (error) => {
         console.error('Failed to delete permission:', error);
-        this.deletingInProgress = false;
-        this.cdr.detectChanges();
       }
     });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

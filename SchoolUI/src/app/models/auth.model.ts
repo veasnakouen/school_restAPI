@@ -42,6 +42,7 @@ export interface AuthResponse {
   userId: string;
   email: string;
   fullName: string;
+  imageUrl?: string | null;
   role?: string[];
   isSuccess?: boolean;
   message?: string | null;
@@ -56,6 +57,7 @@ export interface AuthSession {
   userId: string;
   email: string;
   fullName: string;
+  imageUrl?: string | null;
   roles: string[];
 }
 
@@ -63,6 +65,7 @@ export interface UserProfile {
   id: string;
   fullName: string;
   email: string;
+  imageUrl?: string | null;
   roles: string[];
   phoneNumber?: string | null;
   phoneNumberConfirmed: boolean;

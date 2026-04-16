@@ -18,12 +18,13 @@ import autoTable from 'jspdf-autotable';
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="space-y-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="badge badge-primary badge-outline">Inventory</span>
-            <span class="badge badge-ghost">{{ totalItems }} total</span>
+          <div class="flex flex-row items-center gap-2">
+            <span class="badge badge-success badge-outline">Inventory</span>
+            <span class="badge badge-ghost">{{ totalItems }}pro</span>
           </div>
           <h2 class="section-title text-base-content">Products</h2>
-          <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p>
+          <p class="max-w-2xl text-sm text-base-content/65"></p>
+          <!-- <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p> -->
         </div>
 
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end">

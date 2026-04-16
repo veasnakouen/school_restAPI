@@ -31,7 +31,8 @@ export class RoleService {
   }
 
   deleteRole(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}?id=${id}`);
+    // Use RESTful resource path for delete
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
   // Permissions management for a role
