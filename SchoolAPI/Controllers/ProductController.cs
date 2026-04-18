@@ -13,7 +13,7 @@ using SchoolAPI.Helpers;
 
 namespace SchoolAPI.Controllers;
 
-[Route("api/products")]
+[Route("api/inventory/products")]
 [ApiController]
 [Authorize(Policy = Permissions.ProductRead)]
 public class ProductController : ControllerBase

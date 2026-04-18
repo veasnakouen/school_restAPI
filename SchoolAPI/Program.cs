@@ -74,6 +74,15 @@ builder.Services.AddStackExchangeRedisCache(options =>
     options.Configuration = redisConfiguration;
     options.InstanceName = "SchoolAPI:";
 });
+
+// Configure Output Caching to use Redis
+builder.Services.AddStackExchangeRedisOutputCache(options =>
+{
+    options.Configuration = builder.Configuration["Redis:Configuration"];
+    options.InstanceName = "SchoolAPI:OutputCache:";
+});
+builder.Services.AddOutputCache();
+
 builder.Services.AddDatabase(builder.Configuration)
         .AddIdentityServices(builder.Configuration)
         .AddJwtAuthentication(builder.Configuration)
@@ -85,25 +94,8 @@ builder.Services.AddDatabase(builder.Configuration)
 
 var app = builder.Build();
 
-
-// After app is built, seed permissions and register policies
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
-    await DbInitializer.SeedPermissionsAsync(db);
-    var permissions = db.Permissions.Select(p => p.Name).ToList();
-    var authOptions = app.Services.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider>() as Microsoft.AspNetCore.Authorization.AuthorizationOptions;
-    var serviceProvider = app.Services;
-    var authorizationOptions = serviceProvider.GetService<Microsoft.Extensions.Options.IOptions<Microsoft.AspNetCore.Authorization.AuthorizationOptions>>()?.Value;
-    if (authorizationOptions != null)
-    {
-        foreach (var perm in permissions)
-        {
-            if (authorizationOptions.GetPolicy(perm) == null)
-                authorizationOptions.AddPolicy(perm, policy => policy.Requirements.Add(new PermissionRequirement(perm)));
-        }
-    }
-}
+// Apply migrations and seed roles/admin BEFORE accessing the Permissions table
+await app.SeedDataAsync();
 
 // Security headers — applied first so all responses are covered
 app.Use(async (ctx, next) =>
@@ -134,6 +126,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("CorePolicy");
+app.UseOutputCache();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -144,8 +137,5 @@ RecurringJob.AddOrUpdate<IMonthlyTransactionReportJob>(
     "monthly-transaction-report",
     job => job.GeneratePreviousMonthReportAsync(),
     Cron.Monthly(1, 0, 0));
-
-// Apply migrations and seed roles + admin user
-await app.SeedDataAsync();
 
 await app.RunAsync();

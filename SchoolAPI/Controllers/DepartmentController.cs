@@ -1,73 +1,63 @@
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using MediatR;
-using SchoolAPI.Constant;
-using SchoolAPI.Application.Features.Departments.Create;
-using SchoolAPI.Application.Features.Departments.Delete;
-using SchoolAPI.Application.Features.Departments.GetAll;
-using SchoolAPI.Application.Features.Departments.GetById;
-using SchoolAPI.Application.Features.Departments.Update;
-using SchoolAPI.Contracts;
+using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Data;
+using SchoolAPI.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
-namespace SchoolAPI.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-[Authorize(Policy = Permissions.DepartmentRead)]
-public class DepartmentController : ControllerBase
+namespace SchoolAPI.Controllers
 {
-    private readonly ISender _sender;
-
-    public DepartmentController(ISender sender)
+    [Route("api/[controller]")]
+    [ApiController]
+    public class DepartmentController : ControllerBase
     {
-        _sender = sender ??=HttpContext.RequestServices.GetRequiredService<ISender>();
-    }
+        private readonly SchoolDbContext _context;
 
-    [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new GetAllDepartmentsQuery(), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new GetDepartmentByIdQuery(id), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
-    }
-
-    [HttpPost]
-    [Authorize(Policy = Permissions.DepartmentCreate)]
-    public async Task<IActionResult> Create([FromBody] DepartmentDto department, CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new CreateDepartmentCommand(department), cancellationToken);
-        if (!result.IsSuccess)
+        public DepartmentController(SchoolDbContext context)
         {
-            return BadRequest(result.ErrorMessage);
+            _context = context;
         }
 
-        return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result.Data);
-    }
-
-    [HttpPut("{id}")]
-    [Authorize(Policy = Permissions.DepartmentUpdate)]
-    public async Task<IActionResult> Update(string id, [FromBody] DepartmentDto input, CancellationToken cancellationToken)
-    {
-        if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
+        // GET: api/Department
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Department>>> GetDepartments()
         {
-            return BadRequest("Invalid department ID or mismatched ID in request body.");
+            if (_context.Departments == null)
+            {
+                return NotFound();
+            }
+            return await _context.Departments.OrderBy(d => d.Name).ToListAsync();
         }
 
-        var result = await _sender.Send(new UpdateDepartmentCommand(id, input), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
-    }
+        // POST: api/Department
+        [HttpPost]
+        public async Task<ActionResult<Department>> PostDepartment(Department department)
+        {
+            if (_context.Departments == null)
+            {
+                return Problem("Entity set 'SchoolDbContext.Departments'  is null.");
+            }
 
-    [HttpDelete("{id}")]
-    [Authorize(Policy = Permissions.DepartmentDelete)]
-    public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new DeleteDepartmentCommand(id), cancellationToken);
-        return result.IsSuccess ? Ok("Department deleted successfully.") : NotFound(result.ErrorMessage);
+            if (string.IsNullOrWhiteSpace(department.Name))
+            {
+                return BadRequest(new { title = "Department name cannot be empty." });
+            }
+
+            if (string.IsNullOrEmpty(department.Id))
+            {
+                department.Id = Guid.NewGuid().ToString();
+            }
+
+            // The Location property was made non-nullable in a later migration with a default value.
+            // We ensure it's not null here to prevent database errors.
+            department.Location ??= "";
+
+            _context.Departments.Add(department);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetDepartments), new { id = department.Id }, department);
+        }
     }
 }

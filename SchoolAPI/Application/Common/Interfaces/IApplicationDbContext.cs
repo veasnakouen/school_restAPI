@@ -13,6 +13,8 @@ public interface IApplicationDbContext
     DbSet<Product> Products { get; }
     DbSet<ProductImage> ProductImages { get; }
     DbSet<Category> Categories { get; }
+    DbSet<Quality> Qualities { get; }
+    DbSet<Supplier> Suppliers { get; }
     DbSet<Brand> Brands { get; }
     DbSet<Department> Departments { get; }
     DbSet<Donor> Donors { get; }

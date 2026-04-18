@@ -18,7 +18,12 @@ public class ProductDto
     public string? BrandName { get; set; }
     public decimal? Price { get; set; }
     public string? ImageUrl { get; set; }
+    public string? SupplierId { get; set; }
+    public string? SupplierName { get; set; }
+    public string? Supplier { get; set; }
+    public string? QualityId { get; set; }
     public string? Quality { get; set; }
+    public string? Donor { get; set; }
     public string? VoucherNumber { get; set; }
     public DateTime? CreatedDate { get; set; }
     public DateTime? UpdateDate { get; set; }

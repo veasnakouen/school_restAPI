@@ -252,45 +252,13 @@ Controllers/
  ResponserController.cs
  RolesController.cs
  StudentController.cs
+ SupplierController.cs
  TransactionController.cs
  UserManagementController.cs
 Data/
  DbInitialize.cs
  DbInitializer.cs
- Migrations/
-  20250824155134_initial.cs
-  20250824155134_initial.Designer.cs
-  20250902121534_Add_Auth.cs
-  20250902121534_Add_Auth.Designer.cs
-  20250902144759_Qwen_Auth.cs
-  20250902144759_Qwen_Auth.Designer.cs
-  20250902155034_Qwen_update.cs
-  20250902155034_Qwen_update.Designer.cs
-  20260327171114_Refactoring.cs
-  20260327171114_Refactoring.Designer.cs
-  20260329041058_Edit_Some_Model.cs
-  20260329041058_Edit_Some_Model.Designer.cs
-  20260329064950_SyncCurrentModel.cs
-  20260329064950_SyncCurrentModel.Designer.cs
-  20260329161256_AddProductTable.cs
-  20260329161256_AddProductTable.Designer.cs
-  20260329163626_AddInventoryModelsAndTransactions.cs
-  20260329163626_AddInventoryModelsAndTransactions.Designer.cs
-  20260329163844_AddModel.cs
-  20260329163844_AddModel.Designer.cs
-  20260331161646_AddProductImagePublicId.cs
-  20260331161646_AddProductImagePublicId.Designer.cs
-  20260408095548_AddPermissionsToAppRole.cs
-  20260408095548_AddPermissionsToAppRole.Designer.cs
-  20260408153550_AddPermissionSystem.cs
-  20260408153550_AddPermissionSystem.Designer.cs
-  20260409034821_MakeProductCategoryAndBrandNullable.cs
-  20260409034821_MakeProductCategoryAndBrandNullable.Designer.cs
-  20260409100642_AddProductImageRelationship.cs
-  20260409100642_AddProductImageRelationship.Designer.cs
-  20260413152112_ChangeToNullRefreshToken.cs
-  20260413152112_ChangeToNullRefreshToken.Designer.cs
-  SchoolDbContextModelSnapshot.cs
+ Migrations/SchoolDbContextModelSnapshot.cs
  SchoolDbcontext.cs
 DTOs/
  AttendanceDto.cs
@@ -321,8 +289,10 @@ Entities/
  Photo.cs
  Product.cs
  ProductImage.cs
+ Quality.cs
  Responser.cs
  Student.cs
+ Supplier.cs
  Transaction.cs
  TransactionType.cs
 Errors/ApiException.cs
@@ -359,10 +329,14 @@ Interfaces/
 Middleware/
  CustomMiddleware.cs
  ExceptionMiddleware.cs
+Migrations/
+ 20260418062057_RenewDatabase.cs
+ 20260418062057_RenewDatabase.Designer.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  SchoolAPI.AssemblyInfo.cs
  SchoolAPI.GlobalUsings.g.cs
+PermissionResolutionTests.cs
 Program.cs
 RequestHelper/MappingProfile.cs
 Services/
@@ -722,6 +696,7 @@ Services/
  microsoft.aspnetcore.authentication.jwtbearer/9.0.0/lib/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
  microsoft.aspnetcore.identity.entityframeworkcore/9.0.0/lib/net9.0/Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll
  microsoft.aspnetcore.openapi/9.0.0/lib/net9.0/Microsoft.AspNetCore.OpenApi.dll
+ microsoft.aspnetcore.outputcaching.stackexchangeredis/10.0.6/lib/net10.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.dll
  microsoft.bcl.asyncinterfaces/7.0.0/lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll
  microsoft.build.framework/17.8.3/ref/net8.0/Microsoft.Build.Framework.dll
  microsoft.build.locator/1.7.8/lib/net6.0/Microsoft.Build.Locator.dll
@@ -735,6 +710,7 @@ Services/
  microsoft.data.sqlclient/5.1.6/ref/net6.0/Microsoft.Data.SqlClient.dll
  microsoft.entityframeworkcore.abstractions/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.Abstractions.dll
  microsoft.entityframeworkcore.design/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.Design.dll
+ microsoft.entityframeworkcore.inmemory/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.InMemory.dll
  microsoft.entityframeworkcore.relational/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.Relational.dll
  microsoft.entityframeworkcore.sqlserver/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.SqlServer.dll
  microsoft.entityframeworkcore/9.0.0/lib/net8.0/Microsoft.EntityFrameworkCore.dll
@@ -795,6 +771,10 @@ Services/
  system.servicemodel.primitives/4.5.3/ref/netstandard2.0/
   System.ServiceModel.dll
   System.ServiceModel.Primitives.dll
+ xunit.abstractions/2.0.3/lib/netstandard2.0/xunit.abstractions.dll
+ xunit.assert/2.9.3/lib/net6.0/xunit.assert.dll
+ xunit.extensibility.core/2.9.3/lib/netstandard1.1/xunit.core.dll
+ xunit.extensibility.execution/2.9.3/lib/netstandard1.1/xunit.execution.dotnet.dll
 
 [analyzerReferences]
 <DOTNET>/packs/Microsoft.AspNetCore.App.Ref/10.0.2/analyzers/dotnet/cs/
@@ -828,7 +808,11 @@ Services/
 <NUGET>/microsoft.codeanalysis.analyzers/3.3.4/analyzers/dotnet/cs/
  Microsoft.CodeAnalysis.Analyzers.dll
  Microsoft.CodeAnalysis.CSharp.Analyzers.dll
-<NUGET>/microsoft.entityframeworkcore.analyzers/9.0.0/analyzers/dotnet/cs/Microsoft.EntityFrameworkCore.Analyzers.dll
+<NUGET>/
+ microsoft.entityframeworkcore.analyzers/9.0.0/analyzers/dotnet/cs/Microsoft.EntityFrameworkCore.Analyzers.dll
+ xunit.analyzers/1.18.0/analyzers/dotnet/cs/
+  xunit.analyzers.dll
+  xunit.analyzers.fixes.dll
 
 [analyzerConfigFiles]
 ../.editorconfig

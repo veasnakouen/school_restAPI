@@ -6,7 +6,7 @@ import { CategoryApiService } from '../../core/services/category-api.service';
 import { ProductDto, CreateProductRequest, CategoryDto } from '../../models/inventory.model';
 import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
-import { finalize } from 'rxjs/operators';
+import { finalize, forkJoin } from 'rxjs';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -16,17 +16,17 @@ import autoTable from 'jspdf-autotable';
   imports: [CommonModule, FormsModule, ScrollAnimateDirective],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div class="space-y-2">
-          <div class="flex flex-row items-center gap-2">
-            <span class="badge badge-success badge-outline">Inventory</span>
-            <span class="badge badge-ghost">{{ totalItems }}pro</span>
-          </div>
-          <h2 class="section-title text-base-content">Products</h2>
-          <p class="max-w-2xl text-sm text-base-content/65"></p>
-          <!-- <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p> -->
+      <div class="space-y-2">
+        <div class="flex flex-row items-center gap-2">
+          <span class="badge badge-success badge-outline">Inventory</span>
+          <span class="badge badge-ghost">{{ totalItems }}products</span>
         </div>
-
+        <h2 class="section-title text-base-content">Products</h2>
+        <p class="max-w-2xl text-sm text-base-content/65"></p>
+        <!-- <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p> -->
+      </div>
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <!--  -->
         <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
           <input
             [(ngModel)]="search"
@@ -44,25 +44,50 @@ import autoTable from 'jspdf-autotable';
               <option [value]="cat.name">{{ cat.name }}</option>
             }
           </select>
-          <button type="button" class="btn btn-primary gap-2" (click)="openCreateModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <button type="button" class="btn btn-success btn-sm btn-outline gap-2" (click)="openCreateModal()">
+            <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
+            </svg> -->
+            <i class="icon-plus"></i>
             Add Product
           </button>
         </div>
 
-        <!-- Export Buttons -->
+        <!-- Bulk Actions & Export Buttons -->
         <div class="flex flex-wrap gap-2 items-center">
-          <div class="dropdown">
+          @if (selectedProducts.size > 0) {
+            <div class="dropdown dropdown-end">
+              <div tabindex="0" role="button" class="btn btn-accent gap-2">
+                Bulk Actions ({{ selectedProducts.size }})
+                <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> -->
+              </div>
+              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300">
+                <li>
+                  <button type="button" (click)="confirmBulkDelete()" class="text-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Delete Selected
+                  </button>
+                </li>
+              </ul>
+            </div>
+          }
+          <!-- <button type="button" class="btn btn-primary gap-2" (click)="openCreateModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Add Product
+          </button> -->
+        </div>
+
+        <!-- Export Buttons -->
+          <div class="dropdown dropdown-center">
             <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
+              <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
               Export
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
+              </svg> -->
+              Export
             </div>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
               <li>
@@ -91,7 +116,6 @@ import autoTable from 'jspdf-autotable';
               </li>
             </ul>
           </div>
-        </div>
       </div>
 
       <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
@@ -99,6 +123,13 @@ import autoTable from 'jspdf-autotable';
           <table class="table table-zebra table-pin-rows">
             <thead>
               <tr>
+                <th class="w-12 text-center">
+                  <label>
+                    <input type="checkbox" class="checkbox checkbox-sm" 
+                           [checked]="isAllSelected" 
+                           (change)="toggleSelectAll()" />
+                  </label>
+                </th>
                 <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('name')">
                   <div class="flex items-center gap-1">
                     Name
@@ -137,6 +168,13 @@ import autoTable from 'jspdf-autotable';
             <tbody>
               @for (item of products; track item.id) {
                 <tr>
+                  <td>
+                    <label>
+                      <input type="checkbox" class="checkbox checkbox-sm" 
+                             [checked]="selectedProducts.has(item.id!)" 
+                             (change)="toggleSelection(item.id!)" />
+                    </label>
+                  </td>
                   <td class="font-medium">{{ item.name }}</td>
                   <td>{{ item.categoryName || '-' }}</td>
                   <td>{{ item.brandName || '-' }}</td>
@@ -185,13 +223,13 @@ import autoTable from 'jspdf-autotable';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="5" class="py-10 text-center text-base-content/60">No products match your search.</td>
+                  <td colspan="6" class="py-10 text-center text-base-content/60">No products match your search.</td>
                 </tr>
               }
             </tbody>
             <tfoot *ngIf="totalItems > 0">
               <tr>
-                <td colspan="5" class="p-0 border-t border-base-200">
+                <td colspan="6" class="p-0 border-t border-base-200">
                   <div class="px-4 py-4 w-full bg-base-100">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <!-- Rows per page selector (Left) -->
@@ -679,6 +717,46 @@ import autoTable from 'jspdf-autotable';
       </form>
     </dialog>
 
+    <!-- Bulk Delete Confirmation Modal -->
+    <dialog id="product-bulk-delete-confirm-modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box">
+        <form method="dialog">
+          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <div class="flex flex-col items-center text-center">
+          <div class="mb-4">
+            <div class="rounded-full p-4 bg-error/10">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+          </div>
+          <h3 class="font-bold text-lg mb-2 text-error">Confirm Bulk Deletion</h3>
+          <p class="text-base-content/70 mb-4">
+            Are you sure you want to <strong class="text-error">delete {{ selectedProducts.size }} selected products</strong>?
+          </p>
+          <div class="alert alert-warning mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <span class="text-sm">This action cannot be undone!</span>
+          </div>
+          <div class="flex w-full gap-3">
+            <button class="btn btn-ghost flex-1" type="button" (click)="closeBulkDeleteModal()">Cancel</button>
+            <button
+              class="btn btn-error flex-1 text-white"
+              type="button"
+              (click)="executeBulkDelete()"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+              Delete Selected
+            </button>
+          </div>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="submit" aria-label="Close dialog">close</button>
+      </form>
+    </dialog>
+
     <!-- Success/Error/Warning Message Modal -->
     <dialog id="product-message-modal" class="modal modal-bottom sm:modal-middle">
       <div class="modal-box">
@@ -732,6 +810,9 @@ export class ProductsComponent implements OnInit {
   protected search = '';
 
   // Pagination states
+  protected selectedProducts = new Set<string>();
+
+  // Pagination states
   protected currentPage = 1;
   protected pageSize = 5;
   protected totalItems = 0;
@@ -770,6 +851,7 @@ export class ProductsComponent implements OnInit {
   protected loadProducts(): void {
     this.loading = true;
     this.errorMessage = '';
+    this.selectedProducts.clear();
 
     const query: QueryOptions = {
       pageNumber: this.currentPage,
@@ -843,6 +925,24 @@ export class ProductsComponent implements OnInit {
       createdDate: null,
       updateDate: null
     };
+  }
+  
+  protected get isAllSelected(): boolean {
+    if (this.products.length === 0) return false;
+    return this.products.every(p => p.id && this.selectedProducts.has(p.id));
+  }
+
+  protected toggleSelectAll(): void {
+    if (this.isAllSelected) {
+      this.selectedProducts.clear();
+    } else {
+      this.products.forEach(p => p.id && this.selectedProducts.add(p.id));
+    }
+  }
+
+  protected toggleSelection(productId: string | null): void {
+    if (!productId) return;
+    this.selectedProducts.has(productId) ? this.selectedProducts.delete(productId) : this.selectedProducts.add(productId);
   }
 
   protected get startIndex(): number {
@@ -1155,6 +1255,39 @@ export class ProductsComponent implements OnInit {
       error: (err) => {
         this.showMessage('error', 'Delete Failed', 'Could not delete the product. Please try again.');
         console.error('Error deleting product:', err);
+      }
+    });
+  }
+
+  protected confirmBulkDelete(): void {
+    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.showModal();
+    }
+  }
+
+  protected closeBulkDeleteModal(): void {
+    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.close();
+    }
+  }
+
+  protected executeBulkDelete(): void {
+    if (this.selectedProducts.size === 0) return;
+
+    const deleteRequests = Array.from(this.selectedProducts).map(id => this.api.delete(id));
+
+    forkJoin(deleteRequests).subscribe({
+      next: () => {
+        this.showMessage('success', 'Bulk Delete Successful', `${this.selectedProducts.size} products have been deleted.`);
+        this.loadProducts(); // This will also clear selections
+        this.closeBulkDeleteModal();
+      },
+      error: (err) => {
+        this.showMessage('error', 'Bulk Delete Failed', 'Some products could not be deleted. Please try again.');
+        console.error('Error during bulk delete:', err);
+        this.closeBulkDeleteModal();
       }
     });
   }

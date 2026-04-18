@@ -47,7 +47,7 @@ public class MappingProfile : Profile
         CreateMap<RegisterRequest, AppUser>();
         CreateMap<AppUser, UserDetail>()
             .ForMember(dest => dest.Roles, opt => opt.Ignore())
-            .ForMember(dest => dest.PhoneNumberConfirm, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
+            .ForMember(dest => dest.PhoneNumberConfirmed, opt => opt.MapFrom(src => src.PhoneNumberConfirmed));
         CreateMap<AppUser, UserListItemDto>();
         CreateMap<Brand, BrandDto>();
         CreateMap<BrandDto, Brand>();

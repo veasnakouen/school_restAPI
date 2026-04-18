@@ -23,6 +23,8 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     public DbSet<OutReach> OutReaches { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
     public DbSet<Order> Orders { get; set; }
+    public DbSet<Quality> Qualities { get; set; }
+    public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<Product> Products{ get; set; }
     public DbSet<ProductImage> ProductImages { get; set; }
     public DbSet<Category> Categories { get; set; }

@@ -54,6 +54,25 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                 await _context.SaveChangesAsync(cancellationToken);
             }
         }
+        Quality? quality = null;
+        if (!string.IsNullOrWhiteSpace(request.Product.QualityId))
+        {
+            quality = await _context.Qualities.FirstOrDefaultAsync(q => q.Id == request.Product.QualityId, cancellationToken);
+            if (quality == null)
+            {
+                return Result<ProductDto>.Failure("Quality not found.");
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(request.Product.Quality))
+        {
+            quality = await _context.Qualities.FirstOrDefaultAsync(b => b.Name == request.Product.Quality, cancellationToken);
+            if (quality == null)
+            {
+                quality = new Quality { Name = request.Product.Quality };
+                _context.Qualities.Add(quality);
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+        }
 
         // Handle Brand - lookup by ID (preferred) or Name (fallback)
         Brand? brand = null;
@@ -76,15 +95,37 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             }
         }
 
+        // Handle Supplier - lookup by ID (preferred) or Name (fallback)
+        Supplier? supplier = null;
+        var supplierIdentifier = request.Product.Supplier ?? request.Product.SupplierName ?? request.Product.SupplierId;
+        if (!string.IsNullOrWhiteSpace(supplierIdentifier))
+        {
+            supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == supplierIdentifier, cancellationToken);
+            
+            if (supplier == null)
+            {
+                supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Name == supplierIdentifier, cancellationToken);
+                if (supplier == null)
+                {
+                    supplier = new Supplier { Name = supplierIdentifier };
+                    _context.Suppliers.Add(supplier);
+                    await _context.SaveChangesAsync(cancellationToken);
+                }
+            }
+        }
+
         // Map the DTO to entity
         var product = _mapper.Map<Product>(request.Product);
         product.Id = Guid.NewGuid().ToString();
         product.CategoryId = category?.Id;
         product.BrandId = brand?.Id;
+        product.SupplierId = supplier?.Id;
+        product.Supplier = null; // Clear navigation property to prevent AutoMapper artifacts
         product.CreatedDate = DateTime.UtcNow;
         product.UpdateDate = null;
         product.Description = request.Product.Description ?? string.Empty;
-        product.Quality = request.Product.Quality ?? string.Empty;
+        product.QualityId = quality?.Id;
+        product.Donor = request.Product.Donor ?? string.Empty;
         product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
         product.CodeNumber = request.Product.CodeNumber ?? string.Empty;
 

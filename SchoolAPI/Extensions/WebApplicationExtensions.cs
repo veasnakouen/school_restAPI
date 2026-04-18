@@ -1,9 +1,20 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using SchoolAPI.Authorization;
 using SchoolAPI.Constant;
 using SchoolAPI.Data;
 using SchoolAPI.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace SchoolAPI.Extensions
 {
@@ -17,12 +28,47 @@ namespace SchoolAPI.Extensions
 
             // 1. Apply pending migrations first
             var dbContext = services.GetRequiredService<SchoolDbContext>();
-            await dbContext.Database.MigrateAsync();
+
+            try 
+            {
+                await dbContext.Database.MigrateAsync();
+                
+                // Verify the schema actually created the required tables.
+                // If the migrations folder is empty or corrupted, MigrateAsync() does nothing 
+                // and this query will throw an exception, triggering the catch block.
+                await dbContext.Permissions.FirstOrDefaultAsync();
+            }
+            catch (Exception ex)
+            {
+                if (app.Environment.IsDevelopment())
+                {
+                    app.Logger.LogWarning(ex, "Database schema is corrupted or out of sync. Forcing a complete database reset...");
+                    await dbContext.Database.EnsureDeletedAsync();
+                    await dbContext.Database.EnsureCreatedAsync();
+                }
+                else
+                {
+                    throw; // Never wipe production databases!
+                }
+            }
+
+            // 2. Seed Permissions and Register Policies
+            await DbInitializer.SeedPermissionsAsync(dbContext);
+            var permissions = await dbContext.Permissions.Select(p => p.Name).ToListAsync();
+            var authorizationOptions = services.GetService<IOptions<Microsoft.AspNetCore.Authorization.AuthorizationOptions>>()?.Value;
+            if (authorizationOptions != null)
+            {
+                foreach (var perm in permissions)
+                {
+                    if (authorizationOptions.GetPolicy(perm) == null)
+                        authorizationOptions.AddPolicy(perm, policy => policy.Requirements.Add(new PermissionRequirement(perm)));
+                }
+            }
 
             var roleManager = services.GetRequiredService<RoleManager<AppRole>>();
             var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
-            // 2. Seed Roles
+            // 3. Seed Roles
             foreach (var roleName in new[] { Constant.Roles.User, Constant.Roles.Admin, Constant.Roles.DataEntry, Constant.Roles.Teacher })
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
@@ -38,7 +84,7 @@ namespace SchoolAPI.Extensions
 
             // 3. Seed Admin User
             var adminEmail = "admin@school.com";
-            var adminPassword = configuration["SeedAdmin:Password"];
+            var adminPassword = configuration["SeedAdmin:Password"] ?? "Admin@123";
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
             if (adminUser == null && !string.IsNullOrWhiteSpace(adminPassword))
             {
