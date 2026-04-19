@@ -21,6 +21,7 @@ namespace SchoolAPI.Data.Migrations
                 .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "hstore");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -250,6 +251,162 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("AspNetUserRoles", (string)null);
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.AssetAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AssignedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssignedToId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("ConditionOnReturn")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("ExpectedReturnDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductId1")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PurchaseItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PurchaseItemId1")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Purpose")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ReturnNotes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ReturnedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReturnedToId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StockMovementId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssignedById");
+
+                    b.HasIndex("AssignedToId");
+
+                    b.HasIndex("PersonId");
+
+                    b.HasIndex("ProductId1");
+
+                    b.HasIndex("PurchaseItemId1");
+
+                    b.HasIndex("ReturnedToId");
+
+                    b.HasIndex("StockMovementId");
+
+                    b.ToTable("AssetAssignments");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.AssetTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AcknowledgedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("AcknowledgedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FromLocation")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("FromPersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InitiatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductId1")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StockMovementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ToLocation")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ToPersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TransferNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AcknowledgedById");
+
+                    b.HasIndex("FromPersonId");
+
+                    b.HasIndex("InitiatedById");
+
+                    b.HasIndex("ProductId1");
+
+                    b.HasIndex("StockMovementId");
+
+                    b.HasIndex("ToPersonId");
+
+                    b.ToTable("AssetTransfers");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Attendance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -304,6 +461,15 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Icon")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -382,6 +548,79 @@ namespace SchoolAPI.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Donors");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.MaintenanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("ActualCost")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ConditionAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ConditionBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("EstimatedCost")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("IssuedescRiption")
+                        .HasColumnType("text");
+
+                    b.Property<string>("MaintenanceNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductId1")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ResolutionDescription")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ReturnedFromMaintenanceMovementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ScheduledDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SentForMaintenanceMovementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TechnicianId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId1");
+
+                    b.HasIndex("TechnicianId");
+
+                    b.ToTable("MaintenanceRecords");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Member", b =>
@@ -488,10 +727,47 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("Permissions");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.Person", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Department")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Persons");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Product", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("text");
+
+                    b.Property<int>("AssignedQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Dictionary<string, string>>("Attributes")
+                        .IsRequired()
+                        .HasColumnType("hstore");
+
+                    b.Property<int>("AvailableQuantity")
+                        .HasColumnType("integer");
 
                     b.Property<string>("BrandId")
                         .HasColumnType("text");
@@ -503,22 +779,25 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("CreatedDate")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Donor")
-                        .HasColumnType("text");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
 
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
+
+                    b.Property<string>("ProductCode")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("QualityId")
                         .HasColumnType("text");
@@ -526,12 +805,8 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("SupplierId")
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("UpdateDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("VoucherNumber")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("TotalQuantity")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -580,6 +855,100 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("ProductImages");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.Purchase", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("InvoiceDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("SupplierId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("VoucherNumber")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("Purchases");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.PurchaseItem", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Dictionary<string, string>>("ExtraAttributes")
+                        .IsRequired()
+                        .HasColumnType("hstore");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int>("PercentNew")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProductId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("PurchaseId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ResponsiblePersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SerialNumber")
+                        .HasColumnType("text");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PurchaseId");
+
+                    b.HasIndex("ResponsiblePersonId");
+
+                    b.ToTable("PurchaseItems");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Quality", b =>
                 {
                     b.Property<string>("Id")
@@ -626,6 +995,93 @@ namespace SchoolAPI.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Responsers");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.StockMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FromLocation")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("FromPersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("MovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MovedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("PercentNewAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PercentNewBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductId1")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PurchaseItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PurchaseItemId1")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuantityAfter")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuantityBefore")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ReferenceNumber")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ToLocation")
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("ToPersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("UnitPriceAtMovement")
+                        .HasColumnType("numeric");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromPersonId");
+
+                    b.HasIndex("MovedById");
+
+                    b.HasIndex("ProductId1");
+
+                    b.HasIndex("PurchaseItemId1");
+
+                    b.HasIndex("ToPersonId");
+
+                    b.ToTable("StockMovements");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Student", b =>
@@ -754,6 +1210,83 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("Transactions");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.WriteOff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ApprovalNotes")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ApprovedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ConditionAtWriteOff")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("EstimatedLossValue")
+                        .HasColumnType("numeric");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProductId1")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid?>("PurchaseItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PurchaseItemId1")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RequestedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StockMovementId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SupportingDocument")
+                        .HasColumnType("text");
+
+                    b.Property<string>("WriteOffNumber")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApprovedById");
+
+                    b.HasIndex("ProductId1");
+
+                    b.HasIndex("PurchaseItemId1");
+
+                    b.HasIndex("RequestedById");
+
+                    b.HasIndex("StockMovementId");
+
+                    b.ToTable("WriteOffs");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("SchoolAPI.Entities.AppRole", null)
@@ -828,6 +1361,100 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.AssetAssignment", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Person", "AssignedBy")
+                        .WithMany()
+                        .HasForeignKey("AssignedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Person", "AssignedTo")
+                        .WithMany()
+                        .HasForeignKey("AssignedToId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Person", null)
+                        .WithMany("AssignedAssets")
+                        .HasForeignKey("PersonId");
+
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId1");
+
+                    b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
+                        .WithMany()
+                        .HasForeignKey("PurchaseItemId1");
+
+                    b.HasOne("SchoolAPI.Entities.Person", "ReturnedTo")
+                        .WithMany()
+                        .HasForeignKey("ReturnedToId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SchoolAPI.Entities.StockMovement", "StockMovement")
+                        .WithMany()
+                        .HasForeignKey("StockMovementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssignedBy");
+
+                    b.Navigation("AssignedTo");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurchaseItem");
+
+                    b.Navigation("ReturnedTo");
+
+                    b.Navigation("StockMovement");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.AssetTransfer", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Person", "AcknowledgedBy")
+                        .WithMany()
+                        .HasForeignKey("AcknowledgedById")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SchoolAPI.Entities.Person", "FromPerson")
+                        .WithMany()
+                        .HasForeignKey("FromPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SchoolAPI.Entities.Person", "InitiatedBy")
+                        .WithMany()
+                        .HasForeignKey("InitiatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId1");
+
+                    b.HasOne("SchoolAPI.Entities.StockMovement", "StockMovement")
+                        .WithMany()
+                        .HasForeignKey("StockMovementId");
+
+                    b.HasOne("SchoolAPI.Entities.Person", "ToPerson")
+                        .WithMany()
+                        .HasForeignKey("ToPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AcknowledgedBy");
+
+                    b.Navigation("FromPerson");
+
+                    b.Navigation("InitiatedBy");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("StockMovement");
+
+                    b.Navigation("ToPerson");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Attendance", b =>
                 {
                     b.HasOne("SchoolAPI.Entities.ClassRoom", "Class")
@@ -845,6 +1472,64 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("Class");
 
                     b.Navigation("Student");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Category", b =>
+                {
+                    b.OwnsMany("SchoolAPI.Entities.AttributeDefinition", "AttributeSchema", b1 =>
+                        {
+                            b1.Property<string>("CategoryId")
+                                .HasColumnType("text");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            b1.Property<string>("Key")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("Label")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("Placeholder")
+                                .HasColumnType("text");
+
+                            b1.Property<bool>("Required")
+                                .HasColumnType("boolean");
+
+                            b1.Property<string>("Type")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("CategoryId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Categories");
+
+                            b1.ToJson("AttributeSchema");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CategoryId");
+                        });
+
+                    b.Navigation("AttributeSchema");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.MaintenanceRecord", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId1");
+
+                    b.HasOne("SchoolAPI.Entities.Person", "Technician")
+                        .WithMany()
+                        .HasForeignKey("TechnicianId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Technician");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Member", b =>
@@ -865,14 +1550,14 @@ namespace SchoolAPI.Data.Migrations
                         .HasForeignKey("BrandId");
 
                     b.HasOne("SchoolAPI.Entities.Category", "Category")
-                        .WithMany()
+                        .WithMany("Products")
                         .HasForeignKey("CategoryId");
 
                     b.HasOne("SchoolAPI.Entities.Quality", "Quality")
                         .WithMany()
                         .HasForeignKey("QualityId");
 
-                    b.HasOne("SchoolAPI.Entities.Supplier", "Supplier")
+                    b.HasOne("SchoolAPI.Entities.Supplier", null)
                         .WithMany("Products")
                         .HasForeignKey("SupplierId");
 
@@ -881,8 +1566,6 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("Category");
 
                     b.Navigation("Quality");
-
-                    b.Navigation("Supplier");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.ProductImage", b =>
@@ -894,6 +1577,79 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Purchase", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Supplier", "Supplier")
+                        .WithMany("Purchases")
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.PurchaseItem", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany("PurchaseItems")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Purchase", "Purchase")
+                        .WithMany("PurchaseItems")
+                        .HasForeignKey("PurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Person", "ResponsiblePerson")
+                        .WithMany()
+                        .HasForeignKey("ResponsiblePersonId");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("Purchase");
+
+                    b.Navigation("ResponsiblePerson");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.StockMovement", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Person", "FromPerson")
+                        .WithMany()
+                        .HasForeignKey("FromPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("SchoolAPI.Entities.Person", "MovedBy")
+                        .WithMany()
+                        .HasForeignKey("MovedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId1");
+
+                    b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
+                        .WithMany()
+                        .HasForeignKey("PurchaseItemId1");
+
+                    b.HasOne("SchoolAPI.Entities.Person", "ToPerson")
+                        .WithMany()
+                        .HasForeignKey("ToPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("FromPerson");
+
+                    b.Navigation("MovedBy");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurchaseItem");
+
+                    b.Navigation("ToPerson");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Student", b =>
@@ -946,11 +1702,53 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("Responser");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.WriteOff", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Person", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById");
+
+                    b.HasOne("SchoolAPI.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
+                        .WithMany()
+                        .HasForeignKey("PurchaseItemId1");
+
+                    b.HasOne("SchoolAPI.Entities.Person", "RequestedBy")
+                        .WithMany()
+                        .HasForeignKey("RequestedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SchoolAPI.Entities.StockMovement", "StockMovement")
+                        .WithMany()
+                        .HasForeignKey("StockMovementId");
+
+                    b.Navigation("ApprovedBy");
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurchaseItem");
+
+                    b.Navigation("RequestedBy");
+
+                    b.Navigation("StockMovement");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.AppRole", b =>
                 {
                     b.Navigation("RolePermissions");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Category", b =>
+                {
+                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.ClassRoom", b =>
@@ -970,9 +1768,21 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("RolePermissions");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.Person", b =>
+                {
+                    b.Navigation("AssignedAssets");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Product", b =>
                 {
                     b.Navigation("Image");
+
+                    b.Navigation("PurchaseItems");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Purchase", b =>
+                {
+                    b.Navigation("PurchaseItems");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Student", b =>
@@ -983,6 +1793,8 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.Supplier", b =>
                 {
                     b.Navigation("Products");
+
+                    b.Navigation("Purchases");
                 });
 #pragma warning restore 612, 618
         }

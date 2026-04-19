@@ -29,7 +29,8 @@ namespace SchoolAPI.Extensions
             // 1. Apply pending migrations first
             var dbContext = services.GetRequiredService<SchoolDbContext>();
 
-            try 
+Pu            try 
+            try
             {
                 await dbContext.Database.MigrateAsync();
                 
@@ -50,6 +51,8 @@ namespace SchoolAPI.Extensions
                 {
                     throw; // Never wipe production databases!
                 }
+                app.Logger.LogError(ex, "An error occurred while migrating the database.");
+                throw;
             }
 
             // 2. Seed Permissions and Register Policies
@@ -114,7 +117,7 @@ namespace SchoolAPI.Extensions
                 await userManager.AddToRoleAsync(adminUser, Constant.Roles.Admin);
             }
 
-            await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Admin, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Admin));
+            await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Admin, permissions);
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.DataEntry, Permissions.GetDefaultPermissionsForRole(Constant.Roles.DataEntry));
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Teacher, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Teacher));
 
@@ -136,6 +139,54 @@ namespace SchoolAPI.Extensions
                 };
 
                 await dbContext.Classes.AddRangeAsync(classes);
+                await dbContext.SaveChangesAsync();
+            }
+
+            // 6. Seed Sample Products and Related Lookups
+            if (!await dbContext.Products.AnyAsync())
+            {
+                var electronicsCategory = new Category { Id = Guid.NewGuid().ToString(), Name = "Electronics", Description = "Electronic devices and accessories" };
+                var furnitureCategory = new Category { Id = Guid.NewGuid().ToString(), Name = "Furniture", Description = "Office and home furniture" };
+
+                var appleBrand = new Brand { Id = Guid.NewGuid().ToString(), Name = "Apple" };
+                var hermanBrand = new Brand { Id = Guid.NewGuid().ToString(), Name = "Herman Miller" };
+
+                var newQuality = new Quality { Id = Guid.NewGuid().ToString(), Name = "Brand New" };
+                var usedQuality = new Quality { Id = Guid.NewGuid().ToString(), Name = "Lightly Used" };
+
+                await dbContext.Categories.AddRangeAsync(electronicsCategory, furnitureCategory);
+                await dbContext.Brands.AddRangeAsync(appleBrand, hermanBrand);
+                await dbContext.Qualities.AddRangeAsync(newQuality, usedQuality);
+
+                var products = new List<Product>
+                {
+                    new Product
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ProductName = "MacBook Pro 16-inch",
+                        Description = "High-performance laptop for developers and designers.",
+                        Price = 2499.00m,
+                        ProductCode = "MBP-16-M3",
+                        CodeNumber = "IT-001",
+                        CategoryId = electronicsCategory.Id,
+                        BrandId = appleBrand.Id,
+                        QualityId = newQuality.Id
+                    },
+                    new Product
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        ProductName = "Aeron Office Chair",
+                        Description = "Ergonomic mesh office chair.",
+                        Price = 1250.00m,
+                        ProductCode = "HM-AERON",
+                        CodeNumber = "FUR-001",
+                        CategoryId = furnitureCategory.Id,
+                        BrandId = hermanBrand.Id,
+                        QualityId = usedQuality.Id
+                    }
+                };
+
+                await dbContext.Products.AddRangeAsync(products);
                 await dbContext.SaveChangesAsync();
             }
         }

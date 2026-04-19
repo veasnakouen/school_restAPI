@@ -10,7 +10,7 @@ public class SchoolDbContext : IdentityDbContext<AppUser, AppRole,
 string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
  IdentityRoleClaim<string>, IdentityUserToken<string>>, IApplicationDbContext
 {
-    public SchoolDbContext(DbContextOptions options) : base(options)
+    public SchoolDbContext(DbContextOptions<SchoolDbContext> options) : base(options)
     {
     }
 
@@ -34,11 +34,102 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     public DbSet<Responser> Responsers { get; set; }
     public DbSet<Transaction> Transactions { get; set; }
     public DbSet<Member> Members{ get; set; }
+    public DbSet<Purchase> Purchases { get; set; }
+    public DbSet<PurchaseItem> PurchaseItems { get; set; }
+    public DbSet<Person> Persons { get; set; }
+    public DbSet<StockMovement> StockMovements { get; set; }
+    public DbSet<AssetAssignment> AssetAssignments { get; set; }
+    public DbSet<AssetTransfer> AssetTransfers { get; set; }
+    public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
+    public DbSet<WriteOff> WriteOffs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
+        // ── Purchase Relationships ───────────────────────────────────────
+        // When a Purchase is deleted, automatically delete its PurchaseItems
+        builder.Entity<PurchaseItem>()
+            .HasOne(pi => pi.Purchase)
+            .WithMany(p => p.PurchaseItems)
+            .HasForeignKey(pi => pi.PurchaseId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // ── Stock Movement Relationships ─────────────────────────────────
+        builder.Entity<StockMovement>()
+            .HasOne(sm => sm.FromPerson)
+            .WithMany()
+            .HasForeignKey(sm => sm.FromPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<StockMovement>()
+            .HasOne(sm => sm.ToPerson)
+            .WithMany()
+            .HasForeignKey(sm => sm.ToPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<StockMovement>()
+            .HasOne(sm => sm.MovedBy)
+            .WithMany()
+            .HasForeignKey(sm => sm.MovedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ── Asset Assignment Relationships ───────────────────────────────
+        builder.Entity<AssetAssignment>()
+            .HasOne(aa => aa.AssignedTo)
+            .WithMany()
+            .HasForeignKey(aa => aa.AssignedToId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssetAssignment>()
+            .HasOne(aa => aa.AssignedBy)
+            .WithMany()
+            .HasForeignKey(aa => aa.AssignedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssetAssignment>()
+            .HasOne(aa => aa.ReturnedTo)
+            .WithMany()
+            .HasForeignKey(aa => aa.ReturnedToId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ── Asset Transfer Relationships ─────────────────────────────────
+        builder.Entity<AssetTransfer>()
+            .HasOne(at => at.FromPerson)
+            .WithMany()
+            .HasForeignKey(at => at.FromPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssetTransfer>()
+            .HasOne(at => at.ToPerson)
+            .WithMany()
+            .HasForeignKey(at => at.ToPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssetTransfer>()
+            .HasOne(at => at.InitiatedBy)
+            .WithMany()
+            .HasForeignKey(at => at.InitiatedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssetTransfer>()
+            .HasOne(at => at.AcknowledgedBy)
+            .WithMany()
+            .HasForeignKey(at => at.AcknowledgedById)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // ── Maintenance Record Relationships ─────────────────────────────
+        builder.Entity<MaintenanceRecord>()
+            .HasOne(mr => mr.Technician)
+            .WithMany()
+            .HasForeignKey(mr => mr.TechnicianId)
+            .OnDelete(DeleteBehavior.Restrict);
+        // ── Category JSON Mappings ───────────────────────────────────────
+        builder.Entity<Category>()
+            .OwnsMany(c => c.AttributeSchema, a =>
+            {
+                a.ToJson();
+            });
 
         builder.Entity<AppRolePermission>()
             .HasKey(rp => new { rp.RoleId, rp.PermissionId });

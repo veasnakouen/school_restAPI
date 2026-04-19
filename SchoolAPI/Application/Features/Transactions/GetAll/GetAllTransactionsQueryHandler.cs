@@ -47,7 +47,7 @@ public class GetAllTransactionsQueryHandler : IRequestHandler<GetAllTransactions
             var filter = request.filterQuery.Trim();
             if (request.filterOn.Equals("product", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(x => x.Product != null && x.Product.Name.Contains(filter));
+                query = query.Where(x => x.Product != null && x.Product.ProductName.Contains(filter));
             }
             else if (request.filterOn.Equals("donor", StringComparison.OrdinalIgnoreCase))
             {
@@ -70,7 +70,7 @@ public class GetAllTransactionsQueryHandler : IRequestHandler<GetAllTransactions
         query = string.IsNullOrWhiteSpace(request.sortBy)
             ? query.OrderByDescending(x => x.CreatedDate)
             : request.sortBy.Equals("product", StringComparison.OrdinalIgnoreCase)
-                ? request.isAscending ? query.OrderBy(x => x.Product.Name) : query.OrderByDescending(x => x.Product.Name)
+                ? request.isAscending ? query.OrderBy(x => x.Product.ProductName) : query.OrderByDescending(x => x.Product.ProductName)
                 : request.sortBy.Equals("createddate", StringComparison.OrdinalIgnoreCase)
                     ? request.isAscending ? query.OrderBy(x => x.CreatedDate) : query.OrderByDescending(x => x.CreatedDate)
                     : request.sortBy.Equals("quantity", StringComparison.OrdinalIgnoreCase)

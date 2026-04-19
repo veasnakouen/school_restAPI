@@ -165,6 +165,21 @@ Application/Features/Products/Image/
 Application/Features/Products/Update/
  UpdateProductCommand.cs
  UpdateProductCommandHandler.cs
+Application/Features/Purchases/Create/
+ CreatePurchaseCommand.cs
+ CreatePurchaseCommandHandler.cs
+Application/Features/Purchases/Delete/
+ DeletePurchaseCommand.cs
+ DeletePurchaseCommandHandler.cs
+Application/Features/Purchases/GetAll/
+ GetAllPurchasesQuery.cs
+ GetAllPurchasesQueryHandler.cs
+Application/Features/Purchases/GetById/
+ GetPurchaseByIdQuery.cs
+ GetPurchaseByIdQueryHandler.cs
+Application/Features/Purchases/Update/
+ UpdatePurchaseCommand.cs
+ UpdatePurchaseCommandHandler.cs
 Application/Features/Responsers/Create/
  CreateResponserCommand.cs
  CreateResponserCommandHandler.cs
@@ -203,37 +218,48 @@ Authorization/
 Constant/
  Permissions.cs
  Roles.cs
-Contracts/Auth/
- AuthResponse.cs
- ConfirmEmailRequest.cs
- CreateRoleRequest.cs
- LoginRequest.cs
- Loginresult.cs
- PasswordResetRequest.cs
- RefreshToken.cs
- RegisterRequest.cs
- RolePermissionRequest.cs
- RoleResponse.cs
- UpdateRoleRequest.cs
- UserDetail.cs
- UserDto.cs
- UserListItemDto.cs
 Contracts/
+ AssetAssignmentDto.cs
+ AssetTransferDto.cs
+ Auth/
+  AuthResponse.cs
+  ConfirmEmailRequest.cs
+  CreateRoleRequest.cs
+  LoginRequest.cs
+  Loginresult.cs
+  PasswordResetRequest.cs
+  RefreshToken.cs
+  RegisterRequest.cs
+  RolePermissionRequest.cs
+  RoleResponse.cs
+  UpdateRoleRequest.cs
+  UserDetail.cs
+  UserDto.cs
+  UserListItemDto.cs
  BrandDto.cs
  CategoryDto.cs
+ CreatePurchaseRequest.cs
  DepartmentDto.cs
  DonorDto.cs
  ErrorResponse.cs
  JwtSettings.cs
+ MaintenanceRecordDto.cs
+ PersonDto.cs
  ProductDto.cs
  ProductImageUploadRequest.cs
+ PurchaseDto.cs
+ PurchaseItemDto.cs
+ PurchaseItemRequest.cs
  Reports/
   AssessmentRequestFormDto.cs
   AssessmentRequestLineItemDto.cs
   MonthlyTransactionReportRow.cs
   StudentAssessmentRequestFormDto.cs
  ResponserDto.cs
+ StockMovementDto.cs
  TransactionDto.cs
+ UpdatePurchaseRequest.cs
+ WriteOffDto.cs
 Controllers/
  AssessmentReportsController.cs
  AuthController.cs
@@ -248,6 +274,7 @@ Controllers/
  OutReachController.cs
  PermissionsController.cs
  ProductController.cs
+ PurchasesController.cs
  ReportsController.cs
  ResponserController.cs
  RolesController.cs
@@ -271,8 +298,12 @@ Entities/
  AppRolePermission.cs
  AppUser.cs
  AppUserRole.cs
+ AssetAssignment.cs
+ AssetTransfer.cs
+ AssignmentStatus.cs
  Attendance.cs
  AttendanceStatus.cs
+ AttributeDefinition.cs
  BaseEntity.cs
  Book.cs
  Brand.cs
@@ -282,19 +313,31 @@ Entities/
  Donor.cs
  Enrollment.cs
  Gender.cs
+ MaintenanceRecord.cs
  Member.cs
+ MovementDirection.cs
+ MovementType.cs
  Order.cs
  OutReach.cs
  Permission.cs
+ Person.cs
  Photo.cs
  Product.cs
  ProductImage.cs
+ Purchase.cs
+ PurchaseItem.cs
+ PurchaseType.cs
  Quality.cs
  Responser.cs
+ StockMovement.cs
  Student.cs
  Supplier.cs
  Transaction.cs
  TransactionType.cs
+ TransferStatus.cs
+ WriteOff.cs
+ WriteOffReason.cs
+ WriteOffStatus.cs
 Errors/ApiException.cs
 Exceptions/GlobalExceptionHandler.cs
 Extensions/
@@ -332,6 +375,8 @@ Middleware/
 Migrations/
  20260418062057_RenewDatabase.cs
  20260418062057_RenewDatabase.Designer.cs
+ 20260418174940_InventoryTrack.cs
+ 20260418174940_InventoryTrack.Designer.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  SchoolAPI.AssemblyInfo.cs

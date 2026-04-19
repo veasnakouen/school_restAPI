@@ -15,8 +15,16 @@ primary
 lastDtbSucceeded
 
 [properties]
+AssemblyName=SchoolAPI.Tests
 CommandLineArgsForDesignTimeEvaluation=-langversion:14.0 -define:TRACE
+CompilerGeneratedFilesOutputPath=
 MaxSupportedLangVersion=14.0
+ProjectAssetsFile=<PATH>obj/project.assets.json
+RootNamespace=SchoolAPI.Tests
+RunAnalyzers=
+RunAnalyzersDuringLiveAnalysis=
+SolutionPath=<PATH>../School.sln
+TargetFrameworkIdentifier=.NETCoreApp
 TargetPath=<PATH>bin/Debug/net10.0/SchoolAPI.Tests.dll
 TargetRefPath=<PATH>obj/Debug/net10.0/ref/SchoolAPI.Tests.dll
 TemporaryDependencyNodeTargetIdentifier=net10.0

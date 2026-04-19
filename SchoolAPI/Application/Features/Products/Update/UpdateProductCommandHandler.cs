@@ -27,7 +27,6 @@ public class UpdateProductCommandHandler(
         var product = await context.Products
             .Include(p => p.Category)
             .Include(p => p.Quality)
-            .Include(p => p.Supplier)
             .Include(p => p.Brand)
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
@@ -93,41 +92,14 @@ public class UpdateProductCommandHandler(
             product.QualityId = null;
         }
 
-        var supplierIdentifier = request.Product.Supplier ?? request.Product.SupplierName ?? request.Product.SupplierId;
-        if (!string.IsNullOrWhiteSpace(supplierIdentifier))
-        {
-            if (supplierIdentifier != product.SupplierId && supplierIdentifier != product.Supplier?.Name)
-            {
-                var supplier = await context.Suppliers.FirstOrDefaultAsync(c => c.Id == supplierIdentifier, cancellationToken);
+       
 
-                if (supplier is null)
-                {
-                    supplier = await context.Suppliers.FirstOrDefaultAsync(c => c.Name == supplierIdentifier, cancellationToken);
-                    if (supplier is null)
-                    {
-                        supplier = new Supplier { Name = supplierIdentifier };
-                        context.Suppliers.Add(supplier);
-                        await context.SaveChangesAsync(cancellationToken);
-                    }
-                }
-
-                product.Supplier = supplier;
-                product.SupplierId = supplier.Id;
-            }
-        }
-        else
-        {
-            product.Supplier = null;
-            product.SupplierId = null;
-        }
-
-        product.Name = request.Product.Name;
+        product.ProductName = request.Product.Name;
         product.CodeNumber = request.Product.CodeNumber ?? string.Empty;
         product.Description = request.Product.Description ?? string.Empty;
         product.Price = request.Product.Price;
         // product.Quality = request.Product.Quality ?? string.Empty;
-        product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
-        product.UpdateDate = DateTime.UtcNow;
+       
 
         // Note: Image is handled separately via UploadProductImage endpoint
         // Do not set product.Image.Url here to avoid NullReferenceException

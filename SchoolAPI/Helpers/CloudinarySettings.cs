@@ -1,9 +1,8 @@
 namespace SchoolAPI.Helpers;
 
-// use to map to our cloudinary / working with image
 public class CloudinarySettings
 {
-    public required string CloudName { get; set; }
-    public required string ApiKey { get; set; }
-    public required string ApiSecret { get; set; }
+    public string CloudName { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiSecret { get; set; } = string.Empty;
 }

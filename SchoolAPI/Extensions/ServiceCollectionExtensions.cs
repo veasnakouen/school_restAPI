@@ -299,6 +299,7 @@ namespace SchoolAPI.Extensions
         {
             services.AddSwaggerGen(c =>
             {
+                c.CustomSchemaIds(type => type.FullName);
                 c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v2" });
                 c.AddSecurityDefinition(BearerScheme, new OpenApiSecurityScheme
                 {

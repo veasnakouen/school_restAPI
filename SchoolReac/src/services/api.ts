@@ -12,10 +12,9 @@ export interface CreateProductRequest {
   brandName: string | null;
   price: number | null;
   quality: string | null;
-  voucherNumber: string | null;
   department?: string | null;
-  supplierId?: string | null;
-  supplierName?: string | null;
+  productCode?: string | null;
+  specs?: string | null;
 }
 
 // Define types similar to your Angular models
@@ -31,12 +30,11 @@ export interface ProductDto {
   price: number | null;
   imageUrl: string | null;
   quality: string | null;
-  voucherNumber: string | null;
   createdDate: string | null;
   updateDate: string | null;
   department?: string | null;
-  supplierId?: string | null;
-  supplierName?: string | null;
+  productCode?: string | null;
+  specs?: string | null;
 }
 
 export interface CategoryDto {
@@ -317,6 +315,14 @@ export const login = (credentials: {
   // the `credentials` object shape.
   return apiClient.post<AuthResponse>("/auth/login", credentials).then((res) => res.data);
  };
+
+export const forceRefreshToken = (): Promise<AuthResponse> => {
+  const accessToken = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  if (!accessToken || !refreshToken) return Promise.reject(new Error('No tokens available'));
+  return apiClient.post<AuthResponse>("/auth/refresh", { accessToken, refreshToken }).then(res => res.data);
+};
 
 // --- User Management ---
 // The backend AuthController serves users at /auth/users and returns a PagedResult with an 'items' array

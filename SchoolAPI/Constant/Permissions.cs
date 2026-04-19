@@ -45,6 +45,11 @@ public static class Permissions
     public const string ProductUpdate = "product.update";
     public const string ProductDelete = "product.delete";
 
+    public const string PurchaseRead = "purchase.read";
+    public const string PurchaseCreate = "purchase.create";
+    public const string PurchaseUpdate = "purchase.update";
+    public const string PurchaseDelete = "purchase.delete";
+
     public const string TransactionRead = "transaction.read";
     public const string TransactionCreate = "transaction.create";
     public const string TransactionUpdate = "transaction.update";
@@ -105,6 +110,10 @@ public static class Permissions
         ProductCreate,
         ProductUpdate,
         ProductDelete,
+        PurchaseRead,
+        PurchaseCreate,
+        PurchaseUpdate,
+        PurchaseDelete,
         TransactionRead,
         TransactionCreate,
         TransactionUpdate,
@@ -157,6 +166,10 @@ public static class Permissions
         ProductCreate,
         ProductUpdate,
         ProductDelete,
+        PurchaseRead,
+        PurchaseCreate,
+        PurchaseUpdate,
+        PurchaseDelete,
         TransactionRead,
         TransactionCreate,
         TransactionUpdate,

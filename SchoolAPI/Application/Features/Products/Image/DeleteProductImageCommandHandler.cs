@@ -55,7 +55,7 @@ public class DeleteProductImageCommandHandler : IRequestHandler<DeleteProductIma
             _context.ProductImages.Remove(product.Image);
         }
         
-        product.UpdateDate = DateTime.UtcNow;
+        // product.UpdateDate = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
         _cacheVersionService.Invalidate("products");

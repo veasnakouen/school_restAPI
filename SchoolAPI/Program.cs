@@ -9,9 +9,12 @@ using SchoolAPI.Contracts;
 using SchoolAPI.Extensions;
 using SchoolAPI.Middleware;
 using SchoolAPI.Services.Reporting;
+using SchoolAPI.Helpers;
+using SchoolAPI.Services;
 using Serilog;
 using Microsoft.AspNetCore.HttpOverrides;
 using QuestPDF.Infrastructure;
+using SchoolAPI.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,6 +65,15 @@ builder.Services.AddServices();
 builder.Services.ConfigureCors();
 builder.Services.ConfigureEpplus();
 builder.Services.AddRateLimiting();
+
+builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.AddScoped<IPhotoService, PhotoService>();
+
+// Register HttpContextAccessor and CurrentUserService so CQRS handlers can use them
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<SchoolAPI.Application.Common.Interfaces.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
+builder.Services.AddScoped<SchoolAPI.Services.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
+
 builder.Services.AddHangfireServices(builder.Configuration);
 builder.Services.AddStackExchangeRedisCache(options =>
 {
@@ -133,9 +145,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-RecurringJob.AddOrUpdate<IMonthlyTransactionReportJob>(
-    "monthly-transaction-report",
-    job => job.GeneratePreviousMonthReportAsync(),
-    Cron.Monthly(1, 0, 0));
+// Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
+        "monthly-transaction-report",
+        job => job.GeneratePreviousMonthReportAsync(),
+        Cron.Monthly());
+}
 
 await app.RunAsync();

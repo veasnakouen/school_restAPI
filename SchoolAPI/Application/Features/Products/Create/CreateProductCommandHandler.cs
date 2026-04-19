@@ -6,6 +6,7 @@ using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
 using SchoolAPI.Interfaces;
+using System.Text.Json;
 
 namespace SchoolAPI.Application.Features.Products.Create;
 
@@ -95,39 +96,25 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             }
         }
 
-        // Handle Supplier - lookup by ID (preferred) or Name (fallback)
-        Supplier? supplier = null;
-        var supplierIdentifier = request.Product.Supplier ?? request.Product.SupplierName ?? request.Product.SupplierId;
-        if (!string.IsNullOrWhiteSpace(supplierIdentifier))
-        {
-            supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Id == supplierIdentifier, cancellationToken);
-            
-            if (supplier == null)
-            {
-                supplier = await _context.Suppliers.FirstOrDefaultAsync(s => s.Name == supplierIdentifier, cancellationToken);
-                if (supplier == null)
-                {
-                    supplier = new Supplier { Name = supplierIdentifier };
-                    _context.Suppliers.Add(supplier);
-                    await _context.SaveChangesAsync(cancellationToken);
-                }
-            }
-        }
-
         // Map the DTO to entity
         var product = _mapper.Map<Product>(request.Product);
         product.Id = Guid.NewGuid().ToString();
+        product.ProductName = request.Product.Name;
         product.CategoryId = category?.Id;
         product.BrandId = brand?.Id;
-        product.SupplierId = supplier?.Id;
-        product.Supplier = null; // Clear navigation property to prevent AutoMapper artifacts
-        product.CreatedDate = DateTime.UtcNow;
-        product.UpdateDate = null;
+        product.CreatedAt = DateTime.UtcNow;
         product.Description = request.Product.Description ?? string.Empty;
         product.QualityId = quality?.Id;
-        product.Donor = request.Product.Donor ?? string.Empty;
-        product.VoucherNumber = request.Product.VoucherNumber ?? string.Empty;
         product.CodeNumber = request.Product.CodeNumber ?? string.Empty;
+        product.ProductCode = request.Product.ProductCode ?? string.Empty;
+        
+        try {
+            product.Attributes = !string.IsNullOrWhiteSpace(request.Product.Attributes) 
+                ? JsonSerializer.Deserialize<Dictionary<string, string>>(request.Product.Attributes) ?? new() 
+                : new();
+        } catch {
+            product.Attributes = new(); // Fallback to empty dictionary if string isn't valid JSON
+        }
 
         _context.Products.Add(product);
         await _context.SaveChangesAsync(cancellationToken);

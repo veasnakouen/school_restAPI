@@ -1,61 +1,11 @@
-import React, { useState, useEffect, useActionState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, changePassword, User, uploadAvatar } from '../../services/api';
 import { Box, Grid, Card, CardContent, Typography, Divider, TextField, Button, CircularProgress, Chip, Alert, Avatar, Badge, IconButton, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { PhotoCamera as PhotoCameraIcon } from '@mui/icons-material';
 import { useAuth } from '../../auth/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-
-type ProfileUpdateState = {
-  message?: string | null;
-  error?: string | null;
-  user?: User | null;
-};
-
-type PasswordChangeState = {
-  message?: string | null;
-  error?: string | null;
-};
-
-// This is the "Action" for updating the profile.
-async function handleProfileUpdateAction(
-  previousState: ProfileUpdateState | null,
-  formData: FormData
-): Promise<ProfileUpdateState> {
-  const data = {
-    fullName: formData.get('fullName') as string,
-    email: formData.get('email') as string,
-    phoneNumber: formData.get('phoneNumber') as string,
-  };
-
-  try {
-    const updatedUser = await updateProfile(data);
-    return { message: 'Profile updated successfully.', user: updatedUser };
-  } catch (err) {
-    return { error: 'Failed to update profile.' };
-  }
-}
-
-// This is the "Action" for changing the password.
-async function handlePasswordChangeAction(
-  previousState: PasswordChangeState | null,
-  formData: FormData
-): Promise<PasswordChangeState> {
-  const currentPassword = formData.get('currentPassword') as string;
-  const newPassword = formData.get('newPassword') as string;
-  const confirmPassword = formData.get('confirmPassword') as string;
-
-  if (newPassword !== confirmPassword) {
-    return { error: 'New passwords do not match.' };
-  }
-
-  try {
-    await changePassword({ currentPassword, newPassword });
-    return { message: 'Password changed successfully.' };
-  } catch (err) {
-    return { error: 'Failed to change password. Please check your current password.' };
-  }
-}
 
 export const Profile: React.FC = () => {
   const [profile, setProfile] = useState<User | null>(null);
@@ -81,11 +31,8 @@ export const Profile: React.FC = () => {
   const { showToast } = useToast();
   const { updateUser } = useAuth();
 
-  // State for the profile update form action
-  const [profileState, updateProfileAction, isProfileUpdating] = useActionState(handleProfileUpdateAction, null);
-  
-  // State for the password change form action
-  const [passwordState, changePasswordAction, isPasswordChanging] = useActionState(handlePasswordChangeAction, null);
+  const [isProfileUpdating, setIsProfileUpdating] = useState(false);
+  const [isPasswordChanging, setIsPasswordChanging] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -103,31 +50,47 @@ export const Profile: React.FC = () => {
     void fetchProfile();
   }, []);
 
-  // This effect listens for a successful profile update from the action
-  // and updates the local component state.
-  useEffect(() => {
-    if (!profileState) return;
-    if (profileState.error) {
-      showToast(profileState.error, 'error');
-    } else if (profileState.message && profileState.user) {
-      showToast(profileState.message, 'success');
-      setProfile(profileState.user);
-      updateUser(profileState.user); // This updates the global user state
-      setAvatarPreview(profileState.user.imageUrl || null);
+  const handleProfileUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProfileUpdating(true);
+    try {
+      const data = {
+        fullName: profile?.fullName || '',
+        email: profile?.email || '',
+        phoneNumber: profile?.phoneNumber || '',
+        userName: profile?.userName || '',
+      };
+      const updatedUser = await updateProfile(data);
+      showToast('Profile updated successfully.', 'success');
+      setProfile(updatedUser);
+      updateUser(updatedUser);
+      setAvatarPreview(updatedUser.imageUrl || null);
+    } catch (err: any) {
+      showToast(err.response?.data?.title || 'Failed to update profile.', 'error');
+    } finally {
+      setIsProfileUpdating(false);
     }
-  }, [profileState, showToast, updateUser]);
+  };
 
-  // This effect listens for a successful password change and clears the input fields.
-  useEffect(() => {
-    if (passwordState?.error) {
-      showToast(passwordState.error, 'error');
-    } else if (passwordState?.message) {
-      showToast(passwordState.message, 'success');
+  const handlePasswordChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      showToast('New passwords do not match.', 'error');
+      return;
+    }
+    setIsPasswordChanging(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      showToast('Password changed successfully.', 'success');
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
+    } catch (err: any) {
+      showToast(err.response?.data?.title || 'Failed to change password. Please check your current password.', 'error');
+    } finally {
+      setIsPasswordChanging(false);
     }
-  }, [passwordState, showToast]);
+  };
 
   const handleAvatarFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -261,7 +224,7 @@ export const Profile: React.FC = () => {
               </Box>
               <Typography variant="h5" component="h3" gutterBottom>Personal Information</Typography>
               <Divider sx={{ mb: 2 }} />
-              <form action={updateProfileAction}>
+              <form onSubmit={handleProfileUpdate}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField label="Username" value={profile?.userName || ''} disabled fullWidth variant="outlined" />
                   <TextField
@@ -316,7 +279,7 @@ export const Profile: React.FC = () => {
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h5" component="h3" gutterBottom>Change Password</Typography>
               <Divider sx={{ mb: 2 }} />
-              <form action={changePasswordAction}>
+              <form onSubmit={handlePasswordChange}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <TextField
                     label="Current Password"

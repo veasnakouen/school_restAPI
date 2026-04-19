@@ -24,7 +24,6 @@ public class AssessmentReportsController : ControllerBase
         _studentReportService = studentReportService;
     }
 
-    [HttpPost("pdf")]
     [HttpPost("product/pdf")]
     [Authorize(Policy = Permissions.TransactionRead)]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -34,7 +33,6 @@ public class AssessmentReportsController : ControllerBase
         return File(bytes, "application/pdf", $"assessment-request-{request.AssessmentNo}.pdf");
     }
 
-    [HttpPost("excel")]
     [HttpPost("product/excel")]
     [Authorize(Policy = Permissions.TransactionRead)]
     [ProducesResponseType(StatusCodes.Status200OK)]

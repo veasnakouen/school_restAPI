@@ -1,11 +1,16 @@
 using System.Security.Claims;
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using System.Linq;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Contracts;
+using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Constant;
 using SchoolAPI.Entities;
+using SchoolAPI.Application.Common.Models;
 
 namespace SchoolAPI.Controllers;
 
@@ -16,29 +21,83 @@ public class UserManagementController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RoleManager<AppRole> _roleManager;
+    private readonly IApplicationDbContext _context;
+    private readonly IMapper _mapper;
 
-    public UserManagementController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager)
+    public UserManagementController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IApplicationDbContext context, IMapper mapper)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _context = context;
+        _mapper = mapper;
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllUsers()
+    public async Task<IActionResult> GetAllUsers(
+        [FromQuery] string? filterOn = null,
+        [FromQuery] string? filterQuery = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool isAscending = true,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var users = await _userManager.Users
-            .Select(u => new
+        var query = _userManager.Users.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(filterOn) && !string.IsNullOrWhiteSpace(filterQuery))
+        {
+            if (filterOn.Equals("name", StringComparison.OrdinalIgnoreCase))
             {
-                u.Id,
-                u.UserName,
-                u.FullName,
-                u.Email,
-                u.PhoneNumber,
-                u.LockoutEnd
-            })
+                query = query.Where(u => u.FullName != null && EF.Functions.ILike(u.FullName, $"%{filterQuery}%"));
+            }
+            else if (filterOn.Equals("email", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => EF.Functions.ILike(u.Email!, $"%{filterQuery}%"));
+            }
+            else if (filterOn.Equals("phone", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(u => u.PhoneNumber != null && EF.Functions.ILike(u.PhoneNumber, $"%{filterQuery}%"));
+            }
+        }
+
+        query = string.IsNullOrWhiteSpace(sortBy)
+            ? query.OrderBy(u => u.FullName)
+            : sortBy.Equals("name", StringComparison.OrdinalIgnoreCase)
+                ? isAscending ? query.OrderBy(u => u.FullName) : query.OrderByDescending(u => u.FullName)
+                : sortBy.Equals("email", StringComparison.OrdinalIgnoreCase)
+                    ? isAscending ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email)
+                    : query.OrderBy(u => u.FullName);
+
+        var totalCount = await query.CountAsync();
+        pageNumber = pageNumber < 1 ? 1 : pageNumber;
+        pageSize = pageSize < 1 ? 10 : pageSize;
+        var users = await query.AsNoTracking()
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return Ok(users);
+        var userIds = users.Select(u => u.Id).ToList();
+        var userRoles = await _context.UserRoles
+            .Where(ur => userIds.Contains(ur.UserId))
+            .Include(ur => ur.Role)
+            .Select(ur => new { ur.UserId, RoleName = ur.Role.Name })
+            .ToListAsync();
+
+        var userRolesLookup = userRoles.ToLookup(ur => ur.UserId, ur => ur.RoleName);
+
+        var userList = users.Select(user => (object)new
+        {
+            user.Id, user.UserName, user.FullName, user.Email, user.PhoneNumber,
+            Roles = userRolesLookup[user.Id].ToList(),
+            user.LockoutEnd, user.ImageUrl
+        }).ToList();
+
+        return Ok(new PagedResult<object>
+        {
+            Items = userList,
+            PageNumber = pageNumber,
+            PageSize = pageSize,
+            TotalCount = totalCount
+        });
     }
 
     [HttpPost]
@@ -196,19 +255,11 @@ public class UserManagementController : ControllerBase
 
         var roles = await _userManager.GetRolesAsync(user);
 
-        return Ok(new
-        {
-            user.Id,
-            user.UserName,
-            user.Email,
-            user.FullName,
-            user.PhoneNumber,
-            user.LockoutEnd,
-            user.CreatedAt,
-            Roles = roles
-        });
-    }
+        var userDetail = _mapper.Map<UserDetail>(user);
+        userDetail.Roles = roles.ToList();
 
+        return Ok(userDetail);
+    }
     [HttpDelete("{userId}")]
     public async Task<IActionResult> DeleteUser(string userId)
     {

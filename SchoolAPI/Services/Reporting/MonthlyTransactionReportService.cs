@@ -58,7 +58,7 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
             .Select(transaction => new MonthlyTransactionReportRow
             {
                 TransactionDate = transaction.CreatedDate ?? DateTime.UtcNow,
-                ProductName = transaction.Product.Name,
+                ProductName = transaction.Product.ProductName,
                 TransactionType = transaction.TransactionType.ToString(),
                 DonorName = transaction.Donor.Name,
                 DepartmentName = transaction.Department.Name,

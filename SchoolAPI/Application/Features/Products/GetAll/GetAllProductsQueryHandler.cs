@@ -46,7 +46,7 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
             var filter = request.filterQuery.Trim();
             if (request.filterOn.Equals("name", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(p => p.Name.Contains(filter));
+                query = query.Where(p => p.ProductName.Contains(filter));
             }
             else if (request.filterOn.Equals("code", StringComparison.OrdinalIgnoreCase))
             {
@@ -63,14 +63,14 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         }
 
         query = string.IsNullOrWhiteSpace(request.sortBy)
-            ? query.OrderByDescending(p => p.CreatedDate)
+            ? query.OrderByDescending(p => p.CreatedAt)
             : request.sortBy.Equals("name", StringComparison.OrdinalIgnoreCase)
-                ? request.isAscending ? query.OrderBy(p => p.Name) : query.OrderByDescending(p => p.Name)
+                ? request.isAscending ? query.OrderBy(p => p.ProductName) : query.OrderByDescending(p => p.ProductName)
                 : request.sortBy.Equals("price", StringComparison.OrdinalIgnoreCase)
                     ? request.isAscending ? query.OrderBy(p => p.Price) : query.OrderByDescending(p => p.Price)
-                    : request.sortBy.Equals("createddate", StringComparison.OrdinalIgnoreCase)
-                        ? request.isAscending ? query.OrderBy(p => p.CreatedDate) : query.OrderByDescending(p => p.CreatedDate)
-                        : query.OrderByDescending(p => p.CreatedDate);
+                    : request.sortBy.Equals("createddate", StringComparison.OrdinalIgnoreCase) || request.sortBy.Equals("createdat", StringComparison.OrdinalIgnoreCase)
+                        ? request.isAscending ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt)
+                        : query.OrderByDescending(p => p.CreatedAt);
 
         var totalCount = await query.CountAsync(cancellationToken);
         var pageNumber = request.pageNumber < 1 ? 1 : request.pageNumber;

@@ -8,4 +8,7 @@ public class Supplier : BaseEntity
 
     // Navigation property for related products
     public ICollection<Product>? Products { get; set; } = new List<Product>();
+
+    // Navigation property for related purchases
+    public ICollection<Purchase>? Purchases { get; set; } = new List<Purchase>();
 }

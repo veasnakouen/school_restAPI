@@ -14,6 +14,8 @@ interface AuthContextType {
   updateUser: (updatedData: Partial<api.User>) => void;
   isAdmin: () => boolean;
   isAuthenticated: boolean;
+  showExpirationWarning: boolean;
+  extendSession: () => Promise<void>;
 }
 
 /**
@@ -39,6 +41,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(false); // For login/logout actions
   const [isInitializing, setIsInitializing] = useState(true); // For initial auth check
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [showExpirationWarning, setShowExpirationWarning] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,6 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.removeItem("refreshToken");
     sessionStorage.removeItem("user");
     sessionStorage.removeItem("accessToken");
+    setShowExpirationWarning(false);
     if (options.navigate) {
       navigate('/login');
     }
@@ -98,6 +102,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     validateToken();
   }, [logout]);
 
+  // Decode JWT and set expiration warning timer
+  useEffect(() => {
+    if (!token || DEV_MODE_MOCK_AUTH) {
+      setShowExpirationWarning(false);
+      return;
+    }
+
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return; // Exit safely if the token is malformed
+      }
+      // Safely decode the JWT payload
+      const payloadBase64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const decodedJson = decodeURIComponent(window.atob(payloadBase64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      const decoded = JSON.parse(decodedJson);
+      
+      if (decoded.exp) {
+        const expiresAtMs = decoded.exp * 1000;
+        const timeUntilExpiry = expiresAtMs - Date.now();
+        const warningThreshold = 5 * 60 * 1000; // Show warning 5 minutes before expiration
+
+        if (timeUntilExpiry <= 0) {
+          logout();
+          return;
+        }
+
+        let warningTimer: ReturnType<typeof setTimeout>;
+        let logoutTimer: ReturnType<typeof setTimeout>;
+
+        if (timeUntilExpiry > warningThreshold) {
+          warningTimer = setTimeout(() => {
+            setShowExpirationWarning(true);
+          }, timeUntilExpiry - warningThreshold);
+        } else {
+          setShowExpirationWarning(true);
+        }
+
+        logoutTimer = setTimeout(() => {
+          logout();
+        }, timeUntilExpiry);
+
+        return () => {
+          clearTimeout(warningTimer);
+          clearTimeout(logoutTimer);
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse token for expiration warning.", e);
+    }
+  }, [token, logout]);
+
   const login = async (credentials: { email: string; password: string }, rememberMe: boolean) => {
     setIsLoading(true);
     setLoadingMessage('Logging in...');
@@ -133,6 +191,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const extendSession = async () => {
+    try {
+      const response = await api.forceRefreshToken();
+      const { accessToken, refreshToken } = response;
+      
+      const storage = localStorage.getItem('user') ? localStorage : sessionStorage;
+      setToken(accessToken);
+      storage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+      
+      setShowExpirationWarning(false);
+    } catch (err) {
+      console.error("Failed to extend session", err);
+      logout();
+    }
+  };
+
   const setLoading = (isLoading: boolean, message: string | null = null) => {
     setIsLoading(isLoading);
     setLoadingMessage(message);
@@ -141,7 +216,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const isAdmin = () => !!(user?.roles?.includes('Admin') || user?.roles?.includes('Administrator'));
   const isAuthenticated = !!user;
 
-  const value = { user, token, login, logout, updateUser, isAdmin,isAuthenticated, isLoading, isInitializing, loadingMessage, setLoading } satisfies AuthContextType;
+  const value = { user, token, login, logout, updateUser, isAdmin, isAuthenticated, isLoading, isInitializing, loadingMessage, setLoading, showExpirationWarning, extendSession } satisfies AuthContextType;
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

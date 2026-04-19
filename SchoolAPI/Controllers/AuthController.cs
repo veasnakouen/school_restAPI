@@ -33,6 +33,7 @@ using SchoolAPI.Application.Features.Products.GetAll;
 using SchoolAPI.Data;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace SchoolAPI.Controllers;
 
@@ -48,6 +49,8 @@ public class AuthController : BaseController
     private readonly IMediator _mediator;
     private readonly ClassService _classService;
     private readonly RoleManager<AppRole> _roleManager;
+    private readonly IPhotoService _photoService;
+    private readonly IApplicationDbContext _context;
 
     public AuthController(
         UserManager<AppUser> userManager,
@@ -57,7 +60,9 @@ public class AuthController : BaseController
         IOptions<JwtSettings> jwtSettings,
         IMediator mediator,
         ClassService classService,
-        RoleManager<AppRole> roleManager)
+        RoleManager<AppRole> roleManager,
+        IPhotoService photoService,
+        IApplicationDbContext context)
     {
         _userManager = userManager;
         _tokenService = tokenService;
@@ -67,6 +72,8 @@ public class AuthController : BaseController
         _mediator = mediator;
         _classService = classService;
         _roleManager = roleManager;
+        _photoService = photoService;
+        _context = context;
     }
 
     private DateTime GetRefreshTokenExpiryUtc()
@@ -233,6 +240,7 @@ public class AuthController : BaseController
     // Simple DTO for profile updates
     public class UpdateProfileRequest
     {
+        public string? UserName { get; set; }
         public string? FullName { get; set; }
         public string? Email { get; set; }
         public string? PhoneNumber { get; set; }
@@ -246,28 +254,44 @@ public class AuthController : BaseController
         if (userId == null) return Unauthorized(UserNotFound);
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null) return NotFound(UserNotFound);
+        if (user == null) return Unauthorized(UserNotFound);
 
         user.FullName = request.FullName ?? user.FullName;
         user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
         
-        // Note: Email change should ideally be a separate, more secure process (e.g., with confirmation)
+        if (!string.IsNullOrWhiteSpace(request.UserName) && user.UserName != request.UserName)
+        {
+            var existingUser = await _userManager.FindByNameAsync(request.UserName);
+            if (existingUser != null && existingUser.Id != user.Id)
+                return BadRequest(new { title = "Username is already taken." });
+            user.UserName = request.UserName;
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Email) && user.Email != request.Email)
         {
-            // You might want to add validation to ensure the new email is not already taken
+            var existingEmail = await _userManager.FindByEmailAsync(request.Email);
+            if (existingEmail != null && existingEmail.Id != user.Id)
+                return BadRequest(new { title = "Email is already taken." });
+                
             user.Email = request.Email;
-            user.UserName = request.Email; // Keep username in sync with email
         }
 
         var result = await _userManager.UpdateAsync(user);
-        if (!result.Succeeded) return BadRequest(result.Errors);
+        if (!result.Succeeded) return BadRequest(new { title = "Failed to update profile.", errors = result.Errors.Select(e => e.Description) });
 
         // Return the full, updated user object so the frontend can update its state
         var roles = await _userManager.GetRolesAsync(user);
         var profile = new {
-            user.Id, user.UserName, user.FullName, user.Email, Roles = roles,
-            user.PhoneNumber, user.PhoneNumberConfirmed, user.AccessFailedCount,
-            user.LockoutEnd, user.ImageUrl
+            id = user.Id, 
+            userName = user.UserName, 
+            fullName = user.FullName, 
+            email = user.Email, 
+            roles = roles,
+            phoneNumber = user.PhoneNumber, 
+            phoneNumberConfirmed = user.PhoneNumberConfirmed, 
+            accessFailedCount = user.AccessFailedCount,
+            lockoutEnd = user.LockoutEnd, 
+            imageUrl = user.ImageUrl
         };
 
         return Ok(profile);
@@ -281,22 +305,22 @@ public class AuthController : BaseController
         if (userId == null) return Unauthorized(UserNotFound);
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user is null) return NotFound(UserNotFound);
+        if (user is null) return Unauthorized(UserNotFound);
 
         var roles = await _userManager.GetRolesAsync(user);
 
         var profile = new
         {
-            user.Id,
-            user.UserName,
-            user.FullName,
-            user.Email,
-            Roles = roles,
-            user.PhoneNumber,
-            user.PhoneNumberConfirmed,
-            user.AccessFailedCount,
-            user.LockoutEnd,
-            user.ImageUrl
+            id = user.Id,
+            userName = user.UserName,
+            fullName = user.FullName,
+            email = user.Email,
+            roles = roles,
+            phoneNumber = user.PhoneNumber,
+            phoneNumberConfirmed = user.PhoneNumberConfirmed,
+            accessFailedCount = user.AccessFailedCount,
+            lockoutEnd = user.LockoutEnd,
+            imageUrl = user.ImageUrl
         };
 
         return Ok(profile);
@@ -316,7 +340,7 @@ public class AuthController : BaseController
         if (userId == null) return Unauthorized(UserNotFound);
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null) return NotFound(UserNotFound);
+        if (user == null) return Unauthorized(UserNotFound);
 
         var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
         if (!result.Succeeded)
@@ -337,18 +361,21 @@ public class AuthController : BaseController
             if (userId == null) return Unauthorized(UserNotFound);
 
             var user = await _userManager.FindByIdAsync(userId);
-            if (user is null) return NotFound(UserNotFound);
+            if (user is null) return Unauthorized(UserNotFound);
 
             var roles = await _userManager.GetRolesAsync(user);
             var profile = new
             {
                 id = user.Id,
+                userName = user.UserName,
                 fullName = user.FullName,
                 email = user.Email,
                 roles = roles,
                 phoneNumber = user.PhoneNumber,
                 phoneNumberConfirmed = user.PhoneNumberConfirmed,
-                accessFailedCount = user.AccessFailedCount
+                accessFailedCount = user.AccessFailedCount,
+                imageUrl = user.ImageUrl,
+                lockoutEnd = user.LockoutEnd
             };
 
             var classes = await _classService.GetAllClasses(pageNumber: 1, pageSize: 5);
@@ -381,34 +408,33 @@ public class AuthController : BaseController
     /// </summary>
     [HttpPost("roles/grant-permission")]
     [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GrantPermissionToRole([FromBody] GrantPermissionToRoleRequest request,
-    [FromServices] SchoolDbContext _context)
+    public async Task<IActionResult> GrantPermissionToRole([FromBody] GrantPermissionToRoleRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.RoleName) || string.IsNullOrWhiteSpace(request.Permission))
             return BadRequest("RoleName and Permission are required.");
 
-        var role = await _roleManager.Roles
-            .Include(r => r.RolePermissions)
-            .FirstOrDefaultAsync(r => r.Name == request.RoleName);
+        var role = await _roleManager.FindByNameAsync(request.RoleName);
         if (role == null)
             return NotFound("Role not found");
 
-        var permission = await _context.Permissions.FirstOrDefaultAsync(p => p.Name == request.Permission);
-        if (permission == null)
-            return NotFound("Permission not found");
-
-        bool alreadyAssigned = role.RolePermissions?.Any(rp => rp.PermissionId == permission.Id) ?? false;
-        if (!alreadyAssigned)
+        // It's better to check against the DB source of truth for permissions
+        var permissionExists = await _context.Permissions.AnyAsync(p => p.Name == request.Permission);
+        if (!permissionExists)
         {
-            role.RolePermissions ??= new List<AppRolePermission>();
-            role.RolePermissions.Add(new AppRolePermission
-            {
-                RoleId = role.Id,
-                PermissionId = permission.Id
-            });
-            var result = await _roleManager.UpdateAsync(role);
-            if (!result.Succeeded)
-                return StatusCode(500, "Failed to update role permissions.");
+            return NotFound("Permission not found");
+        }
+
+        var existingClaims = await _roleManager.GetClaimsAsync(role);
+        if (existingClaims.Any(c => c.Type == Permissions.ClaimType && c.Value == request.Permission))
+        {
+            return Ok($"Permission '{request.Permission}' already granted to role '{request.RoleName}'.");
+        }
+
+        var result = await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, request.Permission));
+
+        if (!result.Succeeded)
+        {
+            return StatusCode(500, "Failed to grant permission.");
         }
 
         return Ok($"Permission '{request.Permission}' granted to role '{request.RoleName}'");
@@ -418,100 +444,6 @@ public class AuthController : BaseController
     {
         public string RoleName { get; set; }
         public string Permission { get; set; }
-    }
-
-    [HttpGet("{id}")]
-    [Authorize(Policy = Permissions.UsersRead)]
-    public async Task<ActionResult<AuthResponse>> GetUser(Guid id)
-    {
-        var user = await _userManager.FindByIdAsync(id.ToString());
-        if (user == null) return NotFound("User not found.");
-        return Ok(_mapper.Map<AuthResponse>(user));
-    }
-
-    [HttpGet("users")]
-    [Authorize(Policy = Permissions.UsersRead)]
-    public async Task<IActionResult> GetAllUsers(
-        [FromQuery] string? filterOn = null,
-        [FromQuery] string? filterQuery = null,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] bool isAscending = true,
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10)
-    {
-        var query = _userManager.Users.AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(filterOn) && !string.IsNullOrWhiteSpace(filterQuery))
-        {
-            if (filterOn.Equals("name", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(u => EF.Functions.Like(u.FullName, $"%{filterQuery}%"));
-            }
-            else if (filterOn.Equals("email", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(u => EF.Functions.Like(u.Email!, $"%{filterQuery}%"));
-            }
-            else if (filterOn.Equals("phone", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(u => u.PhoneNumber != null && EF.Functions.Like(u.PhoneNumber, $"%{filterQuery}%"));
-            }
-        }
-
-        query = string.IsNullOrWhiteSpace(sortBy)
-            ? query.OrderBy(u => u.FullName)
-            : sortBy.Equals("name", StringComparison.OrdinalIgnoreCase)
-                ? isAscending ? query.OrderBy(u => u.FullName) : query.OrderByDescending(u => u.FullName)
-                : sortBy.Equals("email", StringComparison.OrdinalIgnoreCase)
-                    ? isAscending ? query.OrderBy(u => u.Email) : query.OrderByDescending(u => u.Email)
-                    : query.OrderBy(u => u.FullName);
-
-        var totalCount = await query.CountAsync();
-        pageNumber = pageNumber < 1 ? 1 : pageNumber;
-        pageSize = pageSize < 1 ? 10 : pageSize;
-        var users = await query.AsNoTracking()
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
-
-        var userList = new List<object>();
-        foreach (var user in users)
-        {
-            var roles = await _userManager.GetRolesAsync(user);
-            userList.Add(new
-            {
-                user.Id,
-                user.UserName,
-                user.FullName,
-                user.Email,
-                user.PhoneNumber,
-                Roles = roles.ToList(),
-                user.LockoutEnd,
-                user.ImageUrl
-            });
-        }
-
-        return Ok(new PagedResult<object>
-        {
-            Items = userList,
-            PageNumber = pageNumber,
-            PageSize = pageSize,
-            TotalCount = totalCount
-        });
-    }
-
-    [HttpGet("details")]
-    [Authorize(Policy = Permissions.UsersRead)]
-    public async Task<ActionResult<UserDetail>> GetUserDetail(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null) return NotFound(UserNotFound);
-
-        var roles = await _userManager.GetRolesAsync(user);
-
-        var userDetail = _mapper.Map<UserDetail>(user);
-        userDetail.Roles = roles.ToList();
-
-        return Ok(userDetail);
     }
 
     [HttpPost("forgot-password")]
@@ -591,24 +523,47 @@ public class AuthController : BaseController
 
     [HttpPost("profile/avatar")]
     [Authorize]
-    public async Task<IActionResult> UploadAvatar(IFormFile file, [FromServices] IPhotoService photoService)
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (userId == null) return Unauthorized(UserNotFound);
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null) return NotFound(UserNotFound);
+        if (user == null) return Unauthorized(UserNotFound);
 
         if (file == null || file.Length == 0)
         {
-            return BadRequest(new { message = "No file uploaded." });
+            return BadRequest(new { title = "No file uploaded." });
         }
 
-        var uploadResult = await photoService.UploadPhotoAsync(file);
+        var uploadResult = await _photoService.UploadPhotoAsync(file);
 
         if (uploadResult.Error != null || uploadResult.SecureUrl == null)
         {
-            return BadRequest(new { message = uploadResult.Error?.Message ?? "Unknown error during image upload." });
+            return BadRequest(new { title = uploadResult.Error?.Message ?? "Unknown error during image upload." });
+        }
+
+        // Delete the old avatar from Cloudinary if it exists
+        if (!string.IsNullOrEmpty(user.ImageUrl))
+        {
+            try
+            {
+                var urlParts = user.ImageUrl.Split('/');
+                var uploadIndex = Array.IndexOf(urlParts, "upload");
+                if (uploadIndex != -1)
+                {
+                    // Cloudinary URLs format: .../upload/v1234567890/folder/filename.jpg
+                    var startIndex = urlParts[uploadIndex + 1].StartsWith("v") ? uploadIndex + 2 : uploadIndex + 1;
+                    var publicIdWithExt = string.Join("/", urlParts.Skip(startIndex));
+                    var publicId = publicIdWithExt.Substring(0, publicIdWithExt.LastIndexOf('.'));
+                    
+                    await _photoService.DeletePhotoAsync(publicId);
+                }
+            }
+            catch 
+            {
+                // Ignore parsing errors so we don't break the upload flow if the old URL was malformed or not from Cloudinary
+            }
         }
 
         user.ImageUrl = uploadResult.SecureUrl.ToString();
@@ -616,34 +571,9 @@ public class AuthController : BaseController
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { message = "Failed to update user profile with new avatar." });
+            return BadRequest(new { title = "Failed to update user profile with new avatar." });
         }
 
         return Ok(new { imageUrl = user.ImageUrl });
-    }
-
-    [HttpPost("grant-permission")]
-    [Authorize(Roles = "Admin")] // Only admins can grant permissions
-    public async Task<IActionResult> GrantPermission([FromBody] GrantPermissionRequest request)
-    {
-        var user = await _userManager.FindByIdAsync(request.UserId);
-        if (user == null)
-            return NotFound("User not found");
-
-        var role = await _roleManager.FindByNameAsync(request.RoleName);
-        if (role == null)
-            return NotFound("Role not found");
-
-        // Add permission if not already present
-        // (Legacy code removed: Permissions property is no longer used. See new dynamic permission logic above.)
-
-        return Ok("Permission granted");
-    }
-
-    public class GrantPermissionRequest
-    {
-        public string UserId { get; set; }
-        public string RoleName { get; set; }
-        public string Permission { get; set; }
     }
 }

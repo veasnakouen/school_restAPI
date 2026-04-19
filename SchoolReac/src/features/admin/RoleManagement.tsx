@@ -74,8 +74,9 @@ export const RoleManagement: React.FC = () => {
             setIsEditing(true);
             setCurrentRole(roleDetails);
             setIsModalOpen(true);
-        } catch (err) {
-            setError(`Failed to fetch details for role: ${role.name}`);
+        } catch (err: any) {
+            const message = err.response?.data?.title || `Failed to fetch details for role: ${role.name}`;
+            showToast(message, 'error');
         } finally {
             setAppLoading(false);
         }
@@ -88,13 +89,18 @@ export const RoleManagement: React.FC = () => {
 
     const handleSave = async () => {
         if (!currentRole) return;
+        if (!currentRole.name.trim()) {
+            showToast('Role name is required.', 'error');
+            return;
+        }
         setAppLoading(true, 'Saving role...');
         try {
+            const payload = { name: currentRole.name.trim(), permissions: currentRole.permissions || [] };
             if (isEditing) {
-                await api.updateRole(currentRole.id, { name: currentRole.name, permissions: currentRole.permissions });
+                await api.updateRole(currentRole.id, payload);
                 showToast('Role updated successfully!', 'success');
             } else {
-                await api.createRole({ name: currentRole.name, permissions: currentRole.permissions });
+                await api.createRole(payload);
                 showToast('Role created successfully!', 'success');
             }
             setIsModalOpen(false);
@@ -124,9 +130,10 @@ export const RoleManagement: React.FC = () => {
 
     const handlePermissionToggle = (permissionValue: string) => {
         if (!currentRole) return;
-        const permissions = currentRole.permissions.includes(permissionValue)
-            ? currentRole.permissions.filter(p => p !== permissionValue)
-            : [...currentRole.permissions, permissionValue];
+        const currentPerms = currentRole.permissions || [];
+        const permissions = currentPerms.includes(permissionValue)
+            ? currentPerms.filter(p => p !== permissionValue)
+            : [...currentPerms, permissionValue];
         setCurrentRole({ ...currentRole, permissions });
     };
 
@@ -230,7 +237,7 @@ export const RoleManagement: React.FC = () => {
                                                 key={perm.value}
                                                 control={
                                                     <Checkbox
-                                                        checked={currentRole?.permissions.includes(perm.value) || false}
+                                                        checked={(currentRole?.permissions || []).includes(perm.value)}
                                                         onChange={() => handlePermissionToggle(perm.value)}
                                                         color="primary"
                                                     />

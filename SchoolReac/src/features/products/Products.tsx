@@ -26,7 +26,6 @@ export const Products: React.FC = () => {
   const [categories, setCategories] = useState<api.CategoryDto[]>([]);
   const [brands, setBrands] = useState<api.BrandDto[]>([]);
   const [departments, setDepartments] = useState<api.DepartmentDto[]>([]);
-  const [suppliers, setSuppliers] = useState<api.SupplierDto[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,10 +63,6 @@ export const Products: React.FC = () => {
   const [newDepartmentName, setNewDepartmentName] = useState('');
   const [newDepartmentLocation, setNewDepartmentLocation] = useState('');
   const [isSavingDepartment, setIsSavingDepartment] = useState(false);
-
-  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [isSavingSupplier, setIsSavingSupplier] = useState(false);
 
   // Image Cropping State
   const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -148,16 +143,14 @@ export const Products: React.FC = () => {
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [cats, brnds, depts, supps] = await Promise.all([
+        const [cats, brnds, depts] = await Promise.all([
           api.getCategories(), 
           api.getBrands(), 
-          api.getDepartments(),
-          api.getSuppliers()
+          api.getDepartments()
         ]);
         setCategories(cats.sort((a, b) => a.name.localeCompare(b.name)));
         setBrands(brnds.sort((a, b) => a.name.localeCompare(b.name)));
         setDepartments(depts.sort((a, b) => a.name.localeCompare(b.name)));
-        setSuppliers(supps.sort((a, b) => a.name.localeCompare(b.name)));
       } catch (err) {
         console.error("Failed to load lookups", err);
       }
@@ -202,7 +195,7 @@ export const Products: React.FC = () => {
   const handleOpenModal = (mode: 'create' | 'edit' | 'view', product?: api.ProductDto) => {
     setModalMode(mode);
     if (mode === 'create') {
-      setSelectedProduct({ id: null, name: '', price: 0, department: '', supplierId: '', supplierName: '' } as api.ProductDto);
+      setSelectedProduct({ id: null, name: '', price: 0, department: '', productCode: '', specs: '' } as api.ProductDto);
     } else {
       setSelectedProduct(product || null);
       setImagePreview(product?.imageUrl || null);
@@ -391,29 +384,11 @@ export const Products: React.FC = () => {
     }
   };
 
-  const handleSaveSupplier = async () => {
-    if (!newSupplierName.trim()) return;
-    setIsSavingSupplier(true);
-    try {
-      const newSupp = await api.createSupplier({ name: newSupplierName });
-      setSuppliers(prev => [...prev, newSupp]);
-      setSelectedProduct(p => p ? { ...p, supplierId: newSupp.id, supplierName: newSupp.name } : null);
-      showToast('Supplier created successfully!', 'success');
-      setIsSupplierModalOpen(false);
-      setNewSupplierName('');
-    } catch (err: any) {
-      const message = err.response?.data?.title || 'Failed to create supplier.';
-      showToast(message, 'error');
-    } finally {
-      setIsSavingSupplier(false);
-    }
-  };
-
   const handleExport = (format: 'csv' | 'pdf') => {
     const timestamp = new Date().toISOString().slice(0, 10);
     if (format === 'csv') {
-      const headers = ['ID', 'Name', 'Category', 'Brand', 'Price', 'Quality', 'Department', 'Supplier'];
-      const rows = products.map(p => [p.id, p.name, p.categoryName, p.brandName, p.price, p.quality, p.department, p.supplierName].map(escapeCsvValue).join(','));
+      const headers = ['ID', 'Name', 'Category', 'Brand', 'Price', 'Quality', 'Department', 'Product Code', 'Specs'];
+      const rows = products.map(p => [p.id, p.name, p.categoryName, p.brandName, p.price, p.quality, p.department, p.productCode, p.specs].map(escapeCsvValue).join(','));
       const csvContent = [headers.join(','), ...rows].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -425,8 +400,8 @@ export const Products: React.FC = () => {
       const doc = new jsPDF();
       doc.text("Products Report", 14, 15);
       (doc as any).autoTable({
-        head: [['Name', 'Category', 'Brand', 'Price', 'Dept', 'Supplier']],
-        body: products.map(p => [p.name, p.categoryName, p.brandName, `$${p.price?.toFixed(2)}`, p.department || '-', p.supplierName || '-']),
+        head: [['Name', 'Category', 'Brand', 'Price', 'Dept']],
+        body: products.map(p => [p.name, p.categoryName, p.brandName, `$${p.price?.toFixed(2)}`, p.department || '-']),
       });
       doc.save(`products_${timestamp}.pdf`);
     }
@@ -466,9 +441,8 @@ export const Products: React.FC = () => {
       ['Brand', product.brandName || '-'],
       ['Price', product.price ? `$${product.price.toFixed(2)}` : '-'],
       ['Quality', product.quality || '-'],
-      ['Voucher #', product.voucherNumber || '-'],
       ['Department', product.department || '-'],
-      ['Supplier', product.supplierName || '-'],
+      ['Product Code', product.productCode || '-'],
       ['Created Date', product.createdDate ? new Date(product.createdDate).toLocaleDateString() : '-'],
     ];
 
@@ -476,6 +450,11 @@ export const Products: React.FC = () => {
       // autoTable can handle multiline text if it's an array of strings
       const splitDescription = doc.splitTextToSize(product.description, 180);
       productData.push(['Description', splitDescription]);
+    }
+
+    if (product.specs) {
+      const splitSpecs = doc.splitTextToSize(product.specs, 180);
+      productData.push(['Specs', splitSpecs]);
     }
 
     (doc as any).autoTable({
@@ -612,11 +591,6 @@ export const Products: React.FC = () => {
                   Dept
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
-                <TableSortLabel active={sortBy === 'supplier'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('supplierName')}>
-                  Supplier
-                </TableSortLabel>
-              </TableCell>
                 <TableCell align="right">
                   <TableSortLabel active={sortBy === 'price'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('price')}>
                     Price
@@ -651,7 +625,6 @@ export const Products: React.FC = () => {
                       <TableCell>{product.categoryName || '-'}</TableCell>
                       <TableCell>{product.brandName || '-'}</TableCell>
                   <TableCell>{product.department || '-'}</TableCell>
-                  <TableCell>{product.supplierName || '-'}</TableCell>
                       <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="View">
@@ -699,6 +672,8 @@ export const Products: React.FC = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField label="Product Name" value={selectedProduct?.name || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, name: e.target.value } : null)} required fullWidth />
                 <TextField label="Code Number" value={selectedProduct?.codeNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, codeNumber: e.target.value } : null)} fullWidth />
+                <TextField label="Product Code" value={selectedProduct?.productCode || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, productCode: e.target.value } : null)} fullWidth />
+                <TextField label="Product Specs" value={selectedProduct?.specs || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, specs: e.target.value } : null)} multiline rows={3} placeholder="E.g. Dimensions: 10x10, Weight: 1kg" fullWidth />
                 <TextField label="Description" value={selectedProduct?.description || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, description: e.target.value } : null)} multiline rows={4} fullWidth />
               </Box>
             </Grid>
@@ -810,27 +785,6 @@ export const Products: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <Select 
-                  value={selectedProduct?.supplierId || ''} 
-                  onChange={(e) => {
-                    if (e.target.value === 'ADD_NEW_SUPPLIER') {
-                      setIsSupplierModalOpen(true);
-                    } else {
-                      const selectedSupp = suppliers.find(s => s.id === e.target.value);
-                      setSelectedProduct(p => p ? { ...p, supplierId: e.target.value as string, supplierName: selectedSupp?.name || '' } : null)
-                    }
-                  }} 
-                  displayEmpty
-                >
-                  <MenuItem value=""><em>Select Supplier</em></MenuItem>
-                  {suppliers.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-                  <Divider />
-                  <MenuItem value="ADD_NEW_SUPPLIER" sx={{ color: 'primary.main', fontStyle: 'italic' }}><AddIcon sx={{ mr: 1, fontSize: 20 }} /> Add Custom Supplier</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -862,9 +816,14 @@ export const Products: React.FC = () => {
                   <Grid item xs={6}>{renderProductField('Price', selectedProduct.price ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
                   <Grid item xs={6}>{renderProductField('Quality', selectedProduct.quality)}</Grid>
                   <Grid item xs={6}>{renderProductField('Department', selectedProduct.department)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Supplier', selectedProduct.supplierName)}</Grid>
-                  <Grid item xs={12}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Product Code', selectedProduct.productCode)}</Grid>
                 </Grid>
+                {selectedProduct.specs && (
+                  <Grid item xs={12} sx={{ mt: 2 }}>
+                    {renderProductField('Specifications', selectedProduct.specs)}
+                  </Grid>
+                )}
                 {selectedProduct.description && (
                   <Grid item xs={12}>
                     {renderProductField('Description', selectedProduct.description)}
@@ -1018,25 +977,6 @@ export const Products: React.FC = () => {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => { setIsDepartmentModalOpen(false); setNewDepartmentLocation(''); }} disabled={isSavingDepartment}>Cancel</Button>
           <Button onClick={handleSaveDepartment} variant="contained" disabled={isSavingDepartment || !newDepartmentName.trim()}>Set Department</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Add Supplier Modal */}
-      <Dialog open={isSupplierModalOpen} onClose={() => setIsSupplierModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Add Custom Supplier</DialogTitle>
-        <DialogContent dividers>
-          <TextField
-            autoFocus
-            label="Supplier Name"
-            fullWidth
-            value={newSupplierName}
-            onChange={(e) => setNewSupplierName(e.target.value)}
-            disabled={isSavingSupplier}
-          />
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => setIsSupplierModalOpen(false)} disabled={isSavingSupplier}>Cancel</Button>
-          <Button onClick={handleSaveSupplier} variant="contained" disabled={isSavingSupplier || !newSupplierName.trim()}>Set Supplier</Button>
         </DialogActions>
       </Dialog>
     </Box>

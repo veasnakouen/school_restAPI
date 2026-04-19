@@ -79,7 +79,7 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
             product.Image.PublicId = uploadResult.PublicId;
         }
         
-        product.UpdateDate = DateTime.UtcNow;
+       
 
         await _context.SaveChangesAsync(cancellationToken);
         _cacheVersionService.Invalidate("products");

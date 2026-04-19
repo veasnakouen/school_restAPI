@@ -5,6 +5,7 @@ using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Controllers;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
+using System.Text.Json;
 
 
 namespace SchoolAPI.RequestHelper;
@@ -60,22 +61,26 @@ public class MappingProfile : Profile
         CreateMap<Responser, ResponserDto>();
         CreateMap<ResponserDto, Responser>();
         CreateMap<Product, ProductDto>()
+            .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.ProductName))
             .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category != null ? src.Category.Name : null))
             .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.Brand != null ? src.Brand.Name : null))
-            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.Image != null ? src.Image.Url : null));
+            .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.Image != null ? src.Image.Url : null))
+            .ForMember(dest => dest.Quality, opt => opt.MapFrom(src => src.Quality != null ? src.Quality.Name : null))
+            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => JsonSerializer.Serialize(src.Attributes, (JsonSerializerOptions?)null)));
         CreateMap<ProductDto, Product>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Name))
+            .ForMember(dest => dest.Attributes, opt => opt.Ignore())
+            .ForMember(dest => dest.Quality, opt => opt.Ignore())
+            .ForMember(dest => dest.PurchaseItems, opt => opt.Ignore())
             .ForMember(dest => dest.Category, opt => opt.Ignore())
             .ForMember(dest => dest.Brand, opt => opt.Ignore())
             .ForMember(dest => dest.Image, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore())
+            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.CodeNumber, opt => opt.MapFrom(src => src.CodeNumber ?? string.Empty))
-            .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description ?? string.Empty))
-            .ForMember(dest => dest.Quality, opt => opt.MapFrom(src => src.Quality ?? string.Empty))
-            .ForMember(dest => dest.VoucherNumber, opt => opt.MapFrom(src => src.VoucherNumber ?? string.Empty));
+            .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description ?? string.Empty));
 
         CreateMap<Transaction, TransactionDto>()
-            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.Name : string.Empty))
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : string.Empty))
             .ForMember(dest => dest.DonorName, opt => opt.MapFrom(src => src.Donor != null ? src.Donor.Name : string.Empty))
             .ForMember(dest => dest.DepartmentName, opt => opt.MapFrom(src => src.Department != null ? src.Department.Name : string.Empty))
             .ForMember(dest => dest.ResponserName, opt => opt.MapFrom(src => src.Responser != null ? src.Responser.Name : string.Empty))
@@ -88,6 +93,52 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Responser, opt => opt.Ignore())
             .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
             .ForMember(dest => dest.UpdateDate, opt => opt.Ignore());
+
+        // Purchase mappings
+        CreateMap<Purchase, PurchaseDto>()
+            .ForMember(dest => dest.SupplierName, opt => opt.MapFrom(src => src.Supplier != null ? src.Supplier.Name : null))
+            .ForMember(dest => dest.Items, opt => opt.MapFrom(src => src.PurchaseItems));
+
+        CreateMap<PurchaseItem, PurchaseItemDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null));
+
+        // ── Advanced Inventory Mappings ──────────────────────────────────
+        CreateMap<Person, PersonDto>().ReverseMap();
+
+        CreateMap<StockMovement, StockMovementDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
+            .ForMember(dest => dest.MovementType, opt => opt.MapFrom(src => src.Type.ToString()))
+            .ForMember(dest => dest.Direction, opt => opt.MapFrom(src => src.Direction.ToString()))
+            .ForMember(dest => dest.FromPersonName, opt => opt.MapFrom(src => src.FromPerson != null ? src.FromPerson.FullName : null))
+            .ForMember(dest => dest.ToPersonName, opt => opt.MapFrom(src => src.ToPerson != null ? src.ToPerson.FullName : null))
+            .ForMember(dest => dest.MovedByName, opt => opt.MapFrom(src => src.MovedBy != null ? src.MovedBy.FullName : null));
+
+        CreateMap<AssetAssignment, AssetAssignmentDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.AssignedToName, opt => opt.MapFrom(src => src.AssignedTo != null ? src.AssignedTo.FullName : null))
+            .ForMember(dest => dest.AssignedByName, opt => opt.MapFrom(src => src.AssignedBy != null ? src.AssignedBy.FullName : null))
+            .ForMember(dest => dest.ReturnedToName, opt => opt.MapFrom(src => src.ReturnedTo != null ? src.ReturnedTo.FullName : null));
+
+        CreateMap<AssetTransfer, AssetTransferDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.FromPersonName, opt => opt.MapFrom(src => src.FromPerson != null ? src.FromPerson.FullName : null))
+            .ForMember(dest => dest.ToPersonName, opt => opt.MapFrom(src => src.ToPerson != null ? src.ToPerson.FullName : null))
+            .ForMember(dest => dest.InitiatedByName, opt => opt.MapFrom(src => src.InitiatedBy != null ? src.InitiatedBy.FullName : null))
+            .ForMember(dest => dest.AcknowledgedByName, opt => opt.MapFrom(src => src.AcknowledgedBy != null ? src.AcknowledgedBy.FullName : null));
+
+        CreateMap<MaintenanceRecord, MaintenanceRecordDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
+            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.TechnicianName, opt => opt.MapFrom(src => src.Technician != null ? src.Technician.FullName : null));
+
+        CreateMap<WriteOff, WriteOffDto>()
+            .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
+            .ForMember(dest => dest.Reason, opt => opt.MapFrom(src => src.Reason.ToString()))
+            .ForMember(dest => dest.Status, opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForMember(dest => dest.RequestedByName, opt => opt.MapFrom(src => src.RequestedBy != null ? src.RequestedBy.FullName : null))
+            .ForMember(dest => dest.ApprovedByName, opt => opt.MapFrom(src => src.ApprovedBy != null ? src.ApprovedBy.FullName : null));
     }
 }
-
