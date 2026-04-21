@@ -7,6 +7,7 @@ import { AdminDashboard } from './features/admin/AdminDashboard';
 import { UserManagement } from './features/admin/UserManagement';
 import { Profile } from './features/admin/Profile';
 import { AdminGuard } from "./auth/AdminGuard";
+import { SystemSettings } from './features/admin/SystemSettings';
 import { AuthProvider } from './auth/AuthContext';
 import { LoginPage } from './features/auth/LoginPage';
 import { Products } from './features/products/Products';
@@ -90,6 +91,7 @@ const AppContent = () => {
                     path="permissions"
                     element={<PermissionManagement />}
                   />
+                  <Route path="settings" element={<SystemSettings />} />
                 </Route>
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -3,7 +3,7 @@ import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { CategoryApiService } from '../../core/services/category-api.service';
-import { ProductDto, CreateProductRequest, CategoryDto } from '../../models/inventory.model';
+import { ProductDto, CreateProductRequest, CategoryDto, ProductPurchaseHistoryDto, BrandDto, DepartmentDto, PersonDto, SupplierDto } from '../../models/inventory.model';
 import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize, forkJoin } from 'rxjs';
@@ -79,6 +79,26 @@ import autoTable from 'jspdf-autotable';
           </button> -->
         </div>
 
+        <!-- Columns Dropdown -->
+        <div class="dropdown dropdown-end mr-2">
+          <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+            </svg>
+            Columns
+          </div>
+          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300">
+            @for (col of availableColumns; track col.id) {
+              <li>
+                <a (click)="toggleColumnVisibility(col.id, $event)" class="flex items-center gap-3">
+                  <input type="checkbox" class="checkbox checkbox-sm" [checked]="visibleColumns.has(col.id)" (click)="$event.stopPropagation(); toggleColumnVisibility(col.id, $event)" />
+                  {{ col.label }}
+                </a>
+              </li>
+            }
+          </ul>
+        </div>
+
         <!-- Export Buttons -->
           <div class="dropdown dropdown-center">
             <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
@@ -130,38 +150,86 @@ import autoTable from 'jspdf-autotable';
                            (change)="toggleSelectAll()" />
                   </label>
                 </th>
-                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('name')">
-                  <div class="flex items-center gap-1">
-                    Name
-                    @if (sortBy === 'name') {
-                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
-                    }
-                  </div>
-                </th>
-                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('category')">
-                  <div class="flex items-center gap-1">
-                    Category
-                    @if (sortBy === 'category') {
-                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
-                    }
-                  </div>
-                </th>
-                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('brand')">
-                  <div class="flex items-center gap-1">
-                    Brand
-                    @if (sortBy === 'brand') {
-                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
-                    }
-                  </div>
-                </th>
-                <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('price')">
-                  <div class="flex items-center gap-1">
-                    Price
-                    @if (sortBy === 'price') {
-                      <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
-                    }
-                  </div>
-                </th>
+                @if (visibleColumns.has('name')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('name')">
+                    <div class="flex items-center gap-1">
+                      Name
+                      @if (sortBy === 'name') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('codeNumber')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('codeNumber')">
+                    <div class="flex items-center gap-1">
+                      Code Number
+                      @if (sortBy === 'codeNumber') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('year')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('year')">
+                    <div class="flex items-center gap-1">
+                      Year
+                      @if (sortBy === 'year') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('category')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('category')">
+                    <div class="flex items-center gap-1">
+                      Category
+                      @if (sortBy === 'category') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('brand')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('brand')">
+                    <div class="flex items-center gap-1">
+                      Brand
+                      @if (sortBy === 'brand') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('quality')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('quality')">
+                    <div class="flex items-center gap-1">
+                      Condition
+                      @if (sortBy === 'quality') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('responsiblePerson')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('responsiblePerson')">
+                    <div class="flex items-center gap-1">
+                      Responsible Person
+                      @if (sortBy === 'responsiblePerson') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('price')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('price')">
+                    <div class="flex items-center gap-1">
+                      Price
+                      @if (sortBy === 'price') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
                 <th class="text-center text-base font-bold">Actions</th>
               </tr>
             </thead>
@@ -175,10 +243,30 @@ import autoTable from 'jspdf-autotable';
                              (change)="toggleSelection(item.id!)" />
                     </label>
                   </td>
-                  <td class="font-medium">{{ item.name }}</td>
-                  <td>{{ item.categoryName || '-' }}</td>
-                  <td>{{ item.brandName || '-' }}</td>
-                  <td>{{ item.price | number:'1.2-2' }}</td>
+                  @if (visibleColumns.has('name')) {
+                    <td class="font-medium">{{ item.name }}</td>
+                  }
+                  @if (visibleColumns.has('codeNumber')) {
+                    <td>{{ item.codeNumber || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('year')) {
+                    <td>{{ item.year ? (item.year | date:'yyyy') : '-' }}</td>
+                  }
+                  @if (visibleColumns.has('category')) {
+                    <td>{{ item.categoryName || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('brand')) {
+                    <td>{{ item.brandName || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('quality')) {
+                    <td>{{ item.quality || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('responsiblePerson')) {
+                    <td>{{ item.responsiblePerson || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('price')) {
+                    <td>{{ item.price | number:'1.2-2' }}</td>
+                  }
                   <td>
                     <div class="flex gap-2 justify-center">
                       <div class="tooltip tooltip-top" data-tip="View Product">
@@ -223,13 +311,13 @@ import autoTable from 'jspdf-autotable';
                 </tr>
               } @empty {
                 <tr>
-                  <td colspan="6" class="py-10 text-center text-base-content/60">No products match your search.</td>
+                  <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-base-content/60">No products match your search.</td>
                 </tr>
               }
             </tbody>
             <tfoot *ngIf="totalItems > 0">
               <tr>
-                <td colspan="6" class="p-0 border-t border-base-200">
+                <td [attr.colspan]="visibleColumnCount" class="p-0 border-t border-base-200">
                   <div class="px-4 py-4 w-full bg-base-100">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <!-- Rows per page selector (Left) -->
@@ -385,7 +473,7 @@ import autoTable from 'jspdf-autotable';
 
             <!-- Right: Image Upload Area -->
             <div class="flex flex-col items-center gap-3">
-              <div class="relative w-full aspect-square rounded-xl overflow-hidden border-2 border-dashed border-base-300 bg-base-200 hover:border-primary transition-colors cursor-pointer"
+              <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-base-300 bg-base-200 hover:border-primary transition-colors cursor-pointer"
                    (click)="triggerImageUpload()">
                 @if (imagePreview) {
                   <img [src]="imagePreview" alt="Product preview" class="w-full h-full object-cover" />
@@ -457,30 +545,80 @@ import autoTable from 'jspdf-autotable';
               <label class="label">
                 <span class="label-text font-semibold">Category</span>
               </label>
-              <select
-                [(ngModel)]="selectedProduct.categoryId"
-                name="categoryId"
-                class="select select-bordered w-full"
-                (ngModelChange)="onCategoryChange($event)"
-              >
-                <option [ngValue]="null">Select category...</option>
-                @for (cat of categories; track cat.id) {
-                  <option [ngValue]="cat.id">{{ cat.name }}</option>
+              <div class="relative">
+                <input type="text" [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="input input-bordered w-full pr-14" placeholder="Select or type new category..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  @if (lookupsLoading) {
+                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                  }
+                  @if (selectedProduct.categoryName) {
+                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')">✕</button>
+                  }
+                </div>
+                @if (showSuggestions['category'] && filteredSuggestions['category']?.length > 0) {
+                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                    @for (suggestion of filteredSuggestions['category']; track suggestion) {
+                      <li (mousedown)="selectSuggestion('category', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      </li>
+                    }
+                  </ul>
                 }
-              </select>
+              </div>
             </div>
 
             <div class="form-control w-full">
               <label class="label">
                 <span class="label-text font-semibold">Brand</span>
               </label>
-              <input
-                type="text"
-                [(ngModel)]="selectedProduct.brandName"
-                name="brandName"
-                placeholder="e.g. Dell"
-                class="input input-bordered w-full"
-              />
+              <div class="relative">
+                <input type="text" [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="input input-bordered w-full pr-14" placeholder="e.g. Dell" (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  @if (lookupsLoading) {
+                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                  }
+                  @if (selectedProduct.brandName) {
+                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')">✕</button>
+                  }
+                </div>
+                @if (showSuggestions['brand'] && filteredSuggestions['brand']?.length > 0) {
+                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                    @for (suggestion of filteredSuggestions['brand']; track suggestion) {
+                      <li (mousedown)="selectSuggestion('brand', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text font-semibold">Department</span>
+              </label>
+              <div class="relative">
+                <input type="text" [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="input input-bordered w-full pr-14" placeholder="Select or type new department..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  @if (lookupsLoading) {
+                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                  }
+                  @if (selectedProduct.departmentName) {
+                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')">✕</button>
+                  }
+                </div>
+                @if (showSuggestions['department'] && filteredSuggestions['department']?.length > 0) {
+                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                    @for (suggestion of filteredSuggestions['department']; track suggestion) {
+                      <li (mousedown)="selectSuggestion('department', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
             </div>
           </div>
 
@@ -517,20 +655,53 @@ import autoTable from 'jspdf-autotable';
                 <option value="Poor">Poor</option>
               </select>
             </div>
-
-            <div class="form-control w-full">
-              <label class="label">
-                <span class="label-text font-semibold">Voucher Number</span>
-              </label>
-              <input
-                type="text"
-                [(ngModel)]="selectedProduct.voucherNumber"
-                name="voucherNumber"
-                placeholder="e.g. VCH-2024-001"
-                class="input input-bordered w-full"
-              />
-            </div>
           </div>
+
+          <!-- Vehicle Specific Fields (Only shows if Motorbike or Car) -->
+          @if (isVehicleCategory) {
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-base-200/50 p-4 rounded-xl border border-base-300">
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">Year</span>
+                </label>
+                <select
+                  [ngModel]="selectedProduct.year ? (selectedProduct.year | date:'yyyy') : null"
+                  (ngModelChange)="onYearChange($event)"
+                  name="year"
+                  class="select select-bordered w-full bg-base-100"
+                >
+                  <option [ngValue]="null">Select year...</option>
+                  @for (y of years; track y) {
+                    <option [ngValue]="y.toString()">{{ y }}</option>
+                  }
+                </select>
+              </div>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">Plate Number</span>
+                </label>
+                <input
+                  type="text"
+                  [(ngModel)]="selectedProduct.plateNumber"
+                  name="plateNumber"
+                  placeholder="e.g. 1A-1234"
+                  class="input input-bordered w-full bg-base-100"
+                />
+              </div>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">Engine / Serial Number</span>
+                </label>
+                <input
+                  type="text"
+                  [(ngModel)]="selectedProduct.engineNumber"
+                  name="engineNumber"
+                  placeholder="e.g. ENG-123456"
+                  class="input input-bordered w-full bg-base-100"
+                />
+              </div>
+            </div>
+          }
 
           <div class="form-control w-full">
             <label class="label">
@@ -545,8 +716,130 @@ import autoTable from 'jspdf-autotable';
             ></textarea>
           </div>
 
+          <!-- Stock Acquisition -->
+          <div class="divider my-2">{{ isEditing ? 'Add New Stock (Optional)' : 'Initial Stock / Acquisition' }}</div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
+              <div class="form-control w-full">
+                <label class="label"><span class="label-text font-semibold">Acquisition Type</span></label>
+                <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100">
+                  <option [ngValue]="null">None (Just setup product catalog)</option>
+                  <option value="Purchased">Purchased</option>
+                  <option value="Donated">Donated</option>
+                </select>
+              </div>
+              
+              @if (selectedProduct.purchaseType) {
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
+                  <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" />
+                </div>
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
+                  <div class="relative">
+                    <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      @if (lookupsLoading) {
+                        <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                      }
+                      @if (selectedProduct.responsiblePerson) {
+                        <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
+                      }
+                    </div>
+                    @if (showSuggestions['person'] && filteredSuggestions['person']?.length > 0) {
+                      <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                        @for (suggestion of filteredSuggestions['person']; track suggestion) {
+                          <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                            {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+              }
+              
+              @if (selectedProduct.purchaseType === 'Purchased') {
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Supplier Name</span></label>
+                  <div class="relative">
+                    <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" />
+                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      @if (lookupsLoading) {
+                        <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                      }
+                      @if (selectedProduct.supplierName) {
+                        <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')">✕</button>
+                      }
+                    </div>
+                    @if (showSuggestions['supplier'] && filteredSuggestions['supplier']?.length > 0) {
+                      <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                        @for (suggestion of filteredSuggestions['supplier']; track suggestion) {
+                          <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                            {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                </div>
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
+                  <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
+                </div>
+              }
+              
+              @if (selectedProduct.purchaseType === 'Donated') {
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Donor Name</span></label>
+                  <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" placeholder="e.g. John Doe" />
+                </div>
+              }
+            </div>
+
+          <!-- Purchase History Table for Edit Modal -->
+          @if (isEditing) {
+            <div class="divider my-2">Purchase History</div>
+            <div class="overflow-x-auto rounded-xl border border-base-300">
+              <table class="table table-zebra table-sm w-full">
+                <thead class="bg-base-200">
+                  <tr>
+                    <th>Date</th>
+                    <th>Voucher #</th>
+                    <th>Supplier</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @if (historyLoading) {
+                    <tr><td colspan="6" class="text-center py-4"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                  } @else if (purchaseHistory.length === 0) {
+                    <tr><td colspan="6" class="text-center py-4 text-base-content/60">No purchase history found for this product.</td></tr>
+                  } @else {
+                    @for (item of purchaseHistory; track item.purchaseId) {
+                      <tr>
+                        <td>{{ item.purchaseDate | date:'shortDate' }}</td>
+                        <td>{{ item.voucherNumber || '-' }}</td>
+                        <td>{{ item.supplierName || '-' }}</td>
+                        <td class="text-right">{{ item.quantity }}</td>
+                        <td class="text-right">{{ item.unitPrice | currency }}</td>
+                        <td class="text-right">{{ item.totalPrice | currency }}</td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+                <tfoot class="bg-base-200 font-bold">
+                  <tr>
+                    <td colspan="6" class="text-right">Total Purchased: {{ getTotalPurchased() }} units</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          }
+
           <div class="modal-action">
-            <button type="button" class="btn btn-ghost" (click)="closeModal()">Cancel</button>
+            <button type="button" class="btn btn-ghost" (click)="closeModal()">{{ isEditing ? 'Close' : 'Cancel' }}</button>
             <button
               type="submit"
               class="btn btn-primary"
@@ -617,16 +910,30 @@ import autoTable from 'jspdf-autotable';
                 <p class="text-base font-medium">{{ viewProduct.codeNumber || '-' }}</p>
               </div>
 
+              <!-- Year -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Year</p>
+                <p class="text-base font-medium">{{ viewProduct.year ? (viewProduct.year | date:'yyyy') : '-' }}</p>
+              </div>
+
+              <!-- Conditional Vehicle Fields in View Modal -->
+              @if (viewProduct.plateNumber) {
+                <div class="bg-base-200/50 rounded-lg p-4">
+                  <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Plate Number</p>
+                  <p class="text-base font-medium">{{ viewProduct.plateNumber }}</p>
+                </div>
+              }
+              @if (viewProduct.engineNumber) {
+                <div class="bg-base-200/50 rounded-lg p-4">
+                  <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Engine / Serial Number</p>
+                  <p class="text-base font-medium">{{ viewProduct.engineNumber }}</p>
+                </div>
+              }
+
               <!-- Price -->
               <div class="bg-base-200/50 rounded-lg p-4">
                 <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Price</p>
                 <p class="text-base font-medium text-primary">{{ viewProduct.price ? '$' + (viewProduct.price | number:'1.2-2') : '-' }}</p>
-              </div>
-
-              <!-- Voucher Number -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Voucher Number</p>
-                <p class="text-base font-medium">{{ viewProduct.voucherNumber || '-' }}</p>
               </div>
 
               <!-- Created Date -->
@@ -643,6 +950,58 @@ import autoTable from 'jspdf-autotable';
                 <p class="text-base whitespace-pre-wrap">{{ viewProduct.description }}</p>
               </div>
             }
+
+            <!-- Contact Information -->
+            @if (parsedContacts.length > 0) {
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Contact Information</p>
+                @for (contact of parsedContacts; track $index) {
+                  <p class="text-base font-medium">{{ contact.type }}: {{ contact.value }}</p>
+                }
+              </div>
+            }
+
+            <!-- Purchase History Table for View Modal -->
+            <div class="grid grid-cols-1">
+              <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Purchase History</p>
+              <div class="overflow-x-auto rounded-xl border border-base-300">
+                <table class="table table-zebra table-sm w-full">
+                  <thead class="bg-base-200">
+                    <tr>
+                      <th>Date</th>
+                      <th>Voucher #</th>
+                      <th>Supplier</th>
+                      <th class="text-right">Qty</th>
+                      <th class="text-right">Unit Price</th>
+                      <th class="text-right">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @if (historyLoading) {
+                      <tr><td colspan="6" class="text-center py-4"><span class="loading loading-spinner loading-sm"></span></td></tr>
+                    } @else if (purchaseHistory.length === 0) {
+                      <tr><td colspan="6" class="text-center py-4 text-base-content/60">No purchase history found for this product.</td></tr>
+                    } @else {
+                      @for (item of purchaseHistory; track item.purchaseId) {
+                        <tr>
+                          <td>{{ item.purchaseDate | date:'shortDate' }}</td>
+                          <td>{{ item.voucherNumber || '-' }}</td>
+                          <td>{{ item.supplierName || '-' }}</td>
+                          <td class="text-right">{{ item.quantity }}</td>
+                          <td class="text-right">{{ item.unitPrice | currency }}</td>
+                          <td class="text-right">{{ item.totalPrice | currency }}</td>
+                        </tr>
+                      }
+                    }
+                  </tbody>
+                  <tfoot class="bg-base-200 font-bold">
+                    <tr>
+                      <td colspan="6" class="text-right">Total Purchased: {{ getTotalPurchased() }} units</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
           </div>
 
           <!-- Action Buttons -->
@@ -808,6 +1167,28 @@ export class ProductsComponent implements OnInit {
   protected loading = false;
   protected errorMessage = '';
   protected search = '';
+  protected years: number[] = Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - i);
+
+  // Lookups
+  protected brands: BrandDto[] = [];
+  protected departments: DepartmentDto[] = [];
+  protected persons: PersonDto[] = [];
+  protected suppliers: SupplierDto[] = [];
+  protected lookupsLoading = false;
+
+  // Autocomplete state
+  protected filteredSuggestions: { [key: string]: any[] } = {};
+  protected showSuggestions: { [key: string]: boolean } = {};
+  private suggestionTimeout: any;
+
+  protected get isVehicleCategory(): boolean {
+    const catName = (
+      this.selectedProduct?.categoryName || 
+      this.categories.find(c => c.id === this.selectedProduct?.categoryId)?.name || 
+      ''
+    ).toLowerCase();
+    return catName.includes('car') || catName.includes('motor') || catName.includes('moto') || catName.includes('bike') || catName.includes('vehicle');
+  }
 
   // Pagination states
   protected selectedProducts = new Set<string>();
@@ -826,6 +1207,32 @@ export class ProductsComponent implements OnInit {
   protected filterCategory = '';
   protected filterBrand = '';
 
+  // Column visibility
+  protected availableColumns = [
+    { id: 'name', label: 'Name' },
+    { id: 'codeNumber', label: 'Code Number' },
+    { id: 'year', label: 'Year' },
+    { id: 'category', label: 'Category' },
+    { id: 'brand', label: 'Brand' },
+    { id: 'quality', label: 'Condition' },
+    { id: 'responsiblePerson', label: 'Responsible Person' },
+    { id: 'price', label: 'Price' }
+  ];
+  protected visibleColumns = new Set(this.availableColumns.map(c => c.id));
+
+  protected toggleColumnVisibility(colId: string, event: Event): void {
+    event.stopPropagation();
+    if (this.visibleColumns.has(colId)) {
+      this.visibleColumns.delete(colId);
+    } else {
+      this.visibleColumns.add(colId);
+    }
+  }
+
+  protected get visibleColumnCount(): number {
+    return this.visibleColumns.size + 2; // Checkbox + Actions
+  }
+
   // Modal states
   protected isEditing = false;
   protected selectedProduct: ProductDto = this.getEmptyProduct();
@@ -833,7 +1240,9 @@ export class ProductsComponent implements OnInit {
   protected viewProduct: ProductDto | null = null;
   protected messageType: 'success' | 'error' | 'warning' = 'success';
   protected messageTitle = '';
+  protected parsedContacts: { type: string, value: string }[] = [];
   protected messageContent = '';
+  protected contacts: { type: string, value: string }[] = [{ type: 'Phone', value: '' }];
 
   // Image states
   protected selectedImage: File | null = null;
@@ -843,9 +1252,43 @@ export class ProductsComponent implements OnInit {
   protected imageUploadProgress = 0;
   protected selectedImageUrl: string | null = null;
 
+  protected purchaseHistory: ProductPurchaseHistoryDto[] = [];
+  protected historyLoading = false;
+
+  protected getTotalPurchased(): number {
+    return this.purchaseHistory.reduce((sum, item) => sum + item.quantity, 0);
+  }
+
   ngOnInit(): void {
     this.loadProducts();
-    this.loadCategories();
+    this.loadLookups();
+  }
+
+  protected loadLookups(): void {
+    this.lookupsLoading = true;
+    // NOTE: This assumes your ProductApiService (this.api) has methods to fetch these lookups.
+    forkJoin({
+      categories: this.categoryApi.list(),
+      brands: this.api.getBrands(),
+      departments: this.api.getDepartments(),
+      persons: this.api.getPersons(),
+      suppliers: this.api.getSuppliers()
+    }).subscribe({
+      next: (results: any) => {
+        this.categories = results.categories?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
+        this.brands = results.brands?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
+        this.departments = results.departments?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
+        this.persons = results.persons?.sort((a: any, b: any) => a.fullName.localeCompare(b.fullName)) ?? [];
+        this.suppliers = results.suppliers?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
+        this.lookupsLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error loading lookups:', err);
+        this.lookupsLoading = false;
+        this.showMessage('error', 'Lookup Error', 'Failed to load dropdown data. Some fields may not have suggestions.');
+      }
+    });
   }
 
   protected loadProducts(): void {
@@ -894,20 +1337,6 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  protected loadCategories(): void {
-    this.categoryApi.list().subscribe({
-      next: (result) => {
-        if (result) {
-          this.categories = result;
-        }
-        this.cdr.detectChanges();
-      },
-      error: (err) => {
-        console.error('Error loading categories:', err);
-      }
-    });
-  }
-
   protected getEmptyProduct(): ProductDto {
     return {
       id: null,
@@ -918,12 +1347,24 @@ export class ProductsComponent implements OnInit {
       categoryName: null,
       brandId: null,
       brandName: null,
+      departmentId: null,
+      departmentName: null,
       price: null,
       imageUrl: null,
-      quality: null,
+      year: null,
+      plateNumber: null,
+      engineNumber: null,
+      purchaseType: null,
+      initialQuantity: null,
+      supplierName: null,
+      donorName: null,
       voucherNumber: null,
+      supplierContact: null,
+      invoiceDate: null,
+      quality: null,
+      responsiblePerson: null,
       createdDate: null,
-      updateDate: null
+      updateDate: null,
     };
   }
   
@@ -1079,6 +1520,7 @@ export class ProductsComponent implements OnInit {
   protected openCreateModal(): void {
     this.isEditing = false;
     this.selectedProduct = this.getEmptyProduct();
+    this.contacts = [{ type: 'Phone', value: '' }];
     this.clearImageState();
     const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
     if (modal) {
@@ -1086,8 +1528,42 @@ export class ProductsComponent implements OnInit {
     }
   }
 
+  private parseContactString(contactString: string | null | undefined): { type: string, value: string }[] {
+    if (!contactString) {
+      return [];
+    }
+    return contactString.split(' | ').map(part => {
+      const [type, value] = part.split(': ', 2);
+      return { type: type || 'Unknown', value: value || '' };
+    }).filter(contact => contact.value !== '');
+  }
+
+
   protected openViewModal(product: ProductDto): void {
     this.viewProduct = { ...product };
+    this.parsedContacts = this.parseContactString(product.supplierContact);
+    
+    this.historyLoading = true;
+    this.purchaseHistory = [];
+    const getMethod = (this.api as any).get || (this.api as any).getById;
+    
+    if (getMethod && product.id) {
+      getMethod.call(this.api, product.id).subscribe({
+        next: (fullProduct: ProductDto) => {
+          this.viewProduct = fullProduct;
+          this.purchaseHistory = fullProduct.purchaseHistory || [];
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+    } else {
+      this.historyLoading = false;
+    }
+
     const modal = document.getElementById('product-view-modal') as HTMLDialogElement;
     if (modal) {
       modal.showModal();
@@ -1117,6 +1593,38 @@ export class ProductsComponent implements OnInit {
     this.selectedImageUrl = product.imageUrl || null;
     this.imagePreview = product.imageUrl || null;
     this.selectedImage = null;
+    
+    this.historyLoading = true;
+    this.purchaseHistory = [];
+    const getMethod = (this.api as any).get || (this.api as any).getById;
+    
+    if (getMethod && product.id) {
+      getMethod.call(this.api, product.id).subscribe({
+        next: (fullProduct: ProductDto) => {
+          this.purchaseHistory = fullProduct.purchaseHistory || [];
+          this.selectedProduct = {
+            ...fullProduct,
+            purchaseType: null,
+            initialQuantity: null,
+            supplierName: null,
+            donorName: null,
+            voucherNumber: null,
+            invoiceDate: null,
+            supplierContact: null
+          };
+          this.contacts = [{ type: 'Phone', value: '' }];
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+    } else {
+      this.historyLoading = false;
+    }
+
     const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
     if (modal) {
       modal.showModal();
@@ -1140,13 +1648,15 @@ export class ProductsComponent implements OnInit {
     this.isUploading = true;
     this.imageLoading = true;
 
-    const finalizeAndClose = (success: boolean, action: string, productName: string, errorMsg?: string) => {
+    const finalizeAndClose = (success: boolean, action: string, productName: string, errorMsg?: string, keepOpen = false) => {
       this.isUploading = false;
       this.imageLoading = false;
       // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
       setTimeout(() => {
         this.loadProducts();
-        this.closeModal();
+        if (!keepOpen) {
+          this.closeModal();
+        }
         if (success) {
           this.showMessage('success', `${action} Successful`, `${productName} has been ${action.toLowerCase()} successfully.`);
         } else if (errorMsg) {
@@ -1165,14 +1675,17 @@ export class ProductsComponent implements OnInit {
           if (this.selectedImage && updated?.id) {
             this.uploadProductImage(updated.id)
               .then(() => {
-                finalizeAndClose(true, 'Update', this.selectedProduct.name);
+                this.refreshAfterEdit(updated.id!);
+                finalizeAndClose(true, 'Update', this.selectedProduct.name, undefined, true);
               })
               .catch((err) => {
                 console.error('Image upload failed:', err);
-                finalizeAndClose(false, 'Update', this.selectedProduct.name);
+                this.refreshAfterEdit(updated.id!);
+                finalizeAndClose(false, 'Update', this.selectedProduct.name, undefined, true);
               });
           } else {
-            finalizeAndClose(true, 'Update', this.selectedProduct.name);
+            this.refreshAfterEdit(updated?.id || this.selectedProduct.id!);
+            finalizeAndClose(true, 'Update', this.selectedProduct.name, undefined, true);
           }
         },
         error: (err) => {
@@ -1194,9 +1707,21 @@ export class ProductsComponent implements OnInit {
         categoryName: this.selectedProduct.categoryName,
         brandId: this.selectedProduct.brandId,
         brandName: this.selectedProduct.brandName,
+        departmentId: this.selectedProduct.departmentId,
+        departmentName: this.selectedProduct.departmentName,
         price: this.selectedProduct.price,
         quality: this.selectedProduct.quality,
-        voucherNumber: this.selectedProduct.voucherNumber
+        year: this.selectedProduct.year,
+        plateNumber: this.selectedProduct.plateNumber,
+        engineNumber: this.selectedProduct.engineNumber,
+        purchaseType: this.selectedProduct.purchaseType,
+        initialQuantity: this.selectedProduct.initialQuantity,
+        supplierName: this.selectedProduct.supplierName,
+        donorName: this.selectedProduct.donorName,
+        voucherNumber: this.selectedProduct.voucherNumber,
+        supplierContact: this.selectedProduct.supplierContact,
+        invoiceDate: this.selectedProduct.invoiceDate,
+        responsiblePerson: this.selectedProduct.responsiblePerson,
       };
 
       this.api.create(createRequest).subscribe({
@@ -1224,6 +1749,37 @@ export class ProductsComponent implements OnInit {
           console.error('Error creating product:', err);
         }
       });
+    }
+  }
+
+  protected refreshAfterEdit(id: string): void {
+    this.historyLoading = true;
+    const getMethod = (this.api as any).get || (this.api as any).getById;
+    if (getMethod) {
+      getMethod.call(this.api, id).subscribe({
+        next: (fullProduct: ProductDto) => {
+          this.purchaseHistory = fullProduct.purchaseHistory || [];
+          this.selectedProduct = {
+            ...fullProduct,
+            purchaseType: null,
+            initialQuantity: null,
+            supplierName: null,
+            donorName: null,
+            voucherNumber: null,
+            invoiceDate: null,
+            supplierContact: null
+          };
+          this.contacts = [{ type: 'Phone', value: '' }];
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.historyLoading = false;
+          this.cdr.detectChanges();
+        }
+      });
+    } else {
+      this.historyLoading = false;
     }
   }
 
@@ -1410,11 +1966,114 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  protected onCategoryChange(categoryId: string | null): void {
-    const selectedCategory = this.categories.find(c => c.id === categoryId);
-    if (selectedCategory) {
-      this.selectedProduct.categoryName = selectedCategory.name;
+  protected onCategoryNameChange(categoryName: string): void {
+    if (!categoryName) {
+      this.selectedProduct.categoryId = null;
+      this.selectedProduct.categoryName = null;
+      return;
     }
+    const selectedCategory = this.categories.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
+    if (selectedCategory) {
+      this.selectedProduct.categoryId = selectedCategory.id;
+      this.selectedProduct.categoryName = selectedCategory.name;
+    } else {
+      this.selectedProduct.categoryId = null;
+      this.selectedProduct.categoryName = categoryName;
+    }
+  }
+
+  protected onBrandNameChange(brandName: string): void {
+    if (!brandName) {
+      this.selectedProduct.brandId = null;
+      this.selectedProduct.brandName = null;
+      return;
+    }
+    const selectedBrand = this.brands.find(b => b.name.toLowerCase() === brandName.toLowerCase());
+    if (selectedBrand) {
+      this.selectedProduct.brandId = selectedBrand.id;
+      this.selectedProduct.brandName = selectedBrand.name;
+    } else {
+      this.selectedProduct.brandId = null;
+      this.selectedProduct.brandName = brandName;
+    }
+  }
+
+  // --- Autocomplete Methods ---
+  protected onAutocompleteInput(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', value: string) {
+    this.filterSuggestions(type, value);
+
+    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ProductDto;
+    const idProp = (type + 'Id') as keyof ProductDto;
+    (this.selectedProduct as any)[nameProp] = value;
+
+    let source: any[] = [];
+    let nameField = 'name';
+    switch (type) {
+        case 'category': source = this.categories; break;
+        case 'brand': source = this.brands; break;
+        case 'department': source = this.departments; break;
+        case 'person': source = this.persons; nameField = 'fullName'; break;
+        case 'supplier': source = this.suppliers; break;
+    }
+    const exactMatch = source.find(item => item[nameField].toLowerCase() === value.toLowerCase());
+    if (exactMatch) {
+        (this.selectedProduct as any)[idProp] = exactMatch.id;
+    } else {
+        (this.selectedProduct as any)[idProp] = null;
+    }
+  }
+
+  protected filterSuggestions(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', inputValue: string) {
+    const input = (inputValue || '').toLowerCase();
+    let source: any[] = [];
+    let nameField = 'name';
+
+    switch (type) {
+      case 'category': source = this.categories; break;
+      case 'brand': source = this.brands; break;
+      case 'department': source = this.departments; break;
+      case 'person': source = this.persons; nameField = 'fullName'; break;
+      case 'supplier': source = this.suppliers; break;
+    }
+
+    let suggestions = source.filter(item => item[nameField].toLowerCase().includes(input));
+
+    const isExisting = source.some(item => item[nameField].toLowerCase() === input);
+    if (input && !isExisting) {
+      suggestions.push({ [nameField]: `Add "${input}"`, isNew: true, newName: input });
+    }
+
+    this.filteredSuggestions[type] = suggestions;
+    this.showSuggestions[type] = true;
+  }
+
+  protected selectSuggestion(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', suggestion: any) {
+    const nameField = type === 'person' ? 'fullName' : 'name';
+    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ProductDto;
+    const idProp = (type + 'Id') as keyof ProductDto;
+
+    (this.selectedProduct as any)[nameProp] = suggestion.isNew ? suggestion.newName : suggestion[nameField];
+    (this.selectedProduct as any)[idProp] = suggestion.isNew ? null : suggestion.id;
+    this.showSuggestions[type] = false;
+  }
+
+  protected onAutocompleteEnter(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', event: Event) {
+    event.preventDefault();
+    const suggestions = this.filteredSuggestions[type];
+    if (suggestions && suggestions.length > 0) {
+      this.selectSuggestion(type, suggestions[0]);
+    }
+    this.showSuggestions[type] = false;
+  }
+
+  protected hideSuggestionsDelayed(type: string) {
+    this.suggestionTimeout = setTimeout(() => {
+      this.showSuggestions[type] = false;
+    }, 150);
+  }
+
+  protected cancelHideSuggestions() {
+    clearTimeout(this.suggestionTimeout);
   }
 
   private clearImageState(): void {
@@ -1431,25 +2090,73 @@ export class ProductsComponent implements OnInit {
     }
   }
 
+  protected isPredefinedContactType(type: string): boolean {
+    return ['Phone', 'Email'].includes(type);
+  }
+
+  protected getContactSelectValue(type: string): string {
+    return this.isPredefinedContactType(type) ? type : 'Other';
+  }
+
+  protected onContactTypeChange(contact: { type: string, value: string }, newValue: string): void {
+    // When 'Other' is selected, we clear the type to allow for custom input.
+    contact.type = newValue === 'Other' ? '' : newValue;
+    this.updateSupplierContact();
+  }
+
+  protected updateSupplierContact(): void {
+    const combined = this.contacts
+      .filter(c => c.value.trim() !== '')
+      .map(c => `${c.type || 'Unknown'}: ${c.value}`)
+      .join(' | ');
+    
+    this.selectedProduct.supplierContact = combined || null;
+  }
+
+  protected addContact(): void {
+    this.contacts.push({ type: 'Phone', value: '' });
+  }
+
+  protected removeContact(index: number): void {
+    this.contacts.splice(index, 1);
+    this.updateSupplierContact();
+  }
+
+  protected onYearChange(yearStr: string | null): void {
+    if (yearStr) {
+      this.selectedProduct.year = `${yearStr}-01-01T00:00:00Z`;
+    } else {
+      this.selectedProduct.year = null;
+    }
+  }
+
   // ===== EXPORT METHODS =====
+
+  private getColumnValue(product: ProductDto, colId: string, isCsv: boolean = false): string {
+    const fallback = isCsv ? '' : '-';
+    switch (colId) {
+      case 'name': return product.name || fallback;
+      case 'codeNumber': return product.codeNumber || fallback;
+      case 'year': return product.year ? product.year.toString().substring(0, 4) : fallback;
+      case 'category': return product.categoryName || fallback;
+      case 'brand': return product.brandName || fallback;
+      case 'quality': return product.quality || fallback;
+      case 'responsiblePerson': return product.responsiblePerson || fallback;
+      case 'price': return product.price != null ? (isCsv ? product.price.toFixed(2) : `$${product.price.toFixed(2)}`) : fallback;
+      default: return fallback;
+    }
+  }
 
   protected exportToCSV(): void {
     if (this.products.length === 0) return;
 
-    // CSV Headers
-    const headers = ['Name', 'Code Number', 'Category', 'Brand', 'Price', 'Quality', 'Voucher Number', 'Description'];
+    const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
+    const headers = activeColumns.map(col => col.label);
     
     // CSV Rows
-    const rows = this.products.map(p => [
-      this.escapeCsvValue(p.name),
-      this.escapeCsvValue(p.codeNumber),
-      this.escapeCsvValue(p.categoryName),
-      this.escapeCsvValue(p.brandName),
-      p.price?.toFixed(2) || '',
-      this.escapeCsvValue(p.quality),
-      this.escapeCsvValue(p.voucherNumber),
-      this.escapeCsvValue(p.description)
-    ]);
+    const rows = this.products.map(p => 
+      activeColumns.map(col => this.escapeCsvValue(this.getColumnValue(p, col.id, true)))
+    );
 
     // Build CSV content
     const csvContent = [
@@ -1490,20 +2197,23 @@ export class ProductsComponent implements OnInit {
       doc.text(filterInfo, 14, 30);
     }
     
+    const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
+    const headers = activeColumns.map(col => col.label);
+
     // Table
-    const tableData = this.products.map(p => [
-      p.name,
-      p.codeNumber || '-',
-      p.categoryName || '-',
-      p.brandName || '-',
-      p.price ? `$${p.price.toFixed(2)}` : '-',
-      p.quality || '-',
-      p.voucherNumber || '-'
-    ]);
+    const tableData = this.products.map(p => 
+      activeColumns.map(col => this.getColumnValue(p, col.id, false))
+    );
+
+    const priceIndex = activeColumns.findIndex(c => c.id === 'price');
+    const customColumnStyles: any = { 0: { cellWidth: 35 } };
+    if (priceIndex !== -1) {
+      customColumnStyles[priceIndex] = { cellWidth: 20, halign: 'right' };
+    }
 
     autoTable(doc, {
       startY: filterInfo ? 35 : 30,
-      head: [['Name', 'Code', 'Category', 'Brand', 'Price', 'Quality', 'Voucher #']],
+      head: [headers],
       body: tableData,
       theme: 'striped',
       headStyles: {
@@ -1518,10 +2228,7 @@ export class ProductsComponent implements OnInit {
         fontSize: 8,
         cellPadding: 3
       },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        4: { cellWidth: 20, halign: 'right' }
-      }
+      columnStyles: customColumnStyles
     });
 
     // Footer with total count
@@ -1551,6 +2258,9 @@ export class ProductsComponent implements OnInit {
 
     const filterInfo = this.getFilterInfo();
     
+    const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
+    const headersHtml = activeColumns.map(col => `<th>${col.label}</th>`).join('');
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -1577,27 +2287,13 @@ export class ProductsComponent implements OnInit {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Code Number</th>
-              <th>Category</th>
-              <th>Brand</th>
-              <th>Price</th>
-              <th>Quality</th>
-              <th>Voucher #</th>
-              <th>Description</th>
+              ${headersHtml}
             </tr>
           </thead>
           <tbody>
             ${this.products.map(p => `
               <tr>
-                <td>${p.name}</td>
-                <td>${p.codeNumber || '-'}</td>
-                <td>${p.categoryName || '-'}</td>
-                <td>${p.brandName || '-'}</td>
-                <td>${p.price ? '$' + p.price.toFixed(2) : '-'}</td>
-                <td>${p.quality || '-'}</td>
-                <td>${p.voucherNumber || '-'}</td>
-                <td>${p.description || '-'}</td>
+                ${activeColumns.map(col => `<td>${this.getColumnValue(p, col.id, false)}</td>`).join('')}
               </tr>
             `).join('')}
           </tbody>

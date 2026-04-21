@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getUsers, getRoles, User, Role, updateUser, createUser, deleteUser, toggleUserStatus, UserPayload } from '../../services/api';
+import { getUsers, getRoles, User, Role, updateUser, createUser, deleteUser, toggleUserStatus, UserPayload, uploadUserAvatar } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../auth/AuthContext';
 import { Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Chip, Avatar, FormControl, Select, MenuItem, FormGroup, FormControlLabel, Checkbox, useTheme, TableSortLabel } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Lock as LockIcon, LockOpen as LockOpenIcon, Add as AddIcon, Download as DownloadIcon } from '@mui/icons-material';
 
@@ -27,10 +28,13 @@ export const UserManagement: React.FC = () => {
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
   const [userToToggle, setUserToToggle] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isToggling, setIsToggling] = useState(false);
 
   const { showToast } = useToast();
   const theme = useTheme();
+  const { user: currentUser } = useAuth();
+  const isSuperAdmin = currentUser?.roles?.includes('SuperAdmin');
 
   // --- Data Fetching ---
   useEffect(() => {
@@ -40,7 +44,7 @@ export const UserManagement: React.FC = () => {
         // To get all users for client-side filtering, request a large page size.
         const [usersResult, rolesData] = await Promise.all([
           getUsers({ pageSize: 10000 }),
-          getRoles()
+          getRoles().catch(() => []) // Gracefully fallback to empty array if roles fail to load
         ]);
         setUsers(usersResult?.items ?? []);
         setAvailableRoles(rolesData ?? []);
@@ -135,14 +139,19 @@ export const UserManagement: React.FC = () => {
       roles: selectedUser.roles,
     };
 
+    // Pass the password for both "Create" and "Password Resets" during Edit
+    if ((selectedUser as any).password) {
+      payload.password = (selectedUser as any).password;
+    }
+
     try {
       if (modalMode === 'create') {
-        payload.password = (selectedUser as any).password;
         await createUser(payload as UserPayload);
         showToast('User created successfully!', 'success');
       } else {
         const updatedUser = await updateUser(selectedUser.id, payload);
-        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+        // Merge the updated fields so we don't lose imageUrl, lockoutEnd, and roles from the UI
+        setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...updatedUser, roles: selectedUser.roles } : u));
         showToast('User updated successfully!', 'success');
       }
       // Refetch only on create, otherwise update state optimistically
@@ -199,6 +208,26 @@ export const UserManagement: React.FC = () => {
     } finally {
       setIsToggling(false);
       setUserToToggle(null);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !selectedUser) return;
+
+    setIsUploadingAvatar(true);
+    try {
+      const response = await uploadUserAvatar(selectedUser.id, file);
+      
+      // Optimistically update the modal UI and the table to avoid a full re-fetch
+      setSelectedUser(prev => prev ? { ...prev, imageUrl: response.imageUrl } : null);
+      setUsers(prevUsers => prevUsers.map(u => u.id === selectedUser.id ? { ...u, imageUrl: response.imageUrl } : u));
+      showToast('Avatar updated successfully!', 'success');
+    } catch (error: any) {
+      console.error('Failed to upload avatar:', error);
+      showToast(error.response?.data?.title || error.response?.data || 'Failed to upload avatar.', 'error');
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -369,9 +398,11 @@ export const UserManagement: React.FC = () => {
                       >
                         {isLocked(user) ? <LockOpenIcon fontSize="small" /> : <LockIcon fontSize="small" />}
                       </IconButton>
-                      <IconButton color="error" size="small" onClick={() => setUserToDelete(user)} title="Delete User">
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
+                  {isSuperAdmin && (
+                    <IconButton color="error" size="small" onClick={() => setUserToDelete(user)} title="Delete User">
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -400,12 +431,24 @@ export const UserManagement: React.FC = () => {
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {selectedUser && (
             <>
+              {modalMode === 'edit' && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3, gap: 1 }}>
+                  <Avatar src={selectedUser.imageUrl} sx={{ width: 80, height: 80, fontSize: '2.5rem', bgcolor: 'primary.main' }}>
+                    {(selectedUser.userName || selectedUser.email || '?').charAt(0).toUpperCase()}
+                  </Avatar>
+                  <Button variant="outlined" size="small" component="label" disabled={isUploadingAvatar}>
+                    {isUploadingAvatar ? <CircularProgress size={16} sx={{ mr: 1 }} color="inherit" /> : null}
+                    Upload New Avatar
+                    <input type="file" hidden accept="image/*" onChange={handleAvatarUpload} />
+                  </Button>
+                </Box>
+              )}
               <TextField
                 label="Username"
                 fullWidth
                 variant="outlined"
                 required
-                value={selectedUser.userName}
+                value={selectedUser.userName || ''}
                 onChange={(e) => setSelectedUser(u => u ? { ...u, userName: e.target.value } : null)}
               />
               <TextField
@@ -421,20 +464,26 @@ export const UserManagement: React.FC = () => {
                 variant="outlined"
                 type="email"
                 required
-                value={selectedUser.email}
+                value={selectedUser.email || ''}
                 onChange={(e) => setSelectedUser(u => u ? { ...u, email: e.target.value } : null)}
               />
-              {modalMode === 'create' && (
+              <TextField
+                label="Phone Number"
+                fullWidth
+                variant="outlined"
+                value={selectedUser.phoneNumber || ''}
+                onChange={(e) => setSelectedUser(u => u ? { ...u, phoneNumber: e.target.value } : null)}
+              />
                 <TextField
-                  label="Password"
+                label={modalMode === 'create' ? "Password" : "New Password"}
                   fullWidth
                   variant="outlined"
                   type="password"
-                  required
+                required={modalMode === 'create'}
+                placeholder={modalMode === 'edit' ? "Leave blank to keep unchanged" : ""}
                   value={(selectedUser as any).password || ''}
                   onChange={(e) => setSelectedUser(u => u ? { ...u, password: e.target.value } : null)}
                 />
-              )}
               <Typography variant="subtitle1" fontWeight="bold" sx={{ mt: 1 }}>Roles</Typography>
               <FormGroup row>
                 {availableRoles.map(role => (

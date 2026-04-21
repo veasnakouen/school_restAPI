@@ -282,16 +282,11 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<Guid?>("PersonId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductId1")
+                    b.Property<string>("ProductId")
+                        .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("PurchaseItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PurchaseItemId1")
+                    b.Property<string>("PurchaseItemId")
                         .HasColumnType("text");
 
                     b.Property<string>("Purpose")
@@ -323,9 +318,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("PersonId");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("ProductId");
 
-                    b.HasIndex("PurchaseItemId1");
+                    b.HasIndex("PurchaseItemId");
 
                     b.HasIndex("ReturnedToId");
 
@@ -361,10 +356,8 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductId1")
+                    b.Property<string>("ProductId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Quantity")
@@ -398,7 +391,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("InitiatedById");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("ProductId");
 
                     b.HasIndex("StockMovementId");
 
@@ -581,10 +574,8 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductId1")
+                    b.Property<string>("ProductId")
+                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("Quantity")
@@ -616,7 +607,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("ProductId");
 
                     b.HasIndex("TechnicianId");
 
@@ -733,7 +724,7 @@ namespace SchoolAPI.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Department")
+                    b.Property<string>("DepartmentId")
                         .HasColumnType("text");
 
                     b.Property<string>("Email")
@@ -743,13 +734,15 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<bool>("IsActive")
+                    b.Property<bool?>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
 
                     b.ToTable("Persons");
                 });
@@ -762,9 +755,8 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("AssignedQuantity")
                         .HasColumnType("integer");
 
-                    b.Property<Dictionary<string, string>>("Attributes")
-                        .IsRequired()
-                        .HasColumnType("hstore");
+                    b.Property<string>("Attributes")
+                        .HasColumnType("text");
 
                     b.Property<int>("AvailableQuantity")
                         .HasColumnType("integer");
@@ -776,24 +768,29 @@ namespace SchoolAPI.Data.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CodeNumber")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DepartmentId")
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("EngineNumber")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PlateNumber")
+                        .HasColumnType("text");
+
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric");
-
-                    b.Property<string>("ProductCode")
-                        .HasColumnType("text");
 
                     b.Property<string>("ProductName")
                         .IsRequired()
@@ -808,11 +805,19 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("TotalQuantity")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("Year")
+                        .HasColumnType("timestamp with time zone");
+
                     b.HasKey("Id");
 
                     b.HasIndex("BrandId");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("DepartmentId");
 
                     b.HasIndex("QualityId");
 
@@ -1030,16 +1035,11 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int?>("PercentNewBefore")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductId1")
+                    b.Property<string>("ProductId")
+                        .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("PurchaseItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PurchaseItemId1")
+                    b.Property<string>("PurchaseItemId")
                         .HasColumnType("text");
 
                     b.Property<int>("Quantity")
@@ -1075,9 +1075,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("MovedById");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("ProductId");
 
-                    b.HasIndex("PurchaseItemId1");
+                    b.HasIndex("PurchaseItemId");
 
                     b.HasIndex("ToPersonId");
 
@@ -1151,6 +1151,37 @@ namespace SchoolAPI.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.SystemSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowRegistration")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ContactEmail")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<bool>("DefaultToDarkMode")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("MaintenanceMode")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RequireEmailVerification")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SiteName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("SystemSettings");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.Transaction", b =>
@@ -1237,17 +1268,11 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<decimal?>("EstimatedLossValue")
                         .HasColumnType("numeric");
 
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("ProductId1")
+                    b.Property<string>("ProductId")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("PurchaseItemId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("PurchaseItemId1")
+                    b.Property<string>("PurchaseItemId")
                         .HasColumnType("text");
 
                     b.Property<int>("Quantity")
@@ -1276,9 +1301,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("ApprovedById");
 
-                    b.HasIndex("ProductId1");
+                    b.HasIndex("ProductId");
 
-                    b.HasIndex("PurchaseItemId1");
+                    b.HasIndex("PurchaseItemId");
 
                     b.HasIndex("RequestedById");
 
@@ -1381,11 +1406,13 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId1");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
                         .WithMany()
-                        .HasForeignKey("PurchaseItemId1");
+                        .HasForeignKey("PurchaseItemId");
 
                     b.HasOne("SchoolAPI.Entities.Person", "ReturnedTo")
                         .WithMany()
@@ -1431,7 +1458,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId1");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.StockMovement", "StockMovement")
                         .WithMany()
@@ -1520,7 +1549,9 @@ namespace SchoolAPI.Data.Migrations
                 {
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId1");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Person", "Technician")
                         .WithMany()
@@ -1543,6 +1574,15 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.Person", b =>
+                {
+                    b.HasOne("SchoolAPI.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
+
+                    b.Navigation("Department");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.Product", b =>
                 {
                     b.HasOne("SchoolAPI.Entities.Brand", "Brand")
@@ -1552,6 +1592,10 @@ namespace SchoolAPI.Data.Migrations
                     b.HasOne("SchoolAPI.Entities.Category", "Category")
                         .WithMany("Products")
                         .HasForeignKey("CategoryId");
+
+                    b.HasOne("SchoolAPI.Entities.Department", "Department")
+                        .WithMany()
+                        .HasForeignKey("DepartmentId");
 
                     b.HasOne("SchoolAPI.Entities.Quality", "Quality")
                         .WithMany()
@@ -1564,6 +1608,8 @@ namespace SchoolAPI.Data.Migrations
                     b.Navigation("Brand");
 
                     b.Navigation("Category");
+
+                    b.Navigation("Department");
 
                     b.Navigation("Quality");
                 });
@@ -1630,11 +1676,13 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId1");
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
                         .WithMany()
-                        .HasForeignKey("PurchaseItemId1");
+                        .HasForeignKey("PurchaseItemId");
 
                     b.HasOne("SchoolAPI.Entities.Person", "ToPerson")
                         .WithMany()
@@ -1710,13 +1758,13 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()
-                        .HasForeignKey("ProductId1")
+                        .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.PurchaseItem", "PurchaseItem")
                         .WithMany()
-                        .HasForeignKey("PurchaseItemId1");
+                        .HasForeignKey("PurchaseItemId");
 
                     b.HasOne("SchoolAPI.Entities.Person", "RequestedBy")
                         .WithMany()

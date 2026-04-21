@@ -8,13 +8,13 @@ export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 export interface Toast {
   id: number;
-  message: string;
+  message: ReactNode;
   type: ToastType;
   timeout?: number;
 }
 
 interface ToastContextType {
-  showToast: (message: string, type?: ToastType) => void;
+  showToast: (message: ReactNode, type?: ToastType) => void;
   toasts: Toast[];
   removeToast: (id: number) => void;
 }
@@ -91,7 +91,7 @@ const ToastContainer: React.FC = () => {
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: ReactNode, type: ToastType = 'info') => {
     const id = Date.now() + Math.random(); // Add random to avoid collision
     setToasts(prevToasts => [{ id, message, type }, ...prevToasts]);
   }, []);

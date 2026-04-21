@@ -3,18 +3,20 @@ namespace SchoolAPI.Entities;
 public class Product
 {
     public string Id { get; set; } = Guid.NewGuid().ToString();
-    public string CodeNumber { get; set; } = string.Empty;
+    public string? CodeNumber { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public decimal? Price { get; set; }
 
-    // ── Schema for extra fields ──────────
-    // e.g. { "color": "red", "size": "L" }
-    public Dictionary<string, string> Attributes { get; set; } = [];
+    // Product specifications or other attributes as a string.
+    public string? Attributes { get; set; }
 
     public bool IsActive { get; set; } = true;
+    public DateTime? Year { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public string? ProductCode { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? PlateNumber { get; set; } 
+    public string? EngineNumber { get; set; }
 
     // ── Inventory (auto-updated) ─────────
     public int TotalQuantity { get; set; }      // sum of all purchases
@@ -29,6 +31,10 @@ public class Product
     public ProductImage? Image { get; set; }
     public string? QualityId { get; set; }
     public Quality? Quality { get; set; }
+    public string? DepartmentId { get; set; }
+    public Department? Department { get; set; }
+    
+    // Vehicle-specific fields
 
     // A product can be purchased multiple times across different purchase orders
     public ICollection<PurchaseItem> PurchaseItems { get; set; } = new List<PurchaseItem>();

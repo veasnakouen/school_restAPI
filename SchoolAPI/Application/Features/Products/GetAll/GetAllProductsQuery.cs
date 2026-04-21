@@ -5,9 +5,10 @@ using SchoolAPI.Contracts;
 namespace SchoolAPI.Application.Features.Products.GetAll;
 
 public record GetAllProductsQuery(
-	string? filterOn = null,
-	string? filterQuery = null,
-	string? sortBy = null,
-	bool isAscending = true,
-	int pageNumber = 1,
-	int pageSize = 10) : IRequest<Result<PagedResult<ProductDto>>>;
+    string? Name,
+    string? CategoryId,
+    string? DepartmentId,
+    string? SortBy,
+    bool IsAscending,
+    int PageNumber,
+    int PageSize) : IRequest<Result<PagedResult<ProductDto>>>;

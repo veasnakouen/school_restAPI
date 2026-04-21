@@ -124,6 +124,8 @@ Application/Features/Departments/Delete/
 Application/Features/Departments/GetAll/
  GetAllDepartmentsQuery.cs
  GetAllDepartmentsQueryHandler.cs
+ GetPermissionsQuery.cs
+ GetPermissionsQueryHandler.cs
 Application/Features/Departments/GetById/
  GetDepartmentByIdQuery.cs
  GetDepartmentByIdQueryHandler.cs
@@ -157,6 +159,7 @@ Application/Features/Products/GetAll/
 Application/Features/Products/GetById/
  GetProductByIdQuery.cs
  GetProductByIdQueryHandler.cs
+ GetProductPurchaseHistoryQueryHandler.cs
 Application/Features/Products/Image/
  DeleteProductImageCommand.cs
  DeleteProductImageCommandHandler.cs
@@ -242,11 +245,17 @@ Contracts/
  DepartmentDto.cs
  DonorDto.cs
  ErrorResponse.cs
+ GetAllStockMovementsQuery.cs
+ GetAllStockMovementsQueryHandler.cs
+ GetSystemSettingsQuery.cs
+ GetSystemSettingsQueryHandler.cs
  JwtSettings.cs
  MaintenanceRecordDto.cs
+ PermissionDto.cs
  PersonDto.cs
  ProductDto.cs
  ProductImageUploadRequest.cs
+ ProductPurchaseHistoryDto.cs
  PurchaseDto.cs
  PurchaseItemDto.cs
  PurchaseItemRequest.cs
@@ -257,8 +266,11 @@ Contracts/
   StudentAssessmentRequestFormDto.cs
  ResponserDto.cs
  StockMovementDto.cs
+ SystemSettingsDto.cs
  TransactionDto.cs
  UpdatePurchaseRequest.cs
+ UpdateSystemSettingsCommand.cs
+ UpdateSystemSettingsCommandHandler.cs
  WriteOffDto.cs
 Controllers/
  AssessmentReportsController.cs
@@ -274,10 +286,13 @@ Controllers/
  OutReachController.cs
  PermissionsController.cs
  ProductController.cs
+ ProductsController.cs
  PurchasesController.cs
  ReportsController.cs
  ResponserController.cs
  RolesController.cs
+ SettingsController.cs
+ StockMovementsController.cs
  StudentController.cs
  SupplierController.cs
  TransactionController.cs
@@ -332,6 +347,7 @@ Entities/
  StockMovement.cs
  Student.cs
  Supplier.cs
+ SystemSetting.cs
  Transaction.cs
  TransactionType.cs
  TransferStatus.cs
@@ -353,6 +369,8 @@ Features/Permissions/
  CreatePermissionCommandHandler.cs
  DeletePermissionCommand.cs
  DeletePermissionCommandHandler.cs
+ GetAllStockMovementsQuery.cs
+ GetAllStockMovementsQueryHandler.cs
  GetPermissionByIdQuery.cs
  GetPermissionByIdQueryHandler.cs
  GetPermissionsQuery.cs
@@ -372,11 +390,22 @@ Interfaces/
 Middleware/
  CustomMiddleware.cs
  ExceptionMiddleware.cs
+ MaintenanceModeMiddleware.cs
 Migrations/
  20260418062057_RenewDatabase.cs
  20260418062057_RenewDatabase.Designer.cs
  20260418174940_InventoryTrack.cs
  20260418174940_InventoryTrack.Designer.cs
+ 20260419103012_AddSystemSettings.cs
+ 20260419103012_AddSystemSettings.Designer.cs
+ 20260419134417_AddRlatePurchasDepartment.cs
+ 20260419134417_AddRlatePurchasDepartment.Designer.cs
+ 20260419151002_SyncProductModelChanges.cs
+ 20260419151002_SyncProductModelChanges.Designer.cs
+ 20260419162140_AddYearToProduct.cs
+ 20260419162140_AddYearToProduct.Designer.cs
+ 20260419174638_UpdateProductModel.cs
+ 20260419174638_UpdateProductModel.Designer.cs
 obj/Debug/net10.0/
  .NETCoreApp,Version=v10.0.AssemblyAttributes.cs
  SchoolAPI.AssemblyInfo.cs
@@ -803,7 +832,7 @@ Services/
  system.composition.hosting/7.0.0/lib/net7.0/System.Composition.Hosting.dll
  system.composition.runtime/7.0.0/lib/net7.0/System.Composition.Runtime.dll
  system.composition.typedparts/7.0.0/lib/net7.0/System.Composition.TypedParts.dll
- system.data.sqlclient/4.5.1/ref/netcoreapp2.1/System.Data.SqlClient.dll
+ system.data.sqlclient/4.9.1/lib/net8.0/System.Data.SqlClient.dll
  system.drawing.common/10.0.5/lib/net10.0/
   System.Drawing.Common.dll
   System.Private.Windows.Core.dll

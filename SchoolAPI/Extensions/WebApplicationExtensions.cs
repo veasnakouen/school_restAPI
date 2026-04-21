@@ -29,28 +29,12 @@ namespace SchoolAPI.Extensions
             // 1. Apply pending migrations first
             var dbContext = services.GetRequiredService<SchoolDbContext>();
 
-Pu            try 
             try
             {
                 await dbContext.Database.MigrateAsync();
-                
-                // Verify the schema actually created the required tables.
-                // If the migrations folder is empty or corrupted, MigrateAsync() does nothing 
-                // and this query will throw an exception, triggering the catch block.
-                await dbContext.Permissions.FirstOrDefaultAsync();
             }
             catch (Exception ex)
             {
-                if (app.Environment.IsDevelopment())
-                {
-                    app.Logger.LogWarning(ex, "Database schema is corrupted or out of sync. Forcing a complete database reset...");
-                    await dbContext.Database.EnsureDeletedAsync();
-                    await dbContext.Database.EnsureCreatedAsync();
-                }
-                else
-                {
-                    throw; // Never wipe production databases!
-                }
                 app.Logger.LogError(ex, "An error occurred while migrating the database.");
                 throw;
             }
@@ -72,7 +56,7 @@ Pu            try
             var userManager = services.GetRequiredService<UserManager<AppUser>>();
 
             // 3. Seed Roles
-            foreach (var roleName in new[] { Constant.Roles.User, Constant.Roles.Admin, Constant.Roles.DataEntry, Constant.Roles.Teacher })
+            foreach (var roleName in new[] { "SuperAdmin", Constant.Roles.User, Constant.Roles.Admin, Constant.Roles.DataEntry, Constant.Roles.Teacher, "Inventory", "InventoryViewer" })
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
                 {
@@ -117,9 +101,36 @@ Pu            try
                 await userManager.AddToRoleAsync(adminUser, Constant.Roles.Admin);
             }
 
+            // 5. Assign SuperAdmin role
+            if (!await userManager.IsInRoleAsync(adminUser, "SuperAdmin"))
+            {
+                await userManager.AddToRoleAsync(adminUser, "SuperAdmin");
+            }
+
+            // 6. Seed Inventory Manager
+            var inventoryUser = await userManager.FindByEmailAsync("inventory@school.com");
+            if (inventoryUser == null)
+            {
+                inventoryUser = new AppUser { UserName = "inventory", Email = "inventory@school.com", FullName = "Inventory Manager", EmailConfirmed = true };
+                await userManager.CreateAsync(inventoryUser, "Password123!");
+                await userManager.AddToRoleAsync(inventoryUser, "Inventory");
+            }
+
+            // 7. Seed Inventory Viewer
+            var viewerUser = await userManager.FindByEmailAsync("viewer@school.com");
+            if (viewerUser == null)
+            {
+                viewerUser = new AppUser { UserName = "viewer", Email = "viewer@school.com", FullName = "Inventory Viewer", EmailConfirmed = true };
+                await userManager.CreateAsync(viewerUser, "Password123!");
+                await userManager.AddToRoleAsync(viewerUser, "InventoryViewer");
+            }
+
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Admin, permissions);
+            await EnsureRolePermissionsAsync(roleManager, "SuperAdmin", permissions);
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.DataEntry, Permissions.GetDefaultPermissionsForRole(Constant.Roles.DataEntry));
             await EnsureRolePermissionsAsync(roleManager, Constant.Roles.Teacher, Permissions.GetDefaultPermissionsForRole(Constant.Roles.Teacher));
+            await EnsureRolePermissionsAsync(roleManager, "Inventory", Permissions.GetDefaultPermissionsForRole("Inventory"));
+            await EnsureRolePermissionsAsync(roleManager, "InventoryViewer", Permissions.GetDefaultPermissionsForRole("InventoryViewer"));
 
             // 5. Seed Sample Classes (only if no classes exist)
             if (!await dbContext.Classes.AnyAsync())
@@ -166,8 +177,7 @@ Pu            try
                         ProductName = "MacBook Pro 16-inch",
                         Description = "High-performance laptop for developers and designers.",
                         Price = 2499.00m,
-                        ProductCode = "MBP-16-M3",
-                        CodeNumber = "IT-001",
+                        CodeNumber = "MBP-16-M3",
                         CategoryId = electronicsCategory.Id,
                         BrandId = appleBrand.Id,
                         QualityId = newQuality.Id
@@ -178,8 +188,7 @@ Pu            try
                         ProductName = "Aeron Office Chair",
                         Description = "Ergonomic mesh office chair.",
                         Price = 1250.00m,
-                        ProductCode = "HM-AERON",
-                        CodeNumber = "FUR-001",
+                        CodeNumber = "HM-AERON",
                         CategoryId = furnitureCategory.Id,
                         BrandId = hermanBrand.Id,
                         QualityId = usedQuality.Id

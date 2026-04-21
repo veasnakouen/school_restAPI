@@ -1,20 +1,40 @@
+using System.Globalization;
 using MediatR;
-using SchoolAPI.Entities;
-using SchoolAPI.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
+using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Application.Common.Models;
+using SchoolAPI.Contracts;
 
-public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, List<Permission>>
+namespace SchoolAPI.Application.Features.Permissions.GetAll
 {
-    private readonly SchoolDbContext _context;
-    public GetPermissionsQueryHandler(SchoolDbContext context)
+    public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, Result<List<PermissionDto>>>
     {
-        _context = context;
-    }
-    public async Task<List<Permission>> Handle(GetPermissionsQuery request, CancellationToken cancellationToken)
-    {
-        return await _context.Set<Permission>().ToListAsync(cancellationToken);
+        private readonly IApplicationDbContext _context;
+
+        public GetPermissionsQueryHandler(IApplicationDbContext context)
+        {
+            _context = context;
+        }
+
+        public async Task<Result<List<PermissionDto>>> Handle(GetPermissionsQuery request, CancellationToken cancellationToken)
+        {
+            var permissions = await _context.Permissions.AsNoTracking().OrderBy(p => p.Name)
+                .Select(p => new PermissionDto
+                {
+                    Value = p.Name,
+                    Type = p.Name.Contains('.') ? p.Name.Split('.')[0] : "general",
+                    Description = CreateDescription(p.Name)
+                })
+                .ToListAsync(cancellationToken);
+
+            return Result<List<PermissionDto>>.Success(permissions);
+        }
+
+        private static string CreateDescription(string permissionName)
+        {
+            var parts = permissionName.Split('.');
+            var action = parts.Length > 1 ? parts[1] : permissionName;
+            return $"{CultureInfo.CurrentCulture.TextInfo.ToTitleCase(action)} {(parts.Length > 1 ? parts[0] : "")}".Trim();
+        }
     }
 }

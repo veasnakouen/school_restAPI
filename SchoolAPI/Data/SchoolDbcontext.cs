@@ -42,6 +42,7 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     public DbSet<AssetTransfer> AssetTransfers { get; set; }
     public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
     public DbSet<WriteOff> WriteOffs { get; set; }
+    public DbSet<SystemSetting> SystemSettings { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

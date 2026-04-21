@@ -1,56 +1,28 @@
-
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
-using SchoolAPI.Entities;
+using SchoolAPI.Application.Features.Permissions.GetAll;
+using Microsoft.AspNetCore.Authorization;
 
 namespace SchoolAPI.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class PermissionsController : ControllerBase
+    [Authorize]
+    public class PermissionsController : BaseController
     {
         private readonly IMediator _mediator;
         public PermissionsController(IMediator mediator)
         {
             _mediator = mediator;
         }
-
+        
         [HttpGet]
         public async Task<IActionResult> GetPermissions()
         {
             var permissions = await _mediator.Send(new GetPermissionsQuery());
-            return Ok(permissions);
+            return HandleResult(permissions);
         }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetPermission(int id)
-        {
-            var permission = await _mediator.Send(new GetPermissionByIdQuery(id));
-            if (permission == null) return NotFound();
-            return Ok(permission);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreatePermission([FromBody] Permission permission)
-        {
-            var created = await _mediator.Send(new CreatePermissionCommand(permission));
-            return CreatedAtAction(nameof(GetPermission), new { id = created.Id }, created);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePermission(int id, [FromBody] Permission permission)
-        {
-            var result = await _mediator.Send(new UpdatePermissionCommand(id, permission.Name));
-            if (!result) return NotFound();
-            return NoContent();
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeletePermission(int id)
-        {
-            var result = await _mediator.Send(new DeletePermissionCommand(id));
-            if (!result) return NotFound();
-            return NoContent();
-        }
+        // The other endpoints (GetById, Create, Update, Delete) are not used by the frontend
+        // and seem to be from a previous implementation pattern. They can be removed or refactored later.
     }
 }

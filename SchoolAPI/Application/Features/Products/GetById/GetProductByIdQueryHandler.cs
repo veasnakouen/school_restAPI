@@ -1,48 +1,32 @@
-using AutoMapper;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
-using SchoolAPI.Helpers;
-using SchoolAPI.Interfaces;
 
 namespace SchoolAPI.Application.Features.Products.GetById;
 
 public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, Result<ProductDto>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly IMapper _mapper;
-    private readonly ICacheStore _cacheStore;
-    private readonly ICacheVersionService _cacheVersionService;
 
-    public GetProductByIdQueryHandler(IApplicationDbContext context, IMapper mapper, ICacheStore cacheStore, ICacheVersionService cacheVersionService)
+    public GetProductByIdQueryHandler(IApplicationDbContext context)
     {
         _context = context;
-        _mapper = mapper;
-        _cacheStore = cacheStore;
-        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<ProductDto>> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.ProductId))
-        {
-            return Result<ProductDto>.Failure("Invalid product ID.");
-        }
-
-        var cacheVersion = _cacheVersionService.GetVersion("products");
-        var cacheKey = CacheKeyBuilder.BuildProductByIdKey(cacheVersion, request.ProductId);
-        var cachedResult = await _cacheStore.GetAsync<ProductDto>(cacheKey, cancellationToken);
-        if (cachedResult != null)
-        {
-            return Result<ProductDto>.Success(cachedResult);
-        }
-
         var product = await _context.Products
+            .AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Quality)
+            .Include(p => p.Department)
             .Include(p => p.Image)
+            .Include(p => p.PurchaseItems)
+                .ThenInclude(pi => pi.Purchase)
+                .ThenInclude(p => p.Supplier)
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
         if (product == null)
@@ -50,10 +34,40 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
             return Result<ProductDto>.Failure("Product not found.");
         }
 
-        var result = Result<ProductDto>.Success(_mapper.Map<ProductDto>(product));
+        var dto = new ProductDto
+        {
+            Id = product.Id,
+            Name = product.ProductName,
+            CodeNumber = product.CodeNumber,
+            Description = product.Description,
+            Price = product.Price,
+            ImageUrl = product.Image?.Url,
+            PlateNumber = product.PlateNumber,
+            EngineNumber = product.EngineNumber,
+            Year = product.Year,
+            CreatedAt = product.CreatedAt,
+            CategoryId = product.CategoryId,
+            CategoryName = product.Category?.Name,
+            BrandId = product.BrandId,
+            BrandName = product.Brand?.Name,
+            QualityId = product.QualityId,
+            Quality = product.Quality?.Name,
+            DepartmentId = product.DepartmentId,
+            DepartmentName = product.Department?.Name,
+            PurchaseHistory = product.PurchaseItems
+                .OrderByDescending(pi => pi.Purchase.InvoiceDate)
+                .Select(pi => new ProductPurchaseHistoryDto
+                {
+                    PurchaseId = pi.PurchaseId,
+                    PurchaseDate = pi.Purchase.InvoiceDate,
+                    VoucherNumber = pi.Purchase.VoucherNumber,
+                    SupplierName = pi.Purchase.Supplier?.Name,
+                    Quantity = pi.Quantity,
+                    UnitPrice = pi.UnitPrice,
+                    TotalPrice = pi.TotalPrice
+                }).ToList()
+        };
 
-        await _cacheStore.SetAsync(cacheKey, result.Data, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2), cancellationToken);
-
-        return result;
+        return Result<ProductDto>.Success(dto);
     }
 }

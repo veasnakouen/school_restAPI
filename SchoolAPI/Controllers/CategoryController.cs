@@ -14,7 +14,7 @@ namespace SchoolAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = Permissions.CategoryRead)]
-public class CategoryController : ControllerBase
+public class CategoryController : BaseController
 {
     private readonly ISender _sender;
 
@@ -27,14 +27,14 @@ public class CategoryController : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetAllCategoriesQuery(), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetCategoryByIdQuery(id), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpPost]
@@ -42,11 +42,8 @@ public class CategoryController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CategoryDto category, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateCategoryCommand(category), cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return BadRequest(result.ErrorMessage);
-        }
-
+        if (!result.IsSuccess) return HandleResult(result);
+        
         return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result.Data);
     }
 
@@ -60,7 +57,7 @@ public class CategoryController : ControllerBase
         }
 
         var result = await _sender.Send(new UpdateCategoryCommand(id, input), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpDelete("{id}")]
@@ -68,7 +65,7 @@ public class CategoryController : ControllerBase
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteCategoryCommand(id), cancellationToken);
-        return result.IsSuccess ? Ok("Category deleted successfully.") : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
     
 }

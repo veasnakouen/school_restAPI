@@ -66,7 +66,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.BrandName, opt => opt.MapFrom(src => src.Brand != null ? src.Brand.Name : null))
             .ForMember(dest => dest.ImageUrl, opt => opt.MapFrom(src => src.Image != null ? src.Image.Url : null))
             .ForMember(dest => dest.Quality, opt => opt.MapFrom(src => src.Quality != null ? src.Quality.Name : null))
-            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => JsonSerializer.Serialize(src.Attributes, (JsonSerializerOptions?)null)));
+            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.Attributes));
         CreateMap<ProductDto, Product>()
             .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.Attributes, opt => opt.Ignore())
@@ -107,11 +107,8 @@ public class MappingProfile : Profile
 
         CreateMap<StockMovement, StockMovementDto>()
             .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))
-            .ForMember(dest => dest.MovementType, opt => opt.MapFrom(src => src.Type.ToString()))
-            .ForMember(dest => dest.Direction, opt => opt.MapFrom(src => src.Direction.ToString()))
-            .ForMember(dest => dest.FromPersonName, opt => opt.MapFrom(src => src.FromPerson != null ? src.FromPerson.FullName : null))
-            .ForMember(dest => dest.ToPersonName, opt => opt.MapFrom(src => src.ToPerson != null ? src.ToPerson.FullName : null))
-            .ForMember(dest => dest.MovedByName, opt => opt.MapFrom(src => src.MovedBy != null ? src.MovedBy.FullName : null));
+            .ForMember(dest => dest.Type, opt => opt.MapFrom(src => src.Type.ToString()))
+            .ForMember(dest => dest.Direction, opt => opt.MapFrom(src => src.Direction.ToString()));
 
         CreateMap<AssetAssignment, AssetAssignmentDto>()
             .ForMember(dest => dest.ProductName, opt => opt.MapFrom(src => src.Product != null ? src.Product.ProductName : null))

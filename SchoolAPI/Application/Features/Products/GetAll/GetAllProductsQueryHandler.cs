@@ -1,94 +1,101 @@
-using AutoMapper;
+using System.Linq.Expressions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
-using SchoolAPI.Helpers;
-using SchoolAPI.Interfaces;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Application.Features.Products.GetAll;
 
 public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, Result<PagedResult<ProductDto>>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly IMapper _mapper;
-    private readonly ICacheStore _cacheStore;
-    private readonly ICacheVersionService _cacheVersionService;
 
-    public GetAllProductsQueryHandler(IApplicationDbContext context, IMapper mapper, ICacheStore cacheStore, ICacheVersionService cacheVersionService)
+    public GetAllProductsQueryHandler(IApplicationDbContext context)
     {
         _context = context;
-        _mapper = mapper;
-        _cacheStore = cacheStore;
-        _cacheVersionService = cacheVersionService;
     }
 
     public async Task<Result<PagedResult<ProductDto>>> Handle(GetAllProductsQuery request, CancellationToken cancellationToken)
     {
-        var cacheVersion = _cacheVersionService.GetVersion("products");
-        var cacheKey = CacheKeyBuilder.BuildProductListKey(cacheVersion, request.filterOn, request.filterQuery, request.sortBy, request.isAscending, request.pageNumber, request.pageSize);
-        var cachedResult = await _cacheStore.GetAsync<PagedResult<ProductDto>>(cacheKey, cancellationToken);
-        if (cachedResult != null)
-        {
-            return Result<PagedResult<ProductDto>>.Success(cachedResult);
-        }
-
         var query = _context.Products
             .Include(p => p.Category)
             .Include(p => p.Brand)
+            .Include(p => p.Department)
             .Include(p => p.Image)
-            .AsNoTracking()
-            .AsQueryable();
+            .AsNoTracking();
 
-        if (!string.IsNullOrWhiteSpace(request.filterOn) && !string.IsNullOrWhiteSpace(request.filterQuery))
+        // Filtering
+        if (!string.IsNullOrWhiteSpace(request.Name))
         {
-            var filter = request.filterQuery.Trim();
-            if (request.filterOn.Equals("name", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(p => p.ProductName.Contains(filter));
-            }
-            else if (request.filterOn.Equals("code", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(p => p.CodeNumber != null && p.CodeNumber.Contains(filter));
-            }
-            else if (request.filterOn.Equals("brand", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(p => p.Brand != null && p.Brand.Name.Contains(filter));
-            }
-            else if (request.filterOn.Equals("category", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(p => p.Category != null && p.Category.Name.Contains(filter));
-            }
+            query = query.Where(p => EF.Functions.ILike(p.ProductName, $"%{request.Name}%"));
+        }
+        if (!string.IsNullOrWhiteSpace(request.CategoryId))
+        {
+            query = query.Where(p => p.CategoryId == request.CategoryId);
+        }
+        if (!string.IsNullOrWhiteSpace(request.DepartmentId))
+        {
+            query = query.Where(p => p.DepartmentId == request.DepartmentId);
         }
 
-        query = string.IsNullOrWhiteSpace(request.sortBy)
-            ? query.OrderByDescending(p => p.CreatedAt)
-            : request.sortBy.Equals("name", StringComparison.OrdinalIgnoreCase)
-                ? request.isAscending ? query.OrderBy(p => p.ProductName) : query.OrderByDescending(p => p.ProductName)
-                : request.sortBy.Equals("price", StringComparison.OrdinalIgnoreCase)
-                    ? request.isAscending ? query.OrderBy(p => p.Price) : query.OrderByDescending(p => p.Price)
-                    : request.sortBy.Equals("createddate", StringComparison.OrdinalIgnoreCase) || request.sortBy.Equals("createdat", StringComparison.OrdinalIgnoreCase)
-                        ? request.isAscending ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt)
-                        : query.OrderByDescending(p => p.CreatedAt);
+        // Sorting
+        if (!string.IsNullOrWhiteSpace(request.SortBy))
+        {
+            switch (request.SortBy.ToLowerInvariant())
+            {
+                case "name":
+                    query = request.IsAscending ? query.OrderBy(p => p.ProductName) : query.OrderByDescending(p => p.ProductName);
+                    break;
+                case "price":
+                    query = request.IsAscending ? query.OrderBy(p => p.Price) : query.OrderByDescending(p => p.Price);
+                    break;
+                case "categoryname":
+                    query = request.IsAscending ? query.OrderBy(p => p.Category.Name) : query.OrderByDescending(p => p.Category.Name);
+                    break;
+                case "brandname":
+                    query = request.IsAscending ? query.OrderBy(p => p.Brand.Name) : query.OrderByDescending(p => p.Brand.Name);
+                    break;
+                case "departmentname":
+                    query = request.IsAscending ? query.OrderBy(p => p.Department.Name) : query.OrderByDescending(p => p.Department.Name);
+                    break;
+                default:
+                    query = request.IsAscending ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt);
+                    break;
+            }
+        }
+        else
+        {
+            // Add a default sort order if none is specified
+            query = query.OrderByDescending(p => p.CreatedAt);
+        }
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var pageNumber = request.pageNumber < 1 ? 1 : request.pageNumber;
-        var pageSize = request.pageSize < 1 ? 10 : request.pageSize;
-        var skip = (pageNumber - 1) * pageSize;
 
-        var products = await query.Skip(skip).Take(pageSize).ToListAsync(cancellationToken);
+        var products = await query
+            .Skip((request.PageNumber - 1) * request.PageSize)
+            .Take(request.PageSize)
+            .Select(p => new ProductDto
+            {
+                Id = p.Id,
+                Name = p.ProductName,
+                Price = p.Price,
+                ImageUrl = p.Image != null ? p.Image.Url : null,
+                CategoryName = p.Category != null ? p.Category.Name : null,
+                BrandName = p.Brand != null ? p.Brand.Name : null,
+                DepartmentName = p.Department != null ? p.Department.Name : null,
+                CodeNumber = p.CodeNumber,
+                Year = p.Year,
+                Attributes = p.Attributes
+            })
+            .ToListAsync(cancellationToken);
 
-        var result = Result<PagedResult<ProductDto>>.Success(new PagedResult<ProductDto>
-        {
-            Items = _mapper.Map<List<ProductDto>>(products),
-            PageNumber = pageNumber,
-            PageSize = pageSize,
-            TotalCount = totalCount
-        });
-
-        await _cacheStore.SetAsync(cacheKey, result.Data, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(2), cancellationToken);
-
-        return result;
+        var pagedResult = new PagedResult<ProductDto> { 
+            Items = products, 
+            TotalCount = totalCount, 
+            PageNumber = request.PageNumber, 
+            PageSize = request.PageSize };
+        return Result<PagedResult<ProductDto>>.Success(pagedResult);
     }
 }

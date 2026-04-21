@@ -14,7 +14,7 @@ namespace SchoolAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize(Policy = Permissions.BrandRead)]
-public class BrandController : ControllerBase
+public class BrandController : BaseController
 {
     private readonly ISender _sender;
 
@@ -27,14 +27,14 @@ public class BrandController : ControllerBase
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetAllBrandsQuery(), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new GetBrandByIdQuery(id), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpPost]
@@ -42,11 +42,8 @@ public class BrandController : ControllerBase
     public async Task<IActionResult> Create([FromBody] BrandDto brand, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new CreateBrandCommand(brand), cancellationToken);
-        if (!result.IsSuccess)
-        {
-            return BadRequest(result.ErrorMessage);
-        }
-
+        if (!result.IsSuccess) return HandleResult(result);
+        
         return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result.Data);
     }
 
@@ -60,7 +57,7 @@ public class BrandController : ControllerBase
         }
 
         var result = await _sender.Send(new UpdateBrandCommand(id, input), cancellationToken);
-        return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 
     [HttpDelete("{id}")]
@@ -68,6 +65,6 @@ public class BrandController : ControllerBase
     public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
     {
         var result = await _sender.Send(new DeleteBrandCommand(id), cancellationToken);
-        return result.IsSuccess ? Ok("Brand deleted successfully.") : NotFound(result.ErrorMessage);
+        return HandleResult(result);
     }
 }

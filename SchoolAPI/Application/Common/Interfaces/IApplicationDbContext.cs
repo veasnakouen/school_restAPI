@@ -30,6 +30,7 @@ public interface IApplicationDbContext
     DbSet<WriteOff> WriteOffs { get; }
     DbSet<Permission> Permissions { get; }
     DbSet<AppUserRole> UserRoles { get; }
+    DbSet<SystemSetting> SystemSettings { get; }
     
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

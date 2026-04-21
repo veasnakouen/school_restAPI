@@ -4,7 +4,6 @@ import { DEV_MODE_MOCK_AUTH } from "../auth/AuthContext";
 // --- Product Management ---
 export interface CreateProductRequest {
   name: string;
-  codeNumber: string | null;
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
@@ -12,16 +11,26 @@ export interface CreateProductRequest {
   brandName: string | null;
   price: number | null;
   quality: string | null;
-  department?: string | null;
-  productCode?: string | null;
-  specs?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  codeNumber?: string | null;
+  year?: string | null;
+  attributes?: string | null;
+  plateNumber?: string | null;
+  engineNumber?: string | null;
+  purchaseType?: string | null;
+  initialQuantity?: number | null;
+  supplierName?: string | null;
+  donorName?: string | null;
+  voucherNumber?: string | null;
+  supplierContact?: string | null;
+  invoiceDate?: string | null;
 }
 
 // Define types similar to your Angular models
 export interface ProductDto {
   id: string | null;
   name: string;
-  codeNumber: string | null;
   description: string | null;
   categoryId: string | null;
   categoryName: string | null;
@@ -32,9 +41,22 @@ export interface ProductDto {
   quality: string | null;
   createdDate: string | null;
   updateDate: string | null;
-  department?: string | null;
-  productCode?: string | null;
-  specs?: string | null;
+  departmentId?: string | null;
+  departmentName?: string | null;
+  codeNumber?: string | null;
+  year?: string | null;
+  attributes?: string | null;
+  plateNumber?: string | null;
+  engineNumber?: string | null;
+  purchaseType?: string | null;
+  initialQuantity?: number | null;
+  supplierName?: string | null;
+  donorName?: string | null;
+  voucherNumber?: string | null;
+  supplierContact?: string | null;
+  invoiceDate?: string | null;
+  responsiblePerson?: string | null;
+  purchaseHistory?: ProductPurchaseHistoryDto[];
 }
 
 export interface CategoryDto {
@@ -56,6 +78,13 @@ export interface DepartmentDto {
 export interface SupplierDto {
   id: string;
   name: string;
+}
+
+export interface PersonDto {
+  id: string;
+  fullName: string;
+  department?: string;
+  email?: string;
 }
 
 // This is what the backend actually sends for a permission
@@ -117,9 +146,11 @@ export interface QueryOptions {
   pageSize?: number;
   sortBy?: string;
   isAscending?: boolean;
+  name?: string;
+  categoryId?: string;
+  departmentId?: string;
   filterOn?: string;
   filterQuery?: string;
-  department?: string;
 }
 
 const apiClient :AxiosInstance = axios.create({
@@ -174,6 +205,26 @@ const processQueue = (error: any, token: string | null = null) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
+    // --- Maintenance Mode Interceptor ---
+    // If the backend returns a 503 Service Unavailable, it likely means Maintenance Mode is active.
+    if (error.response?.status === 503) {
+      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
+      let isAdmin = false;
+      if (userStr) {
+        try {
+          const userObj = JSON.parse(userStr);
+          isAdmin = userObj.roles?.includes('Admin') || userObj.roles?.includes('SuperAdmin');
+        } catch (e) {}
+      }
+      
+      if (!isAdmin) {
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/login?maintenance=true';
+      }
+      return Promise.reject(error);
+    }
+
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
     // If the error is not a 401, or it's a 401 for the login/refresh route, or already retried, just reject.
@@ -285,6 +336,9 @@ export const getSuppliers = (): Promise<SupplierDto[]> =>
 export const createSupplier = (supplier: { name: string }): Promise<SupplierDto> =>
   apiClient.post('/Supplier', supplier).then(res => res.data);
 
+export const getPersons = (): Promise<PersonDto[]> =>
+  apiClient.get('/Person').then(res => res.data);
+
 export const createProduct = (product: CreateProductRequest): Promise<ProductDto> =>
   apiClient.post('/inventory/products', product).then(res => res.data);
 
@@ -306,6 +360,9 @@ export const deleteProductImage = (id: string): Promise<any> => {
   return apiClient.delete(`/inventory/products/${id}/image`).then(res => res.data);
 };
 
+export const getProductById = (id: string): Promise<ProductDto> =>
+  apiClient.get(`/inventory/products/${id}`).then(res => res.data);
+
 // --- Auth ---
 export const login = (credentials: {
   email: string;
@@ -325,41 +382,30 @@ export const forceRefreshToken = (): Promise<AuthResponse> => {
 };
 
 // --- User Management ---
-// The backend AuthController serves users at /auth/users and returns a PagedResult with an 'items' array
-export const getUsers = (params?: QueryOptions): Promise<PagedResult<User>> => apiClient.get('/auth/users', { params }).then(res => res.data);
+export const getUsers = (params?: QueryOptions): Promise<PagedResult<User>> => apiClient.get('/users', { params }).then(res => res.data);
 
 // Use the dedicated UserManagement controller for admin actions
-export const createUser = (user: UserPayload): Promise<any> => apiClient.post('/UserManagement', user).then(res => res.data);
-export const updateUser = (id: string, user: Partial<UserPayload>): Promise<User> => apiClient.put(`/UserManagement/${id}`, user).then(res => res.data);
-export const deleteUser = (id: string): Promise<any> => apiClient.delete(`/UserManagement/${id}`).then(res => res.data);
-export const toggleUserStatus = (id: string): Promise<{ message: string }> => apiClient.post(`/UserManagement/${id}/toggle-status`, {}).then(res => res.data);
+export const createUser = (user: UserPayload): Promise<any> => apiClient.post('/users', user).then(res => res.data);
+export const updateUser = (id: string, user: Partial<UserPayload>): Promise<User> => apiClient.put(`/users/${id}`, user).then(res => res.data);
+export const deleteUser = (id: string): Promise<any> => apiClient.delete(`/users/${id}`).then(res => res.data);
+export const toggleUserStatus = (id: string): Promise<{ message: string }> => apiClient.post(`/users/${id}/toggle-status`, {}).then(res => res.data);
+
+export const uploadUserAvatar = (id: string, file: File): Promise<{ imageUrl: string }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiClient.post(`/users/${id}/avatar`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }).then(res => res.data);
+};
 
 // --- Role & Permission Management ---
 export const getRoles = (): Promise<Role[]> => apiClient.get('/roles/all_roles').then(res => res.data);
-export const getPermissions = (): Promise<PermissionDto[]> =>
-  apiClient.get<BackendPermission[]>('/permissions').then(res => {
-    // The backend sends a flat list of permissions like { id: 1, name: "users.read" }
-    // We need to transform this into the PermissionDto structure the frontend expects.
-    return res.data.map(p => {
-      const parts = p.name.split('.');
-      const type = parts[0] || 'general';
-      const action = parts[1] || p.name;
-
-      // Create a simple description from the action and type.
-      // e.g., "users.read" -> "Read users"
-      const description = `${action.charAt(0).toUpperCase() + action.slice(1)} ${type}`;
-
-      return {
-        type: type,
-        value: p.name,
-        description: description,
-      };
-    });
-  });
+export const getPermissions = (): Promise<PermissionDto[]> => 
+  apiClient.get<PermissionDto[]>('/permissions').then(res => res.data);
 export const getRoleDetails = (id: string): Promise<RoleDto> => apiClient.get(`/roles/${id}`).then(res => res.data);
 export const createRole = (role: { name: string, permissions: string[] }): Promise<any> => apiClient.post('/roles', role).then(res => res.data);
 export const updateRole = (id: string, role: { name: string, permissions: string[] }): Promise<any> => apiClient.put(`/roles/${id}`, role).then(res => res.data);
-export const deleteRole = (id: string): Promise<any> => apiClient.delete(`/roles/${id}`).then(res => res.data);
+export const deleteRole = (id: string): Promise<any> => apiClient.delete(`/roles?id=${id}`).then(res => res.data);
 
 // --- Profile Management ---
 export const getProfile = (): Promise<User> => {
@@ -379,3 +425,29 @@ export const uploadAvatar = (file: File): Promise<{ imageUrl: string }> => {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then(res => res.data);
 };
+
+// --- System Settings ---
+export interface SystemSettingsDto {
+  siteName: string;
+  contactEmail: string;
+  allowRegistration: boolean;
+  requireEmailVerification: boolean;
+  maintenanceMode: boolean;
+  defaultToDarkMode: boolean;
+}
+export const getSystemSettings = (): Promise<SystemSettingsDto> => apiClient.get('/settings').then(res => res.data);
+export const updateSystemSettings = (settings: SystemSettingsDto): Promise<SystemSettingsDto> => apiClient.put('/settings', settings).then(res => res.data);
+
+// --- Product Purchase History ---
+export interface ProductPurchaseHistoryDto {
+  purchaseId: string;
+  purchaseDate: string;
+  voucherNumber?: string;
+  supplierName?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export const getProductPurchaseHistory = (productId: string): Promise<ProductPurchaseHistoryDto[]> =>
+  apiClient.get(`/inventory/products/${productId}/purchase-history`).then(res => res.data);

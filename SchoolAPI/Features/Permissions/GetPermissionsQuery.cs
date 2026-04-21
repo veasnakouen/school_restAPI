@@ -1,5 +1,9 @@
 using MediatR;
-using SchoolAPI.Entities;
+using SchoolAPI.Application.Common.Models;
+using SchoolAPI.Contracts;
 using System.Collections.Generic;
 
-public record GetPermissionsQuery() : IRequest<List<Permission>>;
+namespace SchoolAPI.Application.Features.Permissions.GetAll
+{
+    public record GetPermissionsQuery : IRequest<Result<List<PermissionDto>>>;
+}

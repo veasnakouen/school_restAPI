@@ -7,10 +7,10 @@ public class AssetAssignment
 {
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    public Guid ProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;
 
-    public Guid? PurchaseItemId { get; set; }   // from which batch
+    public string? PurchaseItemId { get; set; }   // from which batch
     public PurchaseItem? PurchaseItem { get; set; }
 
     public int Quantity { get; set; }

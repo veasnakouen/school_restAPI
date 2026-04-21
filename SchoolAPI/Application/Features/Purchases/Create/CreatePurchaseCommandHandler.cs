@@ -81,7 +81,8 @@ public class CreatePurchaseCommandHandler : IRequestHandler<CreatePurchaseComman
         {
             _context.StockMovements.Add(new StockMovement
             {
-                ProductId = Guid.Parse(item.ProductId),
+                // ProductId = Guid.Parse(item.ProductId),
+                ProductId = item.ProductId,
                 PurchaseItem = item,
                 Quantity = item.Quantity,
                 Direction = MovementDirection.In, // Use your actual enum value if different

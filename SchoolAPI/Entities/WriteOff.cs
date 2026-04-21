@@ -6,10 +6,10 @@ public class WriteOff
 
     public string WriteOffNumber { get; set; } = string.Empty; // WO-2024-001
 
-    public Guid ProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;
 
-    public Guid? PurchaseItemId { get; set; }
+    public string? PurchaseItemId { get; set; }
     public PurchaseItem? PurchaseItem { get; set; }
 
     public int Quantity { get; set; }

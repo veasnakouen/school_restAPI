@@ -482,7 +482,7 @@ UnitTest1.cs
  system.composition.hosting/7.0.0/lib/net7.0/System.Composition.Hosting.dll
  system.composition.runtime/7.0.0/lib/net7.0/System.Composition.Runtime.dll
  system.composition.typedparts/7.0.0/lib/net7.0/System.Composition.TypedParts.dll
- system.data.sqlclient/4.5.1/ref/netcoreapp2.1/System.Data.SqlClient.dll
+ system.data.sqlclient/4.9.1/lib/net8.0/System.Data.SqlClient.dll
  system.drawing.common/10.0.5/lib/net10.0/
   System.Drawing.Common.dll
   System.Private.Windows.Core.dll

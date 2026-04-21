@@ -300,7 +300,7 @@ namespace SchoolAPI.Extensions
             services.AddSwaggerGen(c =>
             {
                 c.CustomSchemaIds(type => type.FullName);
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v2" });
+                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
                 c.AddSecurityDefinition(BearerScheme, new OpenApiSecurityScheme
                 {
                     In = ParameterLocation.Header,
@@ -313,16 +313,8 @@ namespace SchoolAPI.Extensions
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
                     {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = BearerScheme
-                            },
-                            Scheme = "auth2",
-                            Name = BearerScheme,
-                            In=ParameterLocation.Header,
+                        new OpenApiSecurityScheme {
+                            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = BearerScheme }
                         },
                         Array.Empty<string>()
                     }

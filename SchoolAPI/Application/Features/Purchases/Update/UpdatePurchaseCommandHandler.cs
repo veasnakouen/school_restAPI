@@ -64,7 +64,7 @@ public class UpdatePurchaseCommandHandler : IRequestHandler<UpdatePurchaseComman
             // Revert previous stock movements for this purchase
             _context.StockMovements.Add(new StockMovement
             {
-                ProductId = Guid.Parse(oldItem.ProductId),
+                ProductId = oldItem.ProductId,
                 PurchaseItem = oldItem,
                 Quantity = oldItem.Quantity,
                 Direction = MovementDirection.Out,
@@ -95,7 +95,8 @@ public class UpdatePurchaseCommandHandler : IRequestHandler<UpdatePurchaseComman
             // Add new stock movements
             _context.StockMovements.Add(new StockMovement
             {
-                ProductId = Guid.Parse(item.ProductId),
+                // ProductId = Guid.Parse(item.ProductId),
+                ProductId = item.ProductId,
                 PurchaseItem = newItem,
                 Quantity = item.Quantity,
                 Direction = MovementDirection.In,

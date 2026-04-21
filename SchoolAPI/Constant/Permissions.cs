@@ -1,3 +1,6 @@
+using System;
+using System.Linq;
+
 namespace SchoolAPI.Constant;
 
 public static class Permissions
@@ -203,6 +206,8 @@ public static class Permissions
             Roles.Admin => All,
             Roles.DataEntry => [.. MasterData, .. Inventory],
             Roles.Teacher => Academics,
+            "Inventory" => Inventory,
+            "InventoryViewer" => Inventory.Where(p => p.EndsWith(".read", StringComparison.OrdinalIgnoreCase)).ToArray(),
             _ => []
         };
     }

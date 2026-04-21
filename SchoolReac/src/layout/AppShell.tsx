@@ -48,6 +48,7 @@ export const AppShell: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useLocalStorage('sidebarOpen', window.innerWidth >= 1024);
     const [isCompact, setIsCompact] = useLocalStorage('sidebarCompact', false);
     const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
+    const isAdmin = user?.roles?.includes('Admin');
 
     const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorElUser(event.currentTarget);
     const handleCloseUserMenu = () => setAnchorElUser(null);
@@ -93,6 +94,8 @@ export const AppShell: React.FC = () => {
             <Divider />
             <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
                 {navigationItems.map((item) => {
+                    if (item.path.startsWith('/admin') && !isAdmin) return null;
+
                     const isActive = location.pathname.startsWith(item.path);
                     return (
                         <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>

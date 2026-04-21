@@ -11,10 +11,10 @@ public class StockMovement
     public MovementDirection Direction { get; set; } // In / Out / Neutral
 
     // ── What moved ──────────────────────
-    public Guid ProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;
 
-    public Guid? PurchaseItemId { get; set; }    // which specific purchase batch
+    public string? PurchaseItemId { get; set; }    // which specific purchase batch
     public PurchaseItem? PurchaseItem { get; set; }
 
     public int Quantity { get; set; }            // always positive
@@ -51,4 +51,3 @@ public class StockMovement
     public DateTime MovedAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
-

@@ -27,4 +27,23 @@ public class BaseController : ControllerBase
 
         return BadRequest(new { message = result.ErrorMessage });
     }
+
+    /// <summary>
+    /// Handles a non-generic result for operations that don't return data (e.g., delete).
+    /// </summary>
+    /// <param name="result">The result object from a handler.</param>
+    /// <returns>An IActionResult representing the outcome.</returns>
+    protected IActionResult HandleResult(Result result)
+    {
+        if (result is null)
+            return StatusCode(StatusCodes.Status500InternalServerError, new { message = "An unexpected error occurred: Result was null." });
+
+        if (result.IsSuccess)
+            return Ok();
+
+        if (result.ErrorMessage.Contains("not found", StringComparison.OrdinalIgnoreCase))
+            return NotFound(new { message = result.ErrorMessage });
+
+        return BadRequest(new { message = result.ErrorMessage });
+    }
 }

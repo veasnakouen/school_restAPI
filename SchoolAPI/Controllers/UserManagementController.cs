@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using System.Linq;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Interfaces;
 using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
 using SchoolAPI.Constant;
@@ -14,7 +16,7 @@ using SchoolAPI.Application.Common.Models;
 
 namespace SchoolAPI.Controllers;
 
-[Route("api/[controller]")]
+[Route("api/users")]
 [ApiController]
 [Authorize(Roles = "Admin")] // Protect this controller at the Admin level or use a specific Policy
 public class UserManagementController : ControllerBase
@@ -23,13 +25,15 @@ public class UserManagementController : ControllerBase
     private readonly RoleManager<AppRole> _roleManager;
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
+    private readonly IPhotoService _photoService;
 
-    public UserManagementController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IApplicationDbContext context, IMapper mapper)
+    public UserManagementController(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IApplicationDbContext context, IMapper mapper, IPhotoService photoService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _context = context;
         _mapper = mapper;
+        _photoService = photoService;
     }
 
     [HttpGet]
@@ -260,7 +264,9 @@ public class UserManagementController : ControllerBase
 
         return Ok(userDetail);
     }
+
     [HttpDelete("{userId}")]
+    [Authorize(Roles = "SuperAdmin")]
     public async Task<IActionResult> DeleteUser(string userId)
     {
         var user = await _userManager.FindByIdAsync(userId);
@@ -412,6 +418,25 @@ public class UserManagementController : ControllerBase
         }
 
         return Ok(new { Message = "Password reset successfully." });
+    }
+
+    [HttpPost("{userId}/avatar")]
+    public async Task<IActionResult> UploadUserAvatar(string userId, [FromForm] IFormFile file)
+    {
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return NotFound("User not found");
+
+        if (file == null || file.Length == 0) return BadRequest("No file uploaded.");
+
+        var result = await _photoService.UploadPhotoAsync(file);
+        if (result.Error != null) return BadRequest(result.Error.Message);
+
+        user.ImageUrl = result.SecureUrl.AbsoluteUri;
+
+        var updateResult = await _userManager.UpdateAsync(user);
+        if (!updateResult.Succeeded) return BadRequest(updateResult.Errors);
+
+        return Ok(new { imageUrl = user.ImageUrl, Message = "Avatar updated successfully." });
     }
 }
 

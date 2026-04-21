@@ -1,3 +1,5 @@
+<!-- slide -->
+
 # School REST API (ASP.NET Core)
 
 A simple ASP.NET Core Web API for managing school data (students, classes, teachers, and enrollments). This repository provides endpoints to create, read, update, and delete resources and is intended as a starter/template for building a school management API in C#.

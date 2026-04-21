@@ -28,7 +28,7 @@ export const DashboardData: React.FC = () => {
 
   const stats = {
     products: productsRes?.totalCount || 0,
-    users: usersRes?.length || 0,
+    users: usersRes?.totalCount || usersRes?.items?.length || 0,
     roles: rolesRes?.length || 0,
   };
 

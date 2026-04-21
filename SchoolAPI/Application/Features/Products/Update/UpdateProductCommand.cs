@@ -4,4 +4,4 @@ using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Application.Features.Products.Update;
 
-public record UpdateProductCommand(string ProductId, ProductDto Product) : IRequest<Result<ProductDto>>;
+public record UpdateProductCommand(string ProductId, ProductDto ProductDto) : IRequest<Result<ProductDto>>;

@@ -6,7 +6,7 @@ public class AssetTransfer
 
     public string TransferNumber { get; set; } = string.Empty; // TR-2024-001
 
-    public Guid ProductId { get; set; }
+    public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;
 
     public int Quantity { get; set; }

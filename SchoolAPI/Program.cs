@@ -143,6 +143,9 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Enforce maintenance mode for non-admins
+app.UseMiddleware<MaintenanceModeMiddleware>();
+
 app.MapControllers();
 
 // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../auth/AuthContext';
 import { Box, Grid, Card, CardContent, Typography, CircularProgress, Alert } from '@mui/material';
 import {
   Inventory2 as InventoryIcon,
@@ -43,6 +44,7 @@ interface SummaryData {
   totalRoles: number;
   totalCategories: number;
   productsByCategory: { [key: string]: number };
+  salesByMonth: { [key: string]: number };
 }
 
 const SummaryCard: React.FC<{ title: string; value: string | number; icon: React.ReactElement; linkTo: string; }> = ({ title, value, icon, linkTo }) => {
@@ -83,22 +85,38 @@ export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const barChartRef = useRef<ChartJS<'bar'>>(null);
   const muiTheme = useMuiTheme();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('Admin');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
         // Fetch all data in parallel for efficiency
-        const [productsResult, usersResult, roles, categories] = await Promise.all([
-          api.getProducts({ pageNumber: 1, pageSize: 10000 }), // Fetch all products to categorize
-          api.getUsers({ pageSize: 1 }), // We only need the totalCount
-          api.getRoles(),
-          api.getCategories(),
+        const [productsResult, usersResult, roles, categories, transactionsResult] = await Promise.all([
+          api.getProducts({ pageNumber: 1, pageSize: 10000 }).catch(() => ({ items: [], totalCount: 0 })),
+          isAdmin ? api.getUsers({ pageSize: 1 }).catch(() => ({ items: [], totalCount: 0 })) : Promise.resolve({ items: [], totalCount: 0 }),
+          isAdmin ? api.getRoles().catch(() => []) : Promise.resolve([]),
+          api.getCategories().catch(() => []),
+          // Fetch transactions. If api.getTransactions isn't defined yet, this safely defaults to empty.
+          (api as any).getTransactions ? (api as any).getTransactions({ pageNumber: 1, pageSize: 10000 }).catch(() => ({ items: [] })) : Promise.resolve({ items: [] }),
         ]);
 
         const productsByCategory = productsResult.items.reduce((acc, product) => {
           const category = product.categoryName || 'Uncategorized';
           acc[category] = (acc[category] || 0) + 1;
+          return acc;
+        }, {} as { [key: string]: number });
+
+        // Group transactions by month for the line chart
+        const salesByMonth = transactionsResult.items.reduce((acc: { [key: string]: number }, transaction: any) => {
+          const dateStr = transaction.transactionDate || transaction.createdAt || transaction.date;
+          if (!dateStr) return acc;
+          
+          const date = new Date(dateStr);
+          const month = date.toLocaleString('default', { month: 'short', year: 'numeric' }); // e.g. "Oct 2024"
+          
+          acc[month] = (acc[month] || 0) + (transaction.totalAmount || transaction.amount || 0);
           return acc;
         }, {} as { [key: string]: number });
 
@@ -108,6 +126,7 @@ export const Dashboard: React.FC = () => {
           totalRoles: roles.length,
           totalCategories: categories.length,
           productsByCategory,
+          salesByMonth,
         });
       } catch (err: any) {
         const message = err.response?.data?.title || 'Failed to load dashboard data.';
@@ -133,13 +152,14 @@ export const Dashboard: React.FC = () => {
     ],
   };
 
-  // Mock data for sales over time
+  const sortedSalesMonths = summary ? Object.keys(summary.salesByMonth).sort((a, b) => new Date(a).getTime() - new Date(b).getTime()) : [];
+
   const lineChartData = {
-    labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+    labels: sortedSalesMonths,
     datasets: [
       {
-        label: 'Sales Over Time (Mock Data)',
-        data: [65, 59, 80, 81, 56, 55, 40],
+        label: 'Transaction Activity',
+        data: summary ? sortedSalesMonths.map(month => summary.salesByMonth[month]) : [],
         fill: true,
         backgroundColor: muiTheme.palette.secondary.light + '60', // Add alpha transparency
         borderColor: muiTheme.palette.secondary.main,
@@ -194,23 +214,27 @@ export const Dashboard: React.FC = () => {
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       <Grid container spacing={3}>
         {/* Summary Cards */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={isAdmin ? 3 : 6}>
           <SummaryCard title="Total Products" value={summary?.totalProducts ?? 0} icon={<InventoryIcon />} linkTo="/products" />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <SummaryCard title="Total Users" value={summary?.totalUsers ?? 0} icon={<GroupIcon />} linkTo="/admin/users" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <SummaryCard title="Total Roles" value={summary?.totalRoles ?? 0} icon={<SecurityIcon />} linkTo="/admin/roles" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        {isAdmin && (
+          <>
+            <Grid item xs={12} sm={6} md={3}>
+              <SummaryCard title="Total Users" value={summary?.totalUsers ?? 0} icon={<GroupIcon />} linkTo="/admin/users" />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <SummaryCard title="Total Roles" value={summary?.totalRoles ?? 0} icon={<SecurityIcon />} linkTo="/admin/roles" />
+            </Grid>
+          </>
+        )}
+        <Grid item xs={12} sm={6} md={isAdmin ? 3 : 6}>
           <SummaryCard title="Total Categories" value={summary?.totalCategories ?? 0} icon={<CategoryIcon />} linkTo="/products" />
         </Grid>
 
         {/* Charts */}
         <Grid item xs={12} lg={8}>
           <Card sx={{ p: 2, boxShadow: 3 }}>
-            <Typography variant="h6" gutterBottom>Sales Activity (Mock)</Typography>
+            <Typography variant="h6" gutterBottom>Transaction Activity</Typography>
             <Line options={chartOptions} data={lineChartData} />
           </Card>
         </Grid>
