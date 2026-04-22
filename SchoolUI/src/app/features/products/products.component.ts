@@ -1,12 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { CategoryApiService } from '../../core/services/category-api.service';
 import { ProductDto, CreateProductRequest, CategoryDto, ProductPurchaseHistoryDto, BrandDto, DepartmentDto, PersonDto, SupplierDto } from '../../models/inventory.model';
 import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize, forkJoin } from 'rxjs';
+import { finalize, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -19,7 +22,7 @@ import autoTable from 'jspdf-autotable';
       <div class="space-y-2">
         <div class="flex flex-row items-center gap-2">
           <span class="badge badge-success badge-outline">Inventory</span>
-          <span class="badge badge-ghost">{{ totalItems }}products</span>
+          <span class="badge badge-ghost">{{ totalItems }} products</span>
         </div>
         <h2 class="section-title text-base-content">Products</h2>
         <p class="max-w-2xl text-sm text-base-content/65"></p>
@@ -1161,6 +1164,7 @@ export class ProductsComponent implements OnInit {
   private readonly api = inject(ProductApiService);
   private readonly categoryApi = inject(CategoryApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly http = inject(HttpClient);
 
   protected products: ProductDto[] = [];
   protected categories: CategoryDto[] = [];
@@ -1266,13 +1270,18 @@ export class ProductsComponent implements OnInit {
 
   protected loadLookups(): void {
     this.lookupsLoading = true;
-    // NOTE: This assumes your ProductApiService (this.api) has methods to fetch these lookups.
+    // Fetch lookups directly via HttpClient to bypass missing methods in ProductApiService
     forkJoin({
       categories: this.categoryApi.list(),
-      brands: this.api.getBrands(),
-      departments: this.api.getDepartments(),
-      persons: this.api.getPersons(),
-      suppliers: this.api.getSuppliers()
+      brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand'),
+      departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department'),
+      persons: this.http.get<PersonDto[]>('http://localhost:5001/api/Person'),
+      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier')
+      categories: this.categoryApi.list().pipe(catchError(() => of([]))),
+      brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand').pipe(catchError(() => of([]))),
+      departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department').pipe(catchError(() => of([]))),
+      persons: this.http.get<PersonDto[]>('http://localhost:5001/api/Person').pipe(catchError(() => of([]))),
+      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier').pipe(catchError(() => of([])))
     }).subscribe({
       next: (results: any) => {
         this.categories = results.categories?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
@@ -1280,6 +1289,11 @@ export class ProductsComponent implements OnInit {
         this.departments = results.departments?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
         this.persons = results.persons?.sort((a: any, b: any) => a.fullName.localeCompare(b.fullName)) ?? [];
         this.suppliers = results.suppliers?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
+        this.categories = results.categories?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
+        this.brands = results.brands?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
+        this.departments = results.departments?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
+        this.persons = results.persons?.sort((a: any, b: any) => (a.fullName || '').localeCompare(b.fullName || '')) ?? [];
+        this.suppliers = results.suppliers?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
         this.lookupsLoading = false;
         this.cdr.detectChanges();
       },
@@ -1848,6 +1862,39 @@ export class ProductsComponent implements OnInit {
     });
   }
 
+  protected confirmBulkDelete(): void {
+    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.showModal();
+    }
+  }
+
+  protected closeBulkDeleteModal(): void {
+    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.close();
+    }
+  }
+
+  protected executeBulkDelete(): void {
+    if (this.selectedProducts.size === 0) return;
+
+    const deleteRequests = Array.from(this.selectedProducts).map(id => this.api.delete(id));
+
+    forkJoin(deleteRequests).subscribe({
+      next: () => {
+        this.showMessage('success', 'Bulk Delete Successful', `${this.selectedProducts.size} products have been deleted.`);
+        this.loadProducts(); // This will also clear selections
+        this.closeBulkDeleteModal();
+      },
+      error: (err) => {
+        this.showMessage('error', 'Bulk Delete Failed', 'Some products could not be deleted. Please try again.');
+        console.error('Error during bulk delete:', err);
+        this.closeBulkDeleteModal();
+      }
+    });
+  }
+
   protected showMessage(type: 'success' | 'error' | 'warning', title: string, content: string): void {
     this.messageType = type;
     this.messageTitle = title;
@@ -1900,7 +1947,7 @@ export class ProductsComponent implements OnInit {
 
     // If editing, delete existing image from server
     if (this.isEditing && this.selectedProduct.id) {
-      this.api.deleteImage(this.selectedProduct.id).subscribe({
+      this.http.delete(`http://localhost:5001/api/inventory/products/${this.selectedProduct.id}/image`).subscribe({
         next: () => {
           this.selectedProduct.imageUrl = null;
           this.cdr.detectChanges();
@@ -1923,7 +1970,10 @@ export class ProductsComponent implements OnInit {
         return;
       }
 
-      this.api.uploadImage(productId, fileToUpload).subscribe({
+      const formData = new FormData();
+      formData.append('file', fileToUpload);
+
+      this.http.post<{ imageUrl: string }>(`http://localhost:5001/api/inventory/products/${productId}/image`, formData).subscribe({
         next: (result) => {
           if (result?.imageUrl) {
             this.selectedProduct.imageUrl = result.imageUrl;
@@ -1955,7 +2005,7 @@ export class ProductsComponent implements OnInit {
   }
 
   protected async deleteProductImage(productId: string): Promise<void> {
-    this.api.deleteImage(productId).subscribe({
+    this.http.delete(`http://localhost:5001/api/inventory/products/${productId}/image`).subscribe({
       next: () => {
         this.selectedProduct.imageUrl = null;
         this.selectedImageUrl = null;
@@ -2327,5 +2377,5 @@ export class ProductsComponent implements OnInit {
   private getTimestamp(): string {
     const now = new Date();
     return now.toISOString().slice(0, 10);
-  }
+  }                                                                                                   
 }

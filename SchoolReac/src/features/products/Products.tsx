@@ -39,6 +39,7 @@ export const Products: React.FC = () => {
   const [brands, setBrands] = useState<api.BrandDto[]>([]);
   const [departments, setDepartments] = useState<api.DepartmentDto[]>([]);
   const [persons, setPersons] = useState<api.PersonDto[]>([]);
+  const [suppliers, setSuppliers] = useState<api.SupplierDto[]>([]);
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,12 +85,26 @@ export const Products: React.FC = () => {
   // Menu State
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(ALL_COLUMNS.map(c => c.id));
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
+    const saved = localStorage.getItem('products_visible_columns');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse visible columns from local storage', e);
+      }
+    }
+    return ALL_COLUMNS.map(c => c.id);
+  });
   const viewModalContentRef = useRef<HTMLDivElement>(null);
 
   const filter = createFilterOptions<any>();
 
   const { showToast } = useToast();
+
+  useEffect(() => {
+    localStorage.setItem('products_visible_columns', JSON.stringify(visibleColumns));
+  }, [visibleColumns]);
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
@@ -162,16 +177,18 @@ export const Products: React.FC = () => {
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [cats, brnds, depts, pers] = await Promise.all([
-          api.getCategories(), 
-          api.getBrands(), 
-          api.getDepartments(),
-          api.getPersons()
+        const [cats, brnds, depts, pers, supps] = await Promise.all([
+          api.getCategories().catch(() => []), 
+          api.getBrands().catch(() => []), 
+          api.getDepartments().catch(() => []),
+          api.getPersons().catch(() => []),
+          api.getSuppliers().catch(() => [])
         ]);
-        setCategories(cats.sort((a, b) => a.name.localeCompare(b.name)));
-        setBrands(brnds.sort((a, b) => a.name.localeCompare(b.name)));
-        setDepartments(depts.sort((a, b) => a.name.localeCompare(b.name)));
-        setPersons(pers.sort((a, b) => a.fullName.localeCompare(b.fullName)));
+        setCategories(cats.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setBrands(brnds.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setDepartments(depts.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setPersons(pers.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')));
+        setSuppliers(supps.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
       } catch (err) {
         console.error("Failed to load lookups", err);
       }
