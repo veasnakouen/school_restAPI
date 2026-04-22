@@ -1,8 +1,7 @@
 namespace SchoolAPI.Entities;
 
-public class Product
+public class Product : BaseAuditableEntity
 {
-    public string Id { get; set; } = Guid.NewGuid().ToString();
     public string? CodeNumber { get; set; }
     public string ProductName { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
@@ -13,8 +12,6 @@ public class Product
 
     public bool IsActive { get; set; } = true;
     public DateTime? Year { get; set; }
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? UpdatedAt { get; set; }
     public string? PlateNumber { get; set; } 
     public string? EngineNumber { get; set; }
 

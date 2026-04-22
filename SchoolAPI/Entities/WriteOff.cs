@@ -1,9 +1,7 @@
 namespace SchoolAPI.Entities;
 
-public class WriteOff
+public class WriteOff : BaseAuditableEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     public string WriteOffNumber { get; set; } = string.Empty; // WO-2024-001
 
     public string ProductId { get; set; } = string.Empty;
@@ -37,8 +35,6 @@ public class WriteOff
 
     public string? SupportingDocument { get; set; } // file path/url
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public Guid? StockMovementId { get; set; }
+    public string? StockMovementId { get; set; }
     public StockMovement? StockMovement { get; set; }
 }

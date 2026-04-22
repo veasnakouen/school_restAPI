@@ -100,7 +100,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             QualityId = qualityId,
             DepartmentId = departmentId,
             IsActive = true,
-            CreatedAt = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow
         };
 
         _context.Products.Add(product);
@@ -168,7 +168,7 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                     // 3. Create the required Stock Movement
                     var stockMovement = new StockMovement
                     {
-                        Id = Guid.NewGuid(),
+                    Id = Guid.NewGuid().ToString(),
                         Type = MovementType.Purchase,
                         Direction = MovementDirection.In,
                         ProductId = product.Id,
@@ -181,14 +181,14 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
                         ToLocation = dto.DepartmentName ?? "",
                         Reason = "Initial stock acquisition",
                         MovedAt = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow
+                    CreatedDate = DateTime.UtcNow
                     };
                     _context.StockMovements.Add(stockMovement);
 
                     // 4. Create the Asset Assignment
                     var assignment = new AssetAssignment
                     {
-                        Id = Guid.NewGuid(),
+                    Id = Guid.NewGuid().ToString(),
                         ProductId = product.Id,
                         PurchaseItemId = purchaseItem.Id,
                         Quantity = dto.InitialQuantity.Value,

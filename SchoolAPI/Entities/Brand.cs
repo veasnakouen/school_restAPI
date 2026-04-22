@@ -1,6 +1,6 @@
 namespace SchoolAPI.Entities;
 
-public class Brand : BaseEntity
+public class Brand : BaseAuditableEntity
 {
     public string Name { get; set; } = string.Empty;
 }

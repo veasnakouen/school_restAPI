@@ -253,9 +253,8 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.AssetAssignment", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("AssignedAt")
                         .HasColumnType("timestamp with time zone");
@@ -268,6 +267,12 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<int?>("ConditionOnReturn")
                         .HasColumnType("integer");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("ExpectedReturnDate")
                         .HasColumnType("timestamp with time zone");
@@ -307,8 +312,15 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<Guid>("StockMovementId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("StockMovementId")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -331,9 +343,8 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.AssetTransfer", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("AcknowledgedAt")
                         .HasColumnType("timestamp with time zone");
@@ -341,7 +352,10 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<Guid?>("AcknowledgedById")
                         .HasColumnType("uuid");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FromLocation")
@@ -369,8 +383,8 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("StockMovementId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("StockMovementId")
+                        .HasColumnType("text");
 
                     b.Property<string>("ToLocation")
                         .IsRequired()
@@ -381,6 +395,12 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<string>("TransferNumber")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
                     b.HasKey("Id");
@@ -432,6 +452,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -442,6 +465,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Brands");
@@ -450,6 +476,9 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.Category", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedDate")
@@ -470,6 +499,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -496,6 +528,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -510,6 +545,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Departments");
@@ -518,6 +556,9 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.Donor", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedDate")
@@ -538,6 +579,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Donors");
@@ -545,9 +589,8 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.MaintenanceRecord", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<decimal?>("ActualCost")
                         .HasColumnType("numeric");
@@ -561,7 +604,10 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("ConditionBefore")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("EstimatedCost")
@@ -584,14 +630,14 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("ResolutionDescription")
                         .HasColumnType("text");
 
-                    b.Property<Guid?>("ReturnedFromMaintenanceMovementId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("ReturnedFromMaintenanceMovementId")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("ScheduledDate")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("SentForMaintenanceMovementId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("SentForMaintenanceMovementId")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("StartedAt")
                         .HasColumnType("timestamp with time zone");
@@ -604,6 +650,12 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -770,7 +822,10 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("CodeNumber")
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DepartmentId")
@@ -805,8 +860,11 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("TotalQuantity")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("UpdatedAt")
+                    b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("Year")
                         .HasColumnType("timestamp with time zone");
@@ -865,6 +923,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -888,6 +949,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.Property<string>("VoucherNumber")
                         .HasColumnType("text");
 
@@ -901,6 +965,9 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.PurchaseItem", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedDate")
@@ -943,6 +1010,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ProductId");
@@ -959,6 +1029,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -969,6 +1042,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Qualities");
@@ -977,6 +1053,9 @@ namespace SchoolAPI.Data.Migrations
             modelBuilder.Entity("SchoolAPI.Entities.Responser", b =>
                 {
                     b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedDate")
@@ -997,6 +1076,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Responsers");
@@ -1004,11 +1086,13 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.StockMovement", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("Direction")
@@ -1068,6 +1152,12 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<decimal?>("UnitPriceAtMovement")
                         .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -1138,6 +1228,9 @@ namespace SchoolAPI.Data.Migrations
                     b.PrimitiveCollection<List<string>>("ContactInfo")
                         .HasColumnType("text[]");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -1147,6 +1240,9 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 
@@ -1189,6 +1285,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
@@ -1228,6 +1327,9 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<DateTime?>("UpdateDate")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DepartmentId");
@@ -1243,9 +1345,8 @@ namespace SchoolAPI.Data.Migrations
 
             modelBuilder.Entity("SchoolAPI.Entities.WriteOff", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<string>("ApprovalNotes")
                         .HasColumnType("text");
@@ -1259,7 +1360,10 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("ConditionAtWriteOff")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("CreatedDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Description")
@@ -1287,10 +1391,16 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("integer");
 
-                    b.Property<Guid?>("StockMovementId")
-                        .HasColumnType("uuid");
+                    b.Property<string>("StockMovementId")
+                        .HasColumnType("text");
 
                     b.Property<string>("SupportingDocument")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("UpdateDate")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedBy")
                         .HasColumnType("text");
 
                     b.Property<string>("WriteOffNumber")

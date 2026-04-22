@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
+using SchoolAPI.Extensions;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -49,10 +50,7 @@ namespace SchoolAPI.Application.Features.StockMovements.GetAll
                         ? request.isAscending ? query.OrderBy(sm => sm.Product != null ? sm.Product.ProductName : "") : query.OrderByDescending(sm => sm.Product != null ? sm.Product.ProductName : "")
                         : query.OrderByDescending(sm => sm.MovedAt);
 
-            var totalCount = await query.CountAsync(cancellationToken);
-            var pageNumber = request.pageNumber < 1 ? 1 : request.pageNumber;
-            var pageSize = request.pageSize < 1 ? 10 : request.pageSize;
-            var dtos = await query.Skip((pageNumber - 1) * pageSize).Take(pageSize).Select(sm => new StockMovementDto
+            var pagedResult = await query.Select(sm => new StockMovementDto
             {
                 Id = sm.Id.ToString(),
                 Type = sm.Type.ToString(),
@@ -70,11 +68,10 @@ namespace SchoolAPI.Application.Features.StockMovements.GetAll
                 ReferenceNumber = sm.ReferenceNumber,
                 Notes = sm.Notes,
                 MovedAt = sm.MovedAt,
-                CreatedAt = sm.CreatedAt
-            }).ToListAsync(cancellationToken);
+                CreatedAt = sm.CreatedDate ?? DateTime.UtcNow
+            }).ToPagedResultAsync(request.pageNumber, request.pageSize, cancellationToken);
 
-            var result = new PagedResult<StockMovementDto> { Items = dtos, TotalCount = totalCount, PageNumber = pageNumber, PageSize = pageSize };
-            return Result<PagedResult<StockMovementDto>>.Success(result);
+            return Result<PagedResult<StockMovementDto>>.Success(pagedResult);
         }
     }
 }

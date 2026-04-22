@@ -2,10 +2,8 @@ namespace SchoolAPI.Entities;
 // ─────────────────────────────────────
 // Every single movement is one record
 // ─────────────────────────────────────
-public class StockMovement
+public class StockMovement : BaseAuditableEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     public MovementType Type { get; set; }
 
     public MovementDirection Direction { get; set; } // In / Out / Neutral
@@ -49,5 +47,4 @@ public class StockMovement
     public int? PercentNewAfter { get; set; }
 
     public DateTime MovedAt { get; set; } = DateTime.UtcNow;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

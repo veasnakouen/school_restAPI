@@ -7,7 +7,6 @@ import { CategoryApiService } from '../../core/services/category-api.service';
 import { ProductDto, CreateProductRequest, CategoryDto, ProductPurchaseHistoryDto, BrandDto, DepartmentDto, PersonDto, SupplierDto } from '../../models/inventory.model';
 import { QueryOptions } from '../../models/paging.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
-import { finalize, forkJoin } from 'rxjs';
 import { finalize, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { jsPDF } from 'jspdf';
@@ -43,8 +42,8 @@ import autoTable from 'jspdf-autotable';
             class="select select-bordered w-full max-w-xs"
           >
             <option value="">All Categories</option>
-            @for (cat of categories; track cat.id) {
-              <option [value]="cat.name">{{ cat.name }}</option>
+            @for (catName of uniqueCategories; track catName) {
+              <option [value]="catName">{{ catName }}</option>
             }
           </select>
           <button type="button" class="btn btn-success btn-sm btn-outline gap-2" (click)="openCreateModal()">
@@ -558,7 +557,7 @@ import autoTable from 'jspdf-autotable';
                     <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')">✕</button>
                   }
                 </div>
-                @if (showSuggestions['category'] && filteredSuggestions['category']?.length > 0) {
+                @if (showSuggestions['category'] && (filteredSuggestions['category']?.length ?? 0) > 0) {
                   <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['category']; track suggestion) {
                       <li (mousedown)="selectSuggestion('category', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
@@ -584,7 +583,7 @@ import autoTable from 'jspdf-autotable';
                     <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')">✕</button>
                   }
                 </div>
-                @if (showSuggestions['brand'] && filteredSuggestions['brand']?.length > 0) {
+                @if (showSuggestions['brand'] && (filteredSuggestions['brand']?.length ?? 0) > 0) {
                   <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['brand']; track suggestion) {
                       <li (mousedown)="selectSuggestion('brand', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
@@ -612,7 +611,7 @@ import autoTable from 'jspdf-autotable';
                     <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')">✕</button>
                   }
                 </div>
-                @if (showSuggestions['department'] && filteredSuggestions['department']?.length > 0) {
+                @if (showSuggestions['department'] && (filteredSuggestions['department']?.length ?? 0) > 0) {
                   <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['department']; track suggestion) {
                       <li (mousedown)="selectSuggestion('department', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
@@ -720,125 +719,85 @@ import autoTable from 'jspdf-autotable';
           </div>
 
           <!-- Stock Acquisition -->
-          <div class="divider my-2">{{ isEditing ? 'Add New Stock (Optional)' : 'Initial Stock / Acquisition' }}</div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
-              <div class="form-control w-full">
-                <label class="label"><span class="label-text font-semibold">Acquisition Type</span></label>
-                <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100">
-                  <option [ngValue]="null">None (Just setup product catalog)</option>
-                  <option value="Purchased">Purchased</option>
-                  <option value="Donated">Donated</option>
-                </select>
+          @if (!isEditing || (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None')) {
+            <div class="divider my-2">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
+                <div class="form-control w-full">
+                  <label class="label"><span class="label-text font-semibold">Acquisition Type</span></label>
+                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100">
+                    <option [ngValue]="null">None (Just setup product catalog)</option>
+                    <option value="Purchased">Purchased</option>
+                    <option value="Donated">Donated</option>
+                  </select>
+                </div>
+                
+                @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
+                  <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
+                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" />
+                  </div>
+                  <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
+                    <div class="relative">
+                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                      <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        @if (lookupsLoading) {
+                          <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                        }
+                        @if (selectedProduct.responsiblePerson) {
+                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
+                        }
+                      </div>
+                      @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
+                        <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                          @for (suggestion of filteredSuggestions['person']; track suggestion) {
+                            <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                              {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  </div>
+                }
+                
+                @if (selectedProduct.purchaseType === 'Purchased') {
+                  <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-semibold">Supplier Name</span></label>
+                    <div class="relative">
+                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" />
+                      <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        @if (lookupsLoading) {
+                          <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                        }
+                        @if (selectedProduct.supplierName) {
+                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')">✕</button>
+                        }
+                      </div>
+                      @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
+                        <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                          @for (suggestion of filteredSuggestions['supplier']; track suggestion) {
+                            <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
+                              {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  </div>
+                  <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
+                    <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
+                  </div>
+                }
+                
+                @if (selectedProduct.purchaseType === 'Donated') {
+                  <div class="form-control w-full">
+                    <label class="label"><span class="label-text font-semibold">Donor Name</span></label>
+                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" placeholder="e.g. John Doe" />
+                  </div>
+                }
               </div>
-              
-              @if (selectedProduct.purchaseType) {
-                <div class="form-control w-full">
-                  <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
-                  <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" />
-                </div>
-                <div class="form-control w-full">
-                  <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
-                  <div class="relative">
-                    <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      @if (lookupsLoading) {
-                        <span class="loading loading-spinner loading-sm text-base-content/40"></span>
-                      }
-                      @if (selectedProduct.responsiblePerson) {
-                        <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
-                      }
-                    </div>
-                    @if (showSuggestions['person'] && filteredSuggestions['person']?.length > 0) {
-                      <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                        @for (suggestion of filteredSuggestions['person']; track suggestion) {
-                          <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                            {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
-                          </li>
-                        }
-                      </ul>
-                    }
-                  </div>
-                </div>
-              }
-              
-              @if (selectedProduct.purchaseType === 'Purchased') {
-                <div class="form-control w-full">
-                  <label class="label"><span class="label-text font-semibold">Supplier Name</span></label>
-                  <div class="relative">
-                    <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" />
-                    <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      @if (lookupsLoading) {
-                        <span class="loading loading-spinner loading-sm text-base-content/40"></span>
-                      }
-                      @if (selectedProduct.supplierName) {
-                        <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')">✕</button>
-                      }
-                    </div>
-                    @if (showSuggestions['supplier'] && filteredSuggestions['supplier']?.length > 0) {
-                      <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                        @for (suggestion of filteredSuggestions['supplier']; track suggestion) {
-                          <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                            {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
-                          </li>
-                        }
-                      </ul>
-                    }
-                  </div>
-                </div>
-                <div class="form-control w-full">
-                  <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
-                  <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
-                </div>
-              }
-              
-              @if (selectedProduct.purchaseType === 'Donated') {
-                <div class="form-control w-full">
-                  <label class="label"><span class="label-text font-semibold">Donor Name</span></label>
-                  <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" placeholder="e.g. John Doe" />
-                </div>
-              }
-            </div>
-
-          <!-- Purchase History Table for Edit Modal -->
-          @if (isEditing) {
-            <div class="divider my-2">Purchase History</div>
-            <div class="overflow-x-auto rounded-xl border border-base-300">
-              <table class="table table-zebra table-sm w-full">
-                <thead class="bg-base-200">
-                  <tr>
-                    <th>Date</th>
-                    <th>Voucher #</th>
-                    <th>Supplier</th>
-                    <th class="text-right">Qty</th>
-                    <th class="text-right">Unit Price</th>
-                    <th class="text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @if (historyLoading) {
-                    <tr><td colspan="6" class="text-center py-4"><span class="loading loading-spinner loading-sm"></span></td></tr>
-                  } @else if (purchaseHistory.length === 0) {
-                    <tr><td colspan="6" class="text-center py-4 text-base-content/60">No purchase history found for this product.</td></tr>
-                  } @else {
-                    @for (item of purchaseHistory; track item.purchaseId) {
-                      <tr>
-                        <td>{{ item.purchaseDate | date:'shortDate' }}</td>
-                        <td>{{ item.voucherNumber || '-' }}</td>
-                        <td>{{ item.supplierName || '-' }}</td>
-                        <td class="text-right">{{ item.quantity }}</td>
-                        <td class="text-right">{{ item.unitPrice | currency }}</td>
-                        <td class="text-right">{{ item.totalPrice | currency }}</td>
-                      </tr>
-                    }
-                  }
-                </tbody>
-                <tfoot class="bg-base-200 font-bold">
-                  <tr>
-                    <td colspan="6" class="text-right">Total Purchased: {{ getTotalPurchased() }} units</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
           }
 
           <div class="modal-action">
@@ -1185,6 +1144,20 @@ export class ProductsComponent implements OnInit {
   protected showSuggestions: { [key: string]: boolean } = {};
   private suggestionTimeout: any;
 
+  protected get uniqueCategories(): string[] {
+    const map = new Map<string, string>();
+    this.categories.forEach(c => c.name && map.set(c.name.toLowerCase().trim(), c.name));
+    this.products.forEach(p => p.categoryName && map.set(p.categoryName.toLowerCase().trim(), p.categoryName));
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+  }
+
+  protected get uniqueDepartments(): string[] {
+    const map = new Map<string, string>();
+    this.departments.forEach(d => d.name && map.set(d.name.toLowerCase().trim(), d.name));
+    this.products.forEach(p => p.departmentName && map.set(p.departmentName.toLowerCase().trim(), p.departmentName));
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+  }
+
   protected get isVehicleCategory(): boolean {
     const catName = (
       this.selectedProduct?.categoryName || 
@@ -1272,11 +1245,6 @@ export class ProductsComponent implements OnInit {
     this.lookupsLoading = true;
     // Fetch lookups directly via HttpClient to bypass missing methods in ProductApiService
     forkJoin({
-      categories: this.categoryApi.list(),
-      brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand'),
-      departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department'),
-      persons: this.http.get<PersonDto[]>('http://localhost:5001/api/Person'),
-      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier')
       categories: this.categoryApi.list().pipe(catchError(() => of([]))),
       brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand').pipe(catchError(() => of([]))),
       departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department').pipe(catchError(() => of([]))),
@@ -1284,16 +1252,22 @@ export class ProductsComponent implements OnInit {
       suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier').pipe(catchError(() => of([])))
     }).subscribe({
       next: (results: any) => {
-        this.categories = results.categories?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
-        this.brands = results.brands?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
-        this.departments = results.departments?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
-        this.persons = results.persons?.sort((a: any, b: any) => a.fullName.localeCompare(b.fullName)) ?? [];
-        this.suppliers = results.suppliers?.sort((a: any, b: any) => a.name.localeCompare(b.name)) ?? [];
-        this.categories = results.categories?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
-        this.brands = results.brands?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
-        this.departments = results.departments?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
-        this.persons = results.persons?.sort((a: any, b: any) => (a.fullName || '').localeCompare(b.fullName || '')) ?? [];
-        this.suppliers = results.suppliers?.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '')) ?? [];
+        const getUnique = (arr: any[] | null | undefined, key: string) => {
+          const map = new Map();
+          for (const item of arr ?? []) {
+            const val = item[key];
+            if (val && typeof val === 'string') {
+              map.set(val.toLowerCase().trim(), item);
+            }
+          }
+          return Array.from(map.values());
+        };
+
+        this.categories = getUnique(results.categories, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        this.brands = getUnique(results.brands, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        this.departments = getUnique(results.departments, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        this.persons = getUnique(results.persons, 'fullName').sort((a: any, b: any) => (a.fullName || '').localeCompare(b.fullName || ''));
+        this.suppliers = getUnique(results.suppliers, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         this.lookupsLoading = false;
         this.cdr.detectChanges();
       },
@@ -1321,16 +1295,25 @@ export class ProductsComponent implements OnInit {
       query.isAscending = this.isAscending;
     }
 
-    // Add category filter
-    if (this.filterCategory) {
-      query.filterOn = 'category';
+    // Find IDs based on selected filter names
+    const selectedCat = this.categories.find(c => c.name === this.filterCategory);
+    const selectedDept = this.departments.find(d => d.name === this.filterDepartment);
+
+    if (selectedCat?.id) (query as any).categoryId = selectedCat.id;
+    if (selectedDept?.id) (query as any).departmentId = selectedDept.id;
+
+    // Fallback for free-text filters that don't have IDs
+    if (this.filterCategory && !selectedCat?.id) {
+      query.filterOn = 'categoryName';
       query.filterQuery = this.filterCategory;
+    } else if (this.filterDepartment && !selectedDept?.id) {
+      query.filterOn = 'departmentName';
+      query.filterQuery = this.filterDepartment;
     }
 
     // Add search filter
     if (this.search && this.search.trim() !== '') {
-      query.filterOn = query.filterOn || 'name';
-      query.filterQuery = this.search.trim();
+      (query as any).name = this.search.trim();
     }
 
     this.api.list(query).pipe(
@@ -1862,39 +1845,6 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  protected confirmBulkDelete(): void {
-    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
-  }
-
-  protected closeBulkDeleteModal(): void {
-    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
-  }
-
-  protected executeBulkDelete(): void {
-    if (this.selectedProducts.size === 0) return;
-
-    const deleteRequests = Array.from(this.selectedProducts).map(id => this.api.delete(id));
-
-    forkJoin(deleteRequests).subscribe({
-      next: () => {
-        this.showMessage('success', 'Bulk Delete Successful', `${this.selectedProducts.size} products have been deleted.`);
-        this.loadProducts(); // This will also clear selections
-        this.closeBulkDeleteModal();
-      },
-      error: (err) => {
-        this.showMessage('error', 'Bulk Delete Failed', 'Some products could not be deleted. Please try again.');
-        console.error('Error during bulk delete:', err);
-        this.closeBulkDeleteModal();
-      }
-    });
-  }
-
   protected showMessage(type: 'success' | 'error' | 'warning', title: string, content: string): void {
     this.messageType = type;
     this.messageTitle = title;
@@ -2192,7 +2142,7 @@ export class ProductsComponent implements OnInit {
       case 'brand': return product.brandName || fallback;
       case 'quality': return product.quality || fallback;
       case 'responsiblePerson': return product.responsiblePerson || fallback;
-      case 'price': return product.price != null ? (isCsv ? product.price.toFixed(2) : `$${product.price.toFixed(2)}`) : fallback;
+      case 'price': return product.price != null ? `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
       default: return fallback;
     }
   }
@@ -2311,6 +2261,24 @@ export class ProductsComponent implements OnInit {
     const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
     const headersHtml = activeColumns.map(col => `<th>${col.label}</th>`).join('');
 
+    const priceIndex = activeColumns.findIndex(c => c.id === 'price');
+    let tfootHtml = '';
+    if (priceIndex !== -1) {
+      const totalValue = this.products.reduce((sum, p) => sum + (p.price || 0), 0);
+      const formattedTotal = `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      tfootHtml = `
+        <tfoot>
+          <tr>
+            ${activeColumns.map((col, index) => {
+              if (index === 0) return `<th>Total Value</th>`;
+              if (col.id === 'price') return `<th style="text-align: right;">${formattedTotal}</th>`;
+              return `<th></th>`;
+            }).join('')}
+          </tr>
+        </tfoot>
+      `;
+    }
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -2347,6 +2315,7 @@ export class ProductsComponent implements OnInit {
               </tr>
             `).join('')}
           </tbody>
+          ${tfootHtml}
         </table>
         <div class="footer">
           Total Products: ${this.products.length} | Generated: ${new Date().toLocaleString()}
@@ -2367,6 +2336,7 @@ export class ProductsComponent implements OnInit {
     const filters: string[] = [];
     if (this.search) filters.push(`Search: ${this.search}`);
     if (this.filterCategory) filters.push(`Category: ${this.filterCategory}`);
+    if (this.filterDepartment) filters.push(`Department: ${this.filterDepartment}`);
     if (this.sortBy) {
       const sortDirection = this.isAscending ? 'Ascending' : 'Descending';
       filters.push(`Sort: ${this.sortBy} (${sortDirection})`);

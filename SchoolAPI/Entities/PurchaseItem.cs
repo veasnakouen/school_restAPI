@@ -1,6 +1,6 @@
 namespace SchoolAPI.Entities;
 
-public class PurchaseItem : BaseEntity
+public class PurchaseItem : BaseAuditableEntity
 {
     // foreign key mapping to the Purchase this item belongs to
     public string PurchaseId { get; set; } = string.Empty;

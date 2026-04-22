@@ -14,6 +14,12 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
+        // Globally ignore audit fields across all mappings
+        AddGlobalIgnore("CreatedDate");
+        AddGlobalIgnore("UpdateDate");
+        AddGlobalIgnore("CreatedBy");
+        AddGlobalIgnore("UpdatedBy");
+
         // Class mappings
         CreateMap<ClassRoom, ClassDto>()
             .ForMember(dest => dest.Students, opt => opt.MapFrom(src => src.Students));
@@ -75,7 +81,6 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Category, opt => opt.Ignore())
             .ForMember(dest => dest.Brand, opt => opt.Ignore())
             .ForMember(dest => dest.Image, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
             .ForMember(dest => dest.CodeNumber, opt => opt.MapFrom(src => src.CodeNumber ?? string.Empty))
             .ForMember(dest => dest.Description, opt => opt.MapFrom(src => src.Description ?? string.Empty));
 
@@ -90,9 +95,7 @@ public class MappingProfile : Profile
             .ForMember(dest => dest.Product, opt => opt.Ignore())
             .ForMember(dest => dest.Donor, opt => opt.Ignore())
             .ForMember(dest => dest.Department, opt => opt.Ignore())
-            .ForMember(dest => dest.Responser, opt => opt.Ignore())
-            .ForMember(dest => dest.CreatedDate, opt => opt.Ignore())
-            .ForMember(dest => dest.UpdateDate, opt => opt.Ignore());
+            .ForMember(dest => dest.Responser, opt => opt.Ignore());
 
         // Purchase mappings
         CreateMap<Purchase, PurchaseDto>()

@@ -5,6 +5,7 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using SchoolAPI.Extensions;
 
 namespace SchoolAPI.Application.Features.Products.GetAll;
 
@@ -61,21 +62,17 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
                     query = request.IsAscending ? query.OrderBy(p => p.Department.Name) : query.OrderByDescending(p => p.Department.Name);
                     break;
                 default:
-                    query = request.IsAscending ? query.OrderBy(p => p.CreatedAt) : query.OrderByDescending(p => p.CreatedAt);
+                    query = request.IsAscending ? query.OrderBy(p => p.CreatedDate) : query.OrderByDescending(p => p.CreatedDate);
                     break;
             }
         }
         else
         {
             // Add a default sort order if none is specified
-            query = query.OrderByDescending(p => p.CreatedAt);
+            query = query.OrderByDescending(p => p.CreatedDate);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var products = await query
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+        var pagedResult = await query
             .Select(p => new ProductDto
             {
                 Id = p.Id,
@@ -89,13 +86,8 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
                 Year = p.Year,
                 Attributes = p.Attributes
             })
-            .ToListAsync(cancellationToken);
-
-        var pagedResult = new PagedResult<ProductDto> { 
-            Items = products, 
-            TotalCount = totalCount, 
-            PageNumber = request.PageNumber, 
-            PageSize = request.PageSize };
+            .ToPagedResultAsync(request.PageNumber, request.PageSize, cancellationToken);
+            
         return Result<PagedResult<ProductDto>>.Success(pagedResult);
     }
 }

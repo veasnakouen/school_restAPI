@@ -1,9 +1,7 @@
 namespace SchoolAPI.Entities;
 
-public class MaintenanceRecord
+public class MaintenanceRecord : BaseAuditableEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     public string MaintenanceNumber { get; set; } = string.Empty;
 
     public string ProductId { get; set; } = string.Empty;
@@ -34,10 +32,8 @@ public class MaintenanceRecord
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
 
-    public Guid? SentForMaintenanceMovementId { get; set; }
-    public Guid? ReturnedFromMaintenanceMovementId { get; set; }
-
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string? SentForMaintenanceMovementId { get; set; }
+    public string? ReturnedFromMaintenanceMovementId { get; set; }
 }
 public enum MaintenanceType { Scheduled, Emergency, Preventive }
 public enum MaintenanceStatus { Scheduled, InProgress, Completed, Cancelled }

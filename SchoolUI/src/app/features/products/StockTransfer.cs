@@ -1,5 +1,3 @@
-using SchoolAPI.Entities.Base;
-
 namespace SchoolAPI.Entities;
 
 public class StockTransfer : BaseAuditableEntity

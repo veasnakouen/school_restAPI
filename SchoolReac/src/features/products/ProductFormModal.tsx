@@ -27,22 +27,37 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
   // Local state for dynamic contacts
   const [contacts, setContacts] = useState<{type: string, value: string}[]>([{ type: 'Phone', value: '' }]);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const [showConfirmClose, setShowConfirmClose] = useState(false);
+
   const isEditing = !!(product && product.id);
 
   useEffect(() => {
+    setIsDirty(false);
+    setShowConfirmClose(false);
     if (product) {
       setFormData({ ...product });
       setImagePreview(product.imageUrl || null);
+      if (product.supplierContact) {
+        const parsed = product.supplierContact.split(' | ').map(part => {
+          const [type, ...rest] = part.split(': ');
+          return { type: type || 'Unknown', value: rest.join(': ') || '' };
+        }).filter(c => c.value !== '');
+        setContacts(parsed.length > 0 ? parsed : [{ type: 'Phone', value: '' }]);
+      } else {
+        setContacts([{ type: 'Phone', value: '' }]);
+      }
     } else {
       setFormData(emptyProduct);
       setImagePreview(null);
+      setContacts([{ type: 'Phone', value: '' }]);
     }
     setImageFile(null);
-    setContacts([{ type: 'Phone', value: '' }]); // Reset contacts
   }, [product]);
-
+  
   const addContact = () => {
     setContacts([...contacts, { type: 'Phone', value: '' }]);
+    setIsDirty(true);
   };
 
   const handleContactChange = (index: number, field: 'type' | 'value', val: string) => {
@@ -50,12 +65,14 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
     newContacts[index][field] = val;
     setContacts(newContacts);
     updateSupplierContact(newContacts);
+    setIsDirty(true);
   };
 
   const removeContact = (index: number) => {
     const newContacts = contacts.filter((_, i) => i !== index);
     setContacts(newContacts);
     updateSupplierContact(newContacts);
+    setIsDirty(true);
   };
 
   const updateSupplierContact = (currentContacts: {type: string, value: string}[]) => {
@@ -76,6 +93,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
   }, [formData, categories]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    setIsDirty(true);
     const target = e.target as HTMLInputElement;
     const name = target.name;
     
@@ -90,6 +108,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsDirty(true);
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
@@ -106,12 +125,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
     await onSave(formData, imageFile);
   };
 
+  const handleAttemptClose = (e?: React.MouseEvent | React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (isDirty) {
+      setShowConfirmClose(true);
+    } else {
+      onClose();
+    }
+  };
+
   const isFormValid = formData.name && formData.price !== null && formData.price !== undefined;
 
   return (
     <dialog id="product-form-modal" className="modal modal-open">
       <div className="modal-box max-w-3xl">
-        <button onClick={onClose} aria-label="Close dialog" className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 z-10">✕</button>
+        <button type="button" onClick={handleAttemptClose} aria-label="Close dialog" className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 z-10">✕</button>
         <h3 className="font-bold text-lg mb-4">
           {isEditing ? 'Edit Product' : 'Create New Product'}
         </h3>
@@ -154,6 +182,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
                 name="categoryName"
                 value={formData.categoryName || ''}
                 onChange={(e) => {
+                  setIsDirty(true);
                   const val = e.target.value;
                   const selectedCat = categories.find(c => c.name.toLowerCase() === val.toLowerCase());
                   setFormData(prev => ({
@@ -223,10 +252,9 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
             <textarea name="description" value={formData.description || ''} onChange={handleChange} placeholder="Product description..." className="textarea textarea-bordered w-full" rows={3}></textarea>
           </div>
 
-          {/* Initial Stock Acquisition (Only visible during creation) */}
-          {!isEditing && (
+          {(!isEditing || (formData.purchaseType && formData.purchaseType !== 'None')) && (
             <>
-              <div className="divider my-2">Initial Stock / Acquisition</div>
+              <div className="divider my-2">{isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition'}</div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
                 <div className="form-control w-full">
                   <label className="label"><span className="label-text font-semibold">Acquisition Type</span></label>
@@ -301,7 +329,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
           )}
 
           <div className="modal-action">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
+            <button type="button" className="btn btn-ghost" onClick={handleAttemptClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={!isFormValid || isSaving}>
               {isSaving && <span className="loading loading-spinner loading-sm"></span>}
               {isEditing ? 'Save Changes' : 'Create Product'}
@@ -309,9 +337,23 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
           </div>
         </form>
       </div>
-      <form method="dialog" className="modal-backdrop" onClick={onClose}>
-        <button>close</button>
+      <form method="dialog" className="modal-backdrop" onClick={(e) => { e.preventDefault(); handleAttemptClose(); }}>
+        <button type="button">close</button>
       </form>
+
+      {/* Confirmation Modal Overlay */}
+      {showConfirmClose && (
+        <div className="modal modal-open z-[9999] bg-black/40">
+          <div className="modal-box">
+            <h3 className="font-bold text-lg text-error">Unsaved Changes</h3>
+            <p className="py-4">You have unsaved changes. Are you sure you want to close without saving?</p>
+            <div className="modal-action">
+              <button type="button" className="btn btn-ghost" onClick={() => setShowConfirmClose(false)}>Keep Editing</button>
+              <button type="button" className="btn btn-error" onClick={onClose}>Discard Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </dialog>
   );
 };

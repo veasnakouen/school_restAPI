@@ -45,7 +45,7 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
             PlateNumber = product.PlateNumber,
             EngineNumber = product.EngineNumber,
             Year = product.Year,
-            CreatedAt = product.CreatedAt,
+            CreatedAt = product.CreatedDate ?? DateTime.UtcNow,
             CategoryId = product.CategoryId,
             CategoryName = product.Category?.Name,
             BrandId = product.BrandId,
@@ -55,13 +55,13 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
             DepartmentId = product.DepartmentId,
             DepartmentName = product.Department?.Name,
             PurchaseHistory = product.PurchaseItems
-                .OrderByDescending(pi => pi.Purchase.InvoiceDate)
+                .OrderByDescending(pi => pi.Purchase != null ? pi.Purchase.InvoiceDate : pi.CreatedDate)
                 .Select(pi => new ProductPurchaseHistoryDto
                 {
                     PurchaseId = pi.PurchaseId,
-                    PurchaseDate = pi.Purchase.InvoiceDate,
-                    VoucherNumber = pi.Purchase.VoucherNumber,
-                    SupplierName = pi.Purchase.Supplier?.Name,
+                    PurchaseDate = pi.Purchase != null ? pi.Purchase.InvoiceDate : (pi.CreatedDate ?? DateTime.UtcNow),
+                    VoucherNumber = pi.Purchase?.VoucherNumber,
+                    SupplierName = pi.Purchase?.Supplier?.Name,
                     Quantity = pi.Quantity,
                     UnitPrice = pi.UnitPrice,
                     TotalPrice = pi.TotalPrice

@@ -1,6 +1,6 @@
 namespace SchoolAPI.Entities;
 
-public class Purchase : BaseEntity
+public class Purchase : BaseAuditableEntity
 {
     public string SupplierId { get; set; } = string.Empty;
     public Supplier? Supplier { get; set; }

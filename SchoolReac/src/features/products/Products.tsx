@@ -20,6 +20,7 @@ import html2canvas from 'html2canvas';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 
+
 const ALL_COLUMNS = [
   { id: 'name', label: 'Name' },
   { id: 'codeNumber', label: 'Code Number' },
@@ -48,6 +49,7 @@ export const Products: React.FC = () => {
 
   // UI & Control State
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [filterDepartment, setFilterDepartment] = useState(searchParams.get('department') || '');
   const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10) - 1);
@@ -106,31 +108,68 @@ export const Products: React.FC = () => {
     localStorage.setItem('products_visible_columns', JSON.stringify(visibleColumns));
   }, [visibleColumns]);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  const uniqueCategories = useMemo(() => {
+    const map = new Map<string, string>();
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    categories.forEach(c => {
+      if (c.name) map.set(normalize(c.name), c.name);
+    });
+    products.forEach(p => {
+      if (p.categoryName && !map.has(normalize(p.categoryName))) map.set(normalize(p.categoryName), p.categoryName);
+    });
+    map.delete('all categories');
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+  }, [categories, products]);
+
+  const uniqueDepartments = useMemo(() => {
+    const map = new Map<string, string>();
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
+    departments.forEach(d => {
+      if (d.name) map.set(normalize(d.name), d.name);
+    });
+    products.forEach(p => {
+      if (p.departmentName && !map.has(normalize(p.departmentName))) map.set(normalize(p.departmentName), p.departmentName);
+    });
+    map.delete('all depts');
+    map.delete('all departments');
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
+  }, [departments, products]);
+
   const loadProducts = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      // Map to the generic filtering parameters expected by the backend
-      let filterOn = undefined;
-      let filterQuery = undefined;
+        const selectedCat = categories.find(c => c.name === filterCategory);
+        const selectedDept = departments.find(d => d.name === filterDepartment);
 
-      if (filterCategory) {
-        filterOn = 'category';
-        filterQuery = filterCategory;
-      } else if (filterDepartment) {
-        filterOn = 'department';
-        filterQuery = filterDepartment;
-      } else if (searchQuery) {
-        filterOn = 'name';
-        filterQuery = searchQuery;
-      }
+        let filterOn = undefined;
+        let filterQuery = undefined;
 
-      const params: api.QueryOptions = {
+        // Fallback for free-text categories/departments that don't have an ID
+        if (filterCategory && !selectedCat?.id) {
+          filterOn = 'categoryName';
+          filterQuery = filterCategory;
+        } else if (filterDepartment && !selectedDept?.id) {
+          filterOn = 'departmentName';
+          filterQuery = filterDepartment;
+        }
+
+        // Cast to any to bypass strict QueryOptions typing
+        const params: any = {
         pageNumber: currentPage + 1,
         pageSize,
         sortBy,
         isAscending,
-        name: searchQuery || undefined,
+        name: debouncedSearchQuery || undefined,
+          categoryId: selectedCat?.id || undefined,
+          departmentId: selectedDept?.id || undefined,
         filterOn,
         filterQuery
       };
@@ -144,7 +183,7 @@ export const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, searchQuery, showToast]);
+  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, debouncedSearchQuery, showToast, categories, departments]);
 
   useEffect(() => {
     loadProducts();
@@ -153,8 +192,8 @@ export const Products: React.FC = () => {
   // This effect syncs the component's filter and pagination state to the URL search params.
   useEffect(() => {
     const params = new URLSearchParams();
-    if (searchQuery) {
-      params.set('search', searchQuery);
+    if (debouncedSearchQuery) {
+      params.set('search', debouncedSearchQuery);
     } else {
       params.delete('search');
     }
@@ -172,7 +211,7 @@ export const Products: React.FC = () => {
 
     // Using replace to not pollute browser history on every filter change
     setSearchParams(params, { replace: true });
-  }, [searchQuery, filterCategory, filterDepartment, currentPage, setSearchParams]);
+  }, [debouncedSearchQuery, filterCategory, filterDepartment, currentPage, setSearchParams]);
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -184,11 +223,23 @@ export const Products: React.FC = () => {
           api.getPersons().catch(() => []),
           api.getSuppliers().catch(() => [])
         ]);
-        setCategories(cats.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-        setBrands(brnds.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-        setDepartments(depts.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
-        setPersons(pers.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')));
-        setSuppliers(supps.sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+
+        function getUnique<T, K extends keyof T>(arr: T[], key: K) {
+          const map = new Map();
+          for (const item of arr) {
+            const val = item[key];
+            if (val && typeof val === 'string') {
+              map.set(val.toLowerCase().replace(/\s+/g, ' ').trim(), item);
+            }
+          }
+          return Array.from(map.values());
+        }
+
+        setCategories(getUnique(cats, 'name').sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setBrands(getUnique(brnds, 'name').sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setDepartments(getUnique(depts, 'name').sort((a, b) => (a.name || '').localeCompare(b.name || '')));
+        setPersons(getUnique(pers, 'fullName').sort((a, b) => (a.fullName || '').localeCompare(b.fullName || '')));
+        setSuppliers(getUnique(supps, 'name').sort((a, b) => (a.name || '').localeCompare(b.name || '')));
       } catch (err) {
         console.error("Failed to load lookups", err);
       }
@@ -270,20 +321,26 @@ export const Products: React.FC = () => {
         api.getProductById(product.id)
           .then(fullProduct => {
             if (mode === 'edit') {
-              // Reset the acquisition fields in the form for Edit mode
               setSelectedProduct({
+                  ...product,
                 ...fullProduct,
-                purchaseType: 'None',
-                initialQuantity: null,
-                supplierName: '',
-                donorName: '',
-                voucherNumber: '',
-                invoiceDate: '',
-                supplierContact: ''
+                  categoryName: fullProduct.categoryName || product?.categoryName || null,
+                  brandName: fullProduct.brandName || product?.brandName || null,
+                  departmentName: fullProduct.departmentName || product?.departmentName || null,
+                  purchaseType: fullProduct.purchaseType || product?.purchaseType || 'None'
               });
-              setContacts([{ type: 'Phone', value: '' }]);
+                const contactStr = fullProduct.supplierContact || product?.supplierContact;
+                if (contactStr) {
+                  const parsed = contactStr.split(' | ').map(part => {
+                    const [type, ...rest] = part.split(': ');
+                    return { type: type || 'Unknown', value: rest.join(': ') || '' };
+                  }).filter(c => c.value !== '');
+                  setContacts(parsed.length > 0 ? parsed : [{ type: 'Phone', value: '' }]);
+                } else {
+                  setContacts([{ type: 'Phone', value: '' }]);
+                }
             } else {
-              setSelectedProduct(fullProduct);
+                    setSelectedProduct({ ...product, ...fullProduct });
             }
             setPurchaseHistory(fullProduct.purchaseHistory || []);
           })
@@ -333,7 +390,8 @@ export const Products: React.FC = () => {
     try {
       let savedProduct: api.ProductDto;
       if (modalMode === 'edit' && selectedProduct.id) {
-        savedProduct = await api.updateProduct(selectedProduct.id, selectedProduct);
+        const updateResult = await api.updateProduct(selectedProduct.id, selectedProduct);
+        savedProduct = updateResult || selectedProduct;
       } else {
         savedProduct = await api.createProduct(selectedProduct as api.CreateProductRequest);
       }
@@ -356,26 +414,8 @@ export const Products: React.FC = () => {
           'success'
         );
 
-        if (modalMode === 'edit') {
-          // Fetch the updated product to show the newly added history immediately
-          const updatedProduct = await api.getProductById(savedProduct.id!);
-          setPurchaseHistory(updatedProduct.purchaseHistory || []);
-          setSelectedProduct({
-            ...updatedProduct,
-            purchaseType: 'None',
-            initialQuantity: null,
-            supplierName: '',
-            donorName: '',
-            voucherNumber: '',
-            invoiceDate: '',
-            supplierContact: ''
-          });
-          setContacts([{ type: 'Phone', value: '' }]);
-          await loadProducts(); // Refresh the background table silently
-        } else {
-          handleCloseModal();
-          await loadProducts();
-        }
+        handleCloseModal();
+        await loadProducts();
     } catch (err: any) {
       const message = err.response?.data?.title || `Failed to ${modalMode} product.`;
       showToast(message, 'error');
@@ -470,13 +510,28 @@ export const Products: React.FC = () => {
         case 'quality': return p.quality || fallback;
         case 'departmentName': return p.departmentName || fallback;
         case 'responsiblePerson': return p.responsiblePerson || fallback;
-        case 'price': return p.price != null ? (isCsv ? p.price.toString() : `$${p.price.toFixed(2)}`) : fallback;
+        case 'price': return p.price != null ? `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
         default: return fallback;
       }
     };
 
+    const hasPrice = activeColumns.some(c => c.id === 'price');
+    const priceIndex = activeColumns.findIndex(c => c.id === 'price');
+    let totalValue = 0;
+    if (hasPrice) {
+      totalValue = products.reduce((sum, p) => sum + (p.price || 0), 0);
+    }
+
     if (format === 'csv') {
       const rows = products.map(p => activeColumns.map(col => escapeCsvValue(getColumnValue(p, col.id, true))).join(','));
+      
+      const summaryRow = activeColumns.map((col, index) => {
+        if (index === 0) return escapeCsvValue(`Total Items: ${products.length}`);
+        if (col.id === 'price') return escapeCsvValue(totalValue.toString());
+        return '';
+      }).join(',');
+      rows.push(summaryRow);
+
       const csvContent = [headers.join(','), ...rows].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
@@ -486,10 +541,48 @@ export const Products: React.FC = () => {
       URL.revokeObjectURL(link.href);
     } else {
       const doc = new jsPDF();
-      doc.text("Products Report", 14, 15);
+      
+      // Add a company logo (Replace the empty string with your actual Base64 image data)
+      const companyLogoBase64 = ""; 
+      
+      if (companyLogoBase64) {
+        // Parameters: image, format, X, Y, Width, Height
+        doc.addImage(companyLogoBase64, 'PNG', 14, 8, 12, 12);
+        doc.text("Products Report", 30, 16); // Shift title to the right
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 30, 22);
+      } else {
+        doc.text("Products Report", 14, 15);
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+      }
+
+      const customColumnStyles: any = {};
+      if (priceIndex !== -1) {
+        customColumnStyles[priceIndex] = { halign: 'right' };
+      }
+
+      const formattedTotal = `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const footRow = activeColumns.map((col, index) => {
+        if (index === 0) return `Total Items: ${products.length}`;
+        if (col.id === 'price') return formattedTotal;
+        return '';
+      });
+
       (doc as any).autoTable({
+        startY: 28,
         head: [headers],
         body: products.map(p => activeColumns.map(col => getColumnValue(p, col.id, false))),
+        foot: [footRow],
+        theme: 'striped',
+        columnStyles: customColumnStyles,
+        footStyles: {
+          fillColor: [245, 247, 250],
+          textColor: [15, 23, 42],
+          fontStyle: 'bold'
+        }
       });
       doc.save(`products_${timestamp}.pdf`);
     }
@@ -631,7 +724,7 @@ export const Products: React.FC = () => {
               displayEmpty
             >
               <MenuItem value="">All Categories</MenuItem>
-              {categories.map(cat => <MenuItem key={cat.id} value={cat.name}>{cat.name}</MenuItem>)}
+            {uniqueCategories.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
             </Select>
           </FormControl>
         <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -641,7 +734,7 @@ export const Products: React.FC = () => {
             displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
           >
             <MenuItem value="">All Depts</MenuItem>
-            {departments.map(dept => <MenuItem key={dept.id} value={dept.name}>{dept.name}</MenuItem>)}
+            {uniqueDepartments.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
           </Select>
         </FormControl>
         </Box>
@@ -852,7 +945,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option.name);
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -890,7 +983,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option.name);
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -962,7 +1055,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue === option.name);
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -993,7 +1086,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.includes(inputValue);
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push(`Add "${inputValue}"`);
                   }
@@ -1037,179 +1130,130 @@ export const Products: React.FC = () => {
               <TextField label="Description" value={selectedProduct?.description || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, description: e.target.value } : null)} multiline rows={4} fullWidth />
             </Grid>
 
-            {/* Stock Acquisition */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 2, color: 'text.secondary' }}>{modalMode === 'edit' ? 'Add New Stock (Optional)' : 'Initial Stock / Acquisition'}</Divider>
-                 {/* bgcolor: (theme) => theme.palette.mode === 'dark' ? 'background.default' : 'grey.50',  */}
-                <Box sx={{ 
-                  p: 3, 
-                  borderRadius: 2, 
-                  border: '1px solid', 
-                  borderColor: 'divider' 
-                }}>
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
-                      <TextField
-                        select
-                        label="Acquisition Type"
-                        value={selectedProduct?.purchaseType || 'None'}
-                        onChange={(e) => setSelectedProduct(p => p ? { ...p, purchaseType: e.target.value } : null)}
-                        fullWidth
-                      >
-                        <MenuItem value="None">None (Just setup product catalog)</MenuItem>
-                        <MenuItem value="Purchased">Purchased</MenuItem>
-                        <MenuItem value="Donated">Donated</MenuItem>
-                      </TextField>
-                    </Grid>
-                    {selectedProduct?.purchaseType && selectedProduct.purchaseType !== 'None' && (
-                      <>
-                        <Grid item xs={12} sm={4}>
-                          <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} inputProps={{ min: 1 }} required fullWidth />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <TextField label="Invoice Date" type="date" value={selectedProduct?.invoiceDate ? selectedProduct.invoiceDate.split('T')[0] : ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, invoiceDate: e.target.value } : null)} fullWidth InputLabelProps={{ shrink: true }} />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <TextField label="Voucher Number" value={selectedProduct?.voucherNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, voucherNumber: e.target.value } : null)} fullWidth placeholder="e.g. INV-12345" />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <Autocomplete
-                            freeSolo
-                            options={suppliers}
-                            getOptionLabel={(option) => {
-                              if (typeof option === 'string') return option;
-                              if ((option as any).inputValue) return (option as any).inputValue;
-                              return (option as any).name;
-                            }}
-                            filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
-                              const { inputValue } = params;
-                              const isExisting = options.some((option) => inputValue === option.name);
-                              if (inputValue !== '' && !isExisting) {
-                                filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
-                              }
-                              return filtered;
-                            }}
-                            value={suppliers.find(s => s.name === selectedProduct?.supplierName) || selectedProduct?.supplierName || null}
-                            onChange={(event, newValue) => {
-                              if (typeof newValue === 'string') {
-                                setSelectedProduct(p => p ? { ...p, supplierName: newValue } : null);
-                              } else if (newValue && (newValue as any).inputValue) {
-                                setSelectedProduct(p => p ? { ...p, supplierName: (newValue as any).inputValue } : null);
-                              } else if (newValue) {
-                                setSelectedProduct(p => p ? { ...p, supplierName: (newValue as any).name } : null);
-                              } else {
-                                setSelectedProduct(p => p ? { ...p, supplierName: null } : null);
-                              }
-                            }}
-                            renderInput={(params) => (
-                              <TextField {...params} label="Supplier Name" placeholder="e.g. ABC Tech" />
-                            )}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <TextField label="Donor Name" value={selectedProduct?.donorName || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, donorName: e.target.value } : null)} fullWidth placeholder="e.g. John Doe" />
-                        </Grid>
-                        <Grid item xs={12}> 
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Typography variant="body2" fontWeight="bold" color="text.secondary">Contact Info</Typography>
-                              <Button size="small" variant="outlined" onClick={addContact}>+ Add Contact</Button>
-                            </Box>
-                            {contacts.map((contact, index) => {
-                              const isPredefined = ['Phone', 'Email'].includes(contact.type);
-                              const selectValue = isPredefined ? contact.type : 'Other';
-                              return (
-                                <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                  <TextField
-                                    select
-                                    size="small"
-                                    value={selectValue}
-                                    onChange={(e) => {
-                                      const newType = e.target.value === 'Other' ? '' : e.target.value;
-                                      handleContactChange(index, 'type', newType);
-                                    }}
-                                    sx={{ width: 120, flexShrink: 0 }}
-                                  >
-                                    <MenuItem value="Phone">Phone</MenuItem>
-                                    <MenuItem value="Email">Email</MenuItem>
-                                    <MenuItem value="Other">Other...</MenuItem>
-                                  </TextField>
-                                  {selectValue === 'Other' && (
+            {/* Stock Acquisition / Purchase Information */}
+            {(modalMode !== 'edit' || (selectedProduct?.purchaseType && selectedProduct.purchaseType !== 'None')) && (
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2, color: 'text.secondary' }}>{modalMode === 'edit' ? 'Purchase Information' : 'Initial Stock / Acquisition'}</Divider>
+                  <Box sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          select
+                          label="Acquisition Type"
+                          value={selectedProduct?.purchaseType || 'None'}
+                          onChange={(e) => setSelectedProduct(p => p ? { ...p, purchaseType: e.target.value } : null)}
+                          fullWidth
+                        >
+                          <MenuItem value="None">None (Just setup product catalog)</MenuItem>
+                          <MenuItem value="Purchased">Purchased</MenuItem>
+                          <MenuItem value="Donated">Donated</MenuItem>
+                        </TextField>
+                      </Grid>
+                      {selectedProduct?.purchaseType && selectedProduct.purchaseType !== 'None' && (
+                        <>
+                          <Grid item xs={12} sm={4}>
+                            <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} inputProps={{ min: 1 }} required fullWidth />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <TextField label="Invoice Date" type="date" value={selectedProduct?.invoiceDate ? selectedProduct.invoiceDate.split('T')[0] : ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, invoiceDate: e.target.value } : null)} fullWidth InputLabelProps={{ shrink: true }} />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <TextField label="Voucher Number" value={selectedProduct?.voucherNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, voucherNumber: e.target.value } : null)} fullWidth placeholder="e.g. INV-12345" />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <Autocomplete
+                              freeSolo
+                              options={suppliers}
+                              getOptionLabel={(option) => {
+                                if (typeof option === 'string') return option;
+                                if ((option as any).inputValue) return (option as any).inputValue;
+                                return (option as any).name;
+                              }}
+                              filterOptions={(options, params) => {
+                                const filtered = filter(options, params);
+                                const { inputValue } = params;
+                                const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                                if (inputValue !== '' && !isExisting) {
+                                  filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
+                                }
+                                return filtered;
+                              }}
+                              value={suppliers.find(s => s.name === selectedProduct?.supplierName) || selectedProduct?.supplierName || null}
+                              onChange={(event, newValue) => {
+                                if (typeof newValue === 'string') {
+                                  setSelectedProduct(p => p ? { ...p, supplierName: newValue } : null);
+                                } else if (newValue && (newValue as any).inputValue) {
+                                  setSelectedProduct(p => p ? { ...p, supplierName: (newValue as any).inputValue } : null);
+                                } else if (newValue) {
+                                  setSelectedProduct(p => p ? { ...p, supplierName: (newValue as any).name } : null);
+                                } else {
+                                  setSelectedProduct(p => p ? { ...p, supplierName: null } : null);
+                                }
+                              }}
+                              renderInput={(params) => (
+                                <TextField {...params} label="Supplier Name" placeholder="e.g. ABC Tech" />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={4}>
+                            <TextField label="Donor Name" value={selectedProduct?.donorName || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, donorName: e.target.value } : null)} fullWidth placeholder="e.g. John Doe" />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="body2" fontWeight="bold" color="text.secondary">Contact Info</Typography>
+                                <Button size="small" variant="outlined" onClick={addContact}>+ Add Contact</Button>
+                              </Box>
+                              {contacts.map((contact, index) => {
+                                const isPredefined = ['Phone', 'Email'].includes(contact.type);
+                                const selectValue = isPredefined ? contact.type : 'Other';
+                                return (
+                                  <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      value={selectValue}
+                                      onChange={(e) => {
+                                        const newType = e.target.value === 'Other' ? '' : e.target.value;
+                                        handleContactChange(index, 'type', newType);
+                                      }}
+                                      sx={{ width: 120, flexShrink: 0 }}
+                                    >
+                                      <MenuItem value="Phone">Phone</MenuItem>
+                                      <MenuItem value="Email">Email</MenuItem>
+                                      <MenuItem value="Other">Other...</MenuItem>
+                                    </TextField>
+                                    {selectValue === 'Other' && (
+                                      <TextField
+                                        size="small"
+                                        placeholder="Custom Label"
+                                        value={contact.type}
+                                        onChange={(e) => handleContactChange(index, 'type', e.target.value)}
+                                        sx={{ width: 150, flexShrink: 0 }}
+                                      />
+                                    )}
                                     <TextField
                                       size="small"
-                                      placeholder="Custom Label"
-                                      value={contact.type}
-                                      onChange={(e) => handleContactChange(index, 'type', e.target.value)}
-                                      sx={{ width: 150, flexShrink: 0 }}
+                                      fullWidth
+                                      placeholder={contact.type === 'Email' ? 'e.g. mail@example.com' : 'e.g. 012 345 678'}
+                                      value={contact.value}
+                                      onChange={(e) => handleContactChange(index, 'value', e.target.value)}
                                     />
-                                  )}
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder={contact.type === 'Email' ? 'e.g. mail@example.com' : 'e.g. 012 345 678'}
-                                    value={contact.value}
-                                    onChange={(e) => handleContactChange(index, 'value', e.target.value)}
-                                  />
-                                  {contacts.length > 1 && (
-                                    <IconButton size="small" color="error" onClick={() => removeContact(index)}><CloseIcon fontSize="small" /></IconButton>
-                                  )}
-                                </Box>
-                              );
-                            })}
-                        </Box>
-                        </Grid>
-                      </>
-                    )}
-                  </Grid>
-                </Box>
-            </Grid>
-            
-            {/* Purchase History Table for Edit Modal */}
-            {modalMode === 'edit' && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 2, color: 'text.secondary' }}>Purchase History</Divider>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Date</TableCell>
-                        <TableCell>Voucher #</TableCell>
-                        <TableCell>Supplier</TableCell>
-                        <TableCell align="right">Qty</TableCell>
-                        <TableCell align="right">Unit Price</TableCell>
-                        <TableCell align="right">Total</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {historyLoading ? (
-                        <TableRow><TableCell colSpan={6} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                      ) : purchaseHistory.length === 0 ? (
-                        <TableRow><TableCell colSpan={6} align="center">No purchase history found for this product.</TableCell></TableRow>
-                      ) : (
-                        purchaseHistory.map((item) => (
-                          <TableRow key={item.purchaseId}>
-                            <TableCell>{new Date(item.purchaseDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{item.voucherNumber || '-'}</TableCell>
-                            <TableCell>{item.supplierName || '-'}</TableCell>
-                            <TableCell align="right">{item.quantity}</TableCell>
-                            <TableCell align="right">${item.unitPrice.toFixed(2)}</TableCell>
-                            <TableCell align="right">${item.totalPrice.toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))
+                                    {contacts.length > 1 && (
+                                      <IconButton size="small" color="error" onClick={() => removeContact(index)}><CloseIcon fontSize="small" /></IconButton>
+                                    )}
+                                  </Box>
+                                );
+                              })}
+                            </Box>
+                          </Grid>
+                        </>
                       )}
-                    </TableBody>
-                    <TableFooter>
-                      <TableRow>
-                        <TableCell colSpan={6} align="right" sx={{ fontWeight: 'bold' }}>
-                          Total Purchased: {purchaseHistory.reduce((sum, item) => sum + item.quantity, 0)} units
-                        </TableCell>
-                      </TableRow>
-                    </TableFooter>
-                  </Table>
-                </TableContainer>
-              </Grid>
+                    </Grid>
+                  </Box>
+                </Grid>
             )}
+
           </Grid>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>

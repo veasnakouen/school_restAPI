@@ -1,9 +1,7 @@
 namespace SchoolAPI.Entities;
 
-public class AssetTransfer
+public class AssetTransfer : BaseAuditableEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     public string TransferNumber { get; set; } = string.Empty; // TR-2024-001
 
     public string ProductId { get; set; } = string.Empty;
@@ -34,8 +32,6 @@ public class AssetTransfer
     public string? Reason { get; set; }
     public string? Notes { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public Guid? StockMovementId { get; set; }
+    public string? StockMovementId { get; set; }
     public StockMovement? StockMovement { get; set; }
 }

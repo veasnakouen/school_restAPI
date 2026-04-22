@@ -28,11 +28,17 @@ public sealed class AssessmentRequestReportService : IAssessmentRequestReportSer
 
                     column.Item().Row(row =>
                     {
-                        row.ConstantItem(78).Height(60).AlignMiddle().AlignCenter().Border(1).BorderColor(Colors.Grey.Lighten2).Background(Colors.Red.Lighten4)
-                            .Text("LOGO")
-                            .FontSize(16)
-                            .Bold()
-                            .FontColor(Colors.Red.Darken3);
+                        var logoPath = "wwwroot/images/organization-logo.png";
+                        if (System.IO.File.Exists(logoPath))
+                        {
+                            byte[] logoBytes = System.IO.File.ReadAllBytes(logoPath);
+                            row.ConstantItem(78).Height(60).Image(logoBytes);
+                        }
+                        else
+                        {
+                            row.ConstantItem(78).Height(60).AlignMiddle().AlignCenter().Border(1).BorderColor(Colors.Grey.Lighten2)
+                                .Text("LOGO").FontSize(16).Bold().FontColor(Colors.Grey.Darken2); // Placeholder until image is linked
+                        }
 
                         row.RelativeItem().Column(header =>
                         {

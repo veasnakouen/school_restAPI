@@ -57,7 +57,7 @@ public class TransferStockCommandHandler : IRequestHandler<TransferStockCommand,
             ToDepartmentId = request.ToDepartmentId,
             Quantity = request.Quantity,
             Notes = request.Notes,
-            CreatedAt = DateTime.UtcNow
+            CreatedDate = DateTime.UtcNow
         };
 
         _context.StockTransfers.Add(stockTransfer);

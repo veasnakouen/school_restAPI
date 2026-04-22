@@ -1,6 +1,6 @@
 namespace SchoolAPI.Entities;
 
-public class Transaction : BaseEntity
+public class Transaction : BaseAuditableEntity
 {
     public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;

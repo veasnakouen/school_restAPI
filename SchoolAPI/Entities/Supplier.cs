@@ -1,6 +1,6 @@
 namespace SchoolAPI.Entities;
 
-public class Supplier : BaseEntity
+public class Supplier : BaseAuditableEntity
 {
     public string Name { get; set; } = string.Empty;
     public List<string>? ContactInfo { get; set; } = new List<string>();

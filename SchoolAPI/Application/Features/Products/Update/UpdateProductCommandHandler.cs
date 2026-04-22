@@ -102,7 +102,7 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         product.BrandId = brandId;
         product.QualityId = qualityId;
         product.DepartmentId = departmentId;
-        product.UpdatedAt = DateTime.UtcNow;
+        product.UpdateDate = DateTime.UtcNow;
 
         // Handle New Stock Acquisition (Purchased or Donated) from the Edit Modal
         if (dto.InitialQuantity > 0 && !string.IsNullOrWhiteSpace(dto.PurchaseType) && dto.PurchaseType != "None")
@@ -169,7 +169,7 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
                     // 3. Create the required Stock Movement
                     var stockMovement = new StockMovement
                     {
-                        Id = Guid.NewGuid(),
+                        Id = Guid.NewGuid().ToString(),
                         Type = MovementType.Purchase,
                         Direction = MovementDirection.In,
                         ProductId = product.Id,
@@ -182,14 +182,14 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
                         ToLocation = dto.DepartmentName ?? "",
                         Reason = "Stock acquisition during product update",
                         MovedAt = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedDate = DateTime.UtcNow
                     };
                     _context.StockMovements.Add(stockMovement);
 
                     // 4. Create the Asset Assignment
                     var assignment = new AssetAssignment
                     {
-                        Id = Guid.NewGuid(),
+                        Id = Guid.NewGuid().ToString(),
                         ProductId = product.Id,
                         PurchaseItemId = purchaseItem.Id,
                         Quantity = dto.InitialQuantity.Value,

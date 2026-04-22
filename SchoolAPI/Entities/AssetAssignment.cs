@@ -3,10 +3,8 @@ namespace SchoolAPI.Entities;
 // ─────────────────────────────────────
 // Tracks WHO currently holds WHAT
 // ─────────────────────────────────────
-public class AssetAssignment
+public class AssetAssignment : BaseAuditableEntity
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-
     public string ProductId { get; set; } = string.Empty;
     public Product Product { get; set; } = null!;
 
@@ -45,6 +43,6 @@ public class AssetAssignment
     public string? ReturnNotes { get; set; }
 
     // ── Linked movement ─────────────────
-    public Guid StockMovementId { get; set; }   // the movement that created this
+    public string StockMovementId { get; set; } = string.Empty;   // the movement that created this
     public StockMovement StockMovement { get; set; } = null!;
 }
