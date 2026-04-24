@@ -46,7 +46,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetRoleClaims", (string)null);
+                    b.ToTable("AppRoleClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<string>", b =>
@@ -71,7 +71,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserClaims", (string)null);
+                    b.ToTable("AppUserClaims", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<string>", b =>
@@ -93,7 +93,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("AspNetUserLogins", (string)null);
+                    b.ToTable("AppUserLogins", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<string>", b =>
@@ -112,7 +112,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasKey("UserId", "LoginProvider", "Name");
 
-                    b.ToTable("AspNetUserTokens", (string)null);
+                    b.ToTable("AppUserTokens", (string)null);
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.AppRole", b =>
@@ -138,7 +138,7 @@ namespace SchoolAPI.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("AspNetRoles", (string)null);
+                    b.ToTable("AppRoles", (string)null);
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.AppRolePermission", b =>
@@ -233,7 +233,7 @@ namespace SchoolAPI.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("AspNetUsers", (string)null);
+                    b.ToTable("AppUsers", (string)null);
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.AppUserRole", b =>
@@ -248,7 +248,7 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("AspNetUserRoles", (string)null);
+                    b.ToTable("AppUserRoles", (string)null);
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.AssetAssignment", b =>
@@ -283,9 +283,6 @@ namespace SchoolAPI.Data.Migrations
 
                     b.Property<string>("Notes")
                         .HasColumnType("text");
-
-                    b.Property<Guid?>("PersonId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("ProductId")
                         .IsRequired()
@@ -327,8 +324,6 @@ namespace SchoolAPI.Data.Migrations
                     b.HasIndex("AssignedById");
 
                     b.HasIndex("AssignedToId");
-
-                    b.HasIndex("PersonId");
 
                     b.HasIndex("ProductId");
 
@@ -699,37 +694,6 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("Members");
                 });
 
-            modelBuilder.Entity("SchoolAPI.Entities.Order", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("FirstName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("LastName")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<decimal>("TotalCost")
-                        .HasColumnType("numeric");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Orders");
-                });
-
             modelBuilder.Entity("SchoolAPI.Entities.OutReach", b =>
                 {
                     b.Property<Guid>("Id")
@@ -923,6 +887,10 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("text");
 
+                    b.Property<string>("AcquisitionType")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("CreatedBy")
                         .HasColumnType("text");
 
@@ -1015,7 +983,8 @@ namespace SchoolAPI.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ProductId");
+                    b.HasIndex("ProductId")
+                        .IsUnique();
 
                     b.HasIndex("PurchaseId");
 
@@ -1505,14 +1474,10 @@ namespace SchoolAPI.Data.Migrations
                         .IsRequired();
 
                     b.HasOne("SchoolAPI.Entities.Person", "AssignedTo")
-                        .WithMany()
+                        .WithMany("AssignedAssets")
                         .HasForeignKey("AssignedToId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("SchoolAPI.Entities.Person", null)
-                        .WithMany("AssignedAssets")
-                        .HasForeignKey("PersonId");
 
                     b.HasOne("SchoolAPI.Entities.Product", "Product")
                         .WithMany()

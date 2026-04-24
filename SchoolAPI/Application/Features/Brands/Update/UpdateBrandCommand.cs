@@ -4,4 +4,4 @@ using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Application.Features.Brands.Update;
 
-public record UpdateBrandCommand(string BrandId, BrandDto Brand) : IRequest<Result<BrandDto>>;
+public record UpdateBrandCommand(string Id, BrandDto BrandDto) : IRequest<Result<BrandDto>>;

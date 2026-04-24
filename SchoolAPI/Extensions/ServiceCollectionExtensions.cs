@@ -5,14 +5,12 @@ using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Authorization;
 using SchoolAPI.Data;
-using SchoolAPI.Constant;
 using SchoolAPI.Entities;
 using SchoolAPI.Helpers;
 using SchoolAPI.Interfaces;
@@ -304,11 +302,11 @@ namespace SchoolAPI.Extensions
                 c.AddSecurityDefinition(BearerScheme, new OpenApiSecurityScheme
                 {
                     In = ParameterLocation.Header,
-                    Description = "Please enter token with Bearer",
+                    Description = "Please enter your valid JWT. (Swagger will automatically add the 'Bearer ' prefix).",
                     Name = "Authorization",
                     Type = SecuritySchemeType.Http,
                     BearerFormat = "JWT",
-                    Scheme = "bearer"
+                    Scheme = "Bearer"
                 });
                 c.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {

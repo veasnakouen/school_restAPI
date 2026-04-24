@@ -1,20 +1,17 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using MediatR;
-using SchoolAPI.Constant;
-using SchoolAPI.Application.Features.Brands.Create;
-using SchoolAPI.Application.Features.Brands.Delete;
-using SchoolAPI.Application.Features.Brands.GetAll;
-using SchoolAPI.Application.Features.Brands.GetById;
+using Microsoft.AspNetCore.Mvc;
 using SchoolAPI.Application.Features.Brands.Update;
+using SchoolAPI.Application.Features.Brands.Delete;
+using SchoolAPI.Application.Common.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Entities;
 using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Controllers;
 
-[ApiController]
 [Route("api/[controller]")]
-[Authorize(Policy = Permissions.BrandRead)]
-public class BrandController : BaseController
+[ApiController]
+public class BrandController : BaseController // Assuming BaseController handles Result<T> wrapping
 {
     private readonly ISender _sender;
 
@@ -24,47 +21,30 @@ public class BrandController : BaseController
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllBrands([FromServices] IApplicationDbContext context)
     {
-        var result = await _sender.Send(new GetAllBrandsQuery(), cancellationToken);
-        return HandleResult(result);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById(string id, CancellationToken cancellationToken)
-    {
-        var result = await _sender.Send(new GetBrandByIdQuery(id), cancellationToken);
-        return HandleResult(result);
+        var brands = await context.Brands.Select(b => new { b.Id, b.Name }).ToListAsync();
+        return Ok(brands);
     }
 
     [HttpPost]
-    [Authorize(Policy = Permissions.BrandCreate)]
-    public async Task<IActionResult> Create([FromBody] BrandDto brand, CancellationToken cancellationToken)
+    public async Task<IActionResult> CreateBrand([FromBody] BrandDto request, [FromServices] IApplicationDbContext context)
     {
-        var result = await _sender.Send(new CreateBrandCommand(brand), cancellationToken);
-        if (!result.IsSuccess) return HandleResult(result);
-        
-        return CreatedAtAction(nameof(GetById), new { id = result.Data?.Id }, result.Data);
+        var brand = new Brand { Id = Guid.NewGuid().ToString(), Name = request.Name };
+        context.Brands.Add(brand);
+        await context.SaveChangesAsync(default);
+        return Ok(brand);
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = Permissions.BrandUpdate)]
-    public async Task<IActionResult> Update(string id, [FromBody] BrandDto input, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateBrand(string id, [FromBody] BrandDto request)
     {
-        if (!string.IsNullOrWhiteSpace(input.Id) && !string.Equals(id, input.Id, StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest("Invalid brand ID or mismatched ID in request body.");
-        }
-
-        var result = await _sender.Send(new UpdateBrandCommand(id, input), cancellationToken);
-        return HandleResult(result);
+        return HandleResult(await _sender.Send(new UpdateBrandCommand(id, request)));
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = Permissions.BrandDelete)]
-    public async Task<IActionResult> Delete(string id, CancellationToken cancellationToken)
+    public async Task<IActionResult> DeleteBrand(string id)
     {
-        var result = await _sender.Send(new DeleteBrandCommand(id), cancellationToken);
-        return HandleResult(result);
+        return HandleResult(await _sender.Send(new DeleteBrandCommand(id)));
     }
 }

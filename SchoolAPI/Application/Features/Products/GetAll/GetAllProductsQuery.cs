@@ -9,6 +9,9 @@ public record GetAllProductsQuery(
     string? CategoryId,
     string? DepartmentId,
     string? SortBy,
-    bool IsAscending,
-    int PageNumber,
-    int PageSize) : IRequest<Result<PagedResult<ProductDto>>>;
+    bool IsAscending = true,
+    int PageNumber = 1,
+    int PageSize = 10,
+    string? FilterOn = null,
+    string? FilterQuery = null
+) : IRequest<Result<PagedResult<ProductDto>>>;

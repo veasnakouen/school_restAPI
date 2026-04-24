@@ -14,6 +14,7 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     {
     }
 
+    public DbSet<AppUser> AppUsers { get; set; }
     public DbSet<AppRole> AppRoles { get; set; }
     public DbSet<AppUserRole> AppUserRoles { get; set; }
     public DbSet<Permission> Permissions { get; set; }
@@ -22,7 +23,6 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     public DbSet<Student> Students { get; set; }
     public DbSet<OutReach> OutReaches { get; set; }
     public DbSet<Attendance> Attendances { get; set; }
-    public DbSet<Order> Orders { get; set; }
     public DbSet<Quality> Qualities { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<Product> Products{ get; set; }
@@ -48,6 +48,15 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     {
         base.OnModelCreating(builder);
 
+        // ── Rename ASP.NET Identity Default Tables ───────────────────────
+        builder.Entity<AppUser>().ToTable("AppUsers");
+        builder.Entity<AppRole>().ToTable("AppRoles");
+        builder.Entity<AppUserRole>().ToTable("AppUserRoles");
+        builder.Entity<IdentityUserClaim<string>>().ToTable("AppUserClaims");
+        builder.Entity<IdentityUserLogin<string>>().ToTable("AppUserLogins");
+        builder.Entity<IdentityRoleClaim<string>>().ToTable("AppRoleClaims");
+        builder.Entity<IdentityUserToken<string>>().ToTable("AppUserTokens");
+
         // ── Purchase Relationships ───────────────────────────────────────
         // When a Purchase is deleted, automatically delete its PurchaseItems
         builder.Entity<PurchaseItem>()
@@ -55,6 +64,11 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
             .WithMany(p => p.PurchaseItems)
             .HasForeignKey(pi => pi.PurchaseId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // A Product can only be in one PurchaseItem, enforcing a 1-to-1 relationship from Product's perspective
+        builder.Entity<PurchaseItem>()
+            .HasIndex(pi => pi.ProductId)
+            .IsUnique();
 
         // ── Stock Movement Relationships ─────────────────────────────────
         builder.Entity<StockMovement>()
@@ -78,13 +92,13 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
         // ── Asset Assignment Relationships ───────────────────────────────
         builder.Entity<AssetAssignment>()
             .HasOne(aa => aa.AssignedTo)
-            .WithMany()
+            .WithMany(p => p.AssignedAssets)
             .HasForeignKey(aa => aa.AssignedToId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<AssetAssignment>()
             .HasOne(aa => aa.AssignedBy)
-            .WithMany()
+            .WithMany() // This relationship does not have a corresponding collection on Person
             .HasForeignKey(aa => aa.AssignedById)
             .OnDelete(DeleteBehavior.Restrict);
 

@@ -8,6 +8,7 @@ import { UserManagement } from './features/admin/UserManagement';
 import { Profile } from './features/admin/Profile';
 import { AdminGuard } from "./auth/AdminGuard";
 import { SystemSettings } from './features/admin/SystemSettings';
+import { LookupManagement } from "./features/admin/LookupManagement";
 import { AuthProvider } from './auth/AuthContext';
 import { LoginPage } from './features/auth/LoginPage';
 import { Products } from './features/products/Products';
@@ -92,6 +93,7 @@ const AppContent = () => {
                     element={<PermissionManagement />}
                   />
                   <Route path="settings" element={<SystemSettings />} />
+                  <Route path="lookups" element={<LookupManagement />} />
                 </Route>
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

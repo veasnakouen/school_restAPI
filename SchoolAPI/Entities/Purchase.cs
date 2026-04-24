@@ -9,7 +9,8 @@ public class Purchase : BaseAuditableEntity
     public DateTime InvoiceDate { get; set; } = DateTime.UtcNow;
     public decimal TotalAmount { get; set; }
     public string? Notes { get; set; }
-    public string Status { get; set; } = "Completed"; // e.g., Pending, Received, Completed
+    public string Status { get; set; } = "Completed"; // e.g., Pending, Received, Completed,
+    public string AcquisitionType { get; set; } = "Purchased"; // "Purchased", "Donated"
 
     // Navigation property: One Purchase has many PurchaseItems
     public ICollection<PurchaseItem> PurchaseItems { get; set; } = new List<PurchaseItem>();

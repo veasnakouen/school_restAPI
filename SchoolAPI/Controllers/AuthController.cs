@@ -123,7 +123,10 @@ public class AuthController : BaseController
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var user = await _userManager.FindByEmailAsync(request.Email);
+        // Try to find the user by Email first, and if not found, try by FullName
+        var user = await _userManager.FindByEmailAsync(request.Email) 
+                ?? await _userManager.FindByNameAsync(request.Email);
+
         if (user == null)
         {
             // Don't reveal whether user exists or not

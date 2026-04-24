@@ -39,8 +39,10 @@ namespace SchoolAPI.Extensions
                 throw;
             }
 
-            // 2. Seed Permissions and Register Policies
+            // 2. Seed Permissions and Register Policies...
             await DbInitializer.SeedPermissionsAsync(dbContext);
+            // await SeedUser.SeedUsers(dbContext);
+
             var permissions = await dbContext.Permissions.Select(p => p.Name).ToListAsync();
             var authorizationOptions = services.GetService<IOptions<Microsoft.AspNetCore.Authorization.AuthorizationOptions>>()?.Value;
             if (authorizationOptions != null)

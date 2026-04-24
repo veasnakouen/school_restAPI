@@ -68,4 +68,34 @@ public class SupplierController : ControllerBase
             Name = supplier.Name
         });
     }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateSupplier(string id, [FromBody] CreateSupplierRequest request)
+    {
+        var supplier = await _context.Suppliers.FindAsync(id);
+        if (supplier == null) return NotFound(new { title = "Supplier not found." });
+        
+        supplier.Name = request.Name;
+        await _context.SaveChangesAsync();
+        return Ok(new { Id = supplier.Id, Name = supplier.Name });
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteSupplier(string id)
+    {
+        var supplier = await _context.Suppliers.FindAsync(id);
+        if (supplier == null) return NotFound(new { title = "Supplier not found." });
+
+        _context.Suppliers.Remove(supplier);
+        
+        try
+        {
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Supplier deleted successfully." });
+        }
+        catch (DbUpdateException)
+        {
+            return BadRequest(new { message = "Cannot delete this item because it is currently in use by other records (e.g., assigned to a product)." });
+        }
+    }
 }

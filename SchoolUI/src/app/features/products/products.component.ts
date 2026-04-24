@@ -46,6 +46,16 @@ import autoTable from 'jspdf-autotable';
               <option [value]="catName">{{ catName }}</option>
             }
           </select>
+          <select
+            [(ngModel)]="filterDepartment"
+            (ngModelChange)="onFilterChange()"
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="">All Departments</option>
+            @for (deptName of uniqueDepartments; track deptName) {
+              <option [value]="deptName">{{ deptName }}</option>
+            }
+          </select>
           <button type="button" class="btn btn-success btn-sm btn-outline gap-2" (click)="openCreateModal()">
             <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
@@ -666,17 +676,14 @@ import autoTable from 'jspdf-autotable';
                 <label class="label">
                   <span class="label-text font-semibold">Year</span>
                 </label>
-                <select
-                  [ngModel]="selectedProduct.year ? (selectedProduct.year | date:'yyyy') : null"
+                <input
+                  type="date"
+                  [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'"
                   (ngModelChange)="onYearChange($event)"
                   name="year"
-                  class="select select-bordered w-full bg-base-100"
-                >
-                  <option [ngValue]="null">Select year...</option>
-                  @for (y of years; track y) {
-                    <option [ngValue]="y.toString()">{{ y }}</option>
-                  }
-                </select>
+                  class="input input-bordered w-full bg-base-100"
+                  [max]="todayString"
+                />
               </div>
               <div class="form-control w-full">
                 <label class="label">
@@ -722,9 +729,9 @@ import autoTable from 'jspdf-autotable';
           @if (!isEditing || (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None')) {
             <div class="divider my-2">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
-                <div class="form-control w-full">
+                <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                   <label class="label"><span class="label-text font-semibold">Acquisition Type</span></label>
-                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100">
+                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100" [disabled]="disablePurchaseFields">
                     <option [ngValue]="null">None (Just setup product catalog)</option>
                     <option value="Purchased">Purchased</option>
                     <option value="Donated">Donated</option>
@@ -732,20 +739,20 @@ import autoTable from 'jspdf-autotable';
                 </div>
                 
                 @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
-                  <div class="form-control w-full">
+                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                     <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
-                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" />
+                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" />
                   </div>
-                  <div class="form-control w-full">
+                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                     <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
                     <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
                       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         @if (lookupsLoading) {
                           <span class="loading loading-spinner loading-sm text-base-content/40"></span>
                         }
                         @if (selectedProduct.responsiblePerson) {
-                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
+                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')" [disabled]="disablePurchaseFields">✕</button>
                         }
                       </div>
                       @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
@@ -762,16 +769,16 @@ import autoTable from 'jspdf-autotable';
                 }
                 
                 @if (selectedProduct.purchaseType === 'Purchased') {
-                  <div class="form-control w-full">
+                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                     <label class="label"><span class="label-text font-semibold">Supplier Name</span></label>
                     <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" />
+                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
                       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         @if (lookupsLoading) {
                           <span class="loading loading-spinner loading-sm text-base-content/40"></span>
                         }
                         @if (selectedProduct.supplierName) {
-                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')">✕</button>
+                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [disabled]="disablePurchaseFields">✕</button>
                         }
                       </div>
                       @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
@@ -785,16 +792,16 @@ import autoTable from 'jspdf-autotable';
                       }
                     </div>
                   </div>
-                  <div class="form-control w-full">
+                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                     <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
-                    <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
+                    <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" placeholder="e.g. INV-12345" />
                   </div>
                 }
                 
                 @if (selectedProduct.purchaseType === 'Donated') {
-                  <div class="form-control w-full">
+                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
                     <label class="label"><span class="label-text font-semibold">Donor Name</span></label>
-                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" placeholder="e.g. John Doe" />
+                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
                   </div>
                 }
               </div>
@@ -805,7 +812,7 @@ import autoTable from 'jspdf-autotable';
             <button
               type="submit"
               class="btn btn-primary"
-              [disabled]="!productForm.form.valid || !selectedProduct.name || selectedProduct.price === null || selectedProduct.price === undefined || imageLoading"
+              [disabled]="!isProductFormValid || !productForm.form.valid || imageLoading"
             >
               @if (imageLoading) {
                 <span class="loading loading-spinner loading-sm"></span>
@@ -1139,6 +1146,10 @@ export class ProductsComponent implements OnInit {
   protected suppliers: SupplierDto[] = [];
   protected lookupsLoading = false;
 
+  protected get todayString(): string {
+    return new Date().toISOString().split('T')[0];
+  }
+
   // Autocomplete state
   protected filteredSuggestions: { [key: string]: any[] } = {};
   protected showSuggestions: { [key: string]: boolean } = {};
@@ -1167,6 +1178,11 @@ export class ProductsComponent implements OnInit {
     return catName.includes('car') || catName.includes('motor') || catName.includes('moto') || catName.includes('bike') || catName.includes('vehicle');
   }
 
+  protected get isProductFormValid(): boolean {
+    if (!this.selectedProduct.name || this.selectedProduct.price === null || this.selectedProduct.price === undefined) return false;
+    return true;
+  }
+
   // Pagination states
   protected selectedProducts = new Set<string>();
 
@@ -1177,12 +1193,12 @@ export class ProductsComponent implements OnInit {
   protected totalPages = 0;
 
   // Sorting states
-  protected sortBy: string = '';
-  protected isAscending = true;
+  protected sortBy: string = 'createdDate';
+  protected isAscending = false;
 
   // Filtering states
   protected filterCategory = '';
-  protected filterBrand = '';
+  protected filterDepartment = '';
 
   // Column visibility
   protected availableColumns = [
@@ -1231,6 +1247,10 @@ export class ProductsComponent implements OnInit {
 
   protected purchaseHistory: ProductPurchaseHistoryDto[] = [];
   protected historyLoading = false;
+
+  protected get disablePurchaseFields(): boolean {
+    return this.isEditing && this.purchaseHistory.length > 0;
+  }
 
   protected getTotalPurchased(): number {
     return this.purchaseHistory.reduce((sum, item) => sum + item.quantity, 0);
@@ -1348,6 +1368,7 @@ export class ProductsComponent implements OnInit {
       departmentName: null,
       price: null,
       imageUrl: null,
+      attributes: null,
       year: null,
       plateNumber: null,
       engineNumber: null,
@@ -1599,17 +1620,13 @@ export class ProductsComponent implements OnInit {
       getMethod.call(this.api, product.id).subscribe({
         next: (fullProduct: ProductDto) => {
           this.purchaseHistory = fullProduct.purchaseHistory || [];
-          this.selectedProduct = {
-            ...fullProduct,
-            purchaseType: null,
-            initialQuantity: null,
-            supplierName: null,
-            donorName: null,
-            voucherNumber: null,
-            invoiceDate: null,
-            supplierContact: null
-          };
-          this.contacts = [{ type: 'Phone', value: '' }];
+          this.selectedProduct = fullProduct;
+          if (fullProduct.supplierContact) {
+            this.contacts = this.parseContactString(fullProduct.supplierContact);
+            if (this.contacts.length === 0) this.contacts.push({ type: 'Phone', value: '' });
+          } else {
+            this.contacts = [{ type: 'Phone', value: '' }];
+          }
           this.historyLoading = false;
           this.cdr.detectChanges();
         },
@@ -1708,6 +1725,7 @@ export class ProductsComponent implements OnInit {
         departmentName: this.selectedProduct.departmentName,
         price: this.selectedProduct.price,
         quality: this.selectedProduct.quality,
+        attributes: this.selectedProduct.attributes,
         year: this.selectedProduct.year,
         plateNumber: this.selectedProduct.plateNumber,
         engineNumber: this.selectedProduct.engineNumber,
@@ -1756,17 +1774,13 @@ export class ProductsComponent implements OnInit {
       getMethod.call(this.api, id).subscribe({
         next: (fullProduct: ProductDto) => {
           this.purchaseHistory = fullProduct.purchaseHistory || [];
-          this.selectedProduct = {
-            ...fullProduct,
-            purchaseType: null,
-            initialQuantity: null,
-            supplierName: null,
-            donorName: null,
-            voucherNumber: null,
-            invoiceDate: null,
-            supplierContact: null
-          };
-          this.contacts = [{ type: 'Phone', value: '' }];
+          this.selectedProduct = fullProduct;
+          if (fullProduct.supplierContact) {
+            this.contacts = this.parseContactString(fullProduct.supplierContact);
+            if (this.contacts.length === 0) this.contacts.push({ type: 'Phone', value: '' });
+          } else {
+            this.contacts = [{ type: 'Phone', value: '' }];
+          }
           this.historyLoading = false;
           this.cdr.detectChanges();
         },
@@ -2123,8 +2137,8 @@ export class ProductsComponent implements OnInit {
   }
 
   protected onYearChange(yearStr: string | null): void {
-    if (yearStr) {
-      this.selectedProduct.year = `${yearStr}-01-01T00:00:00Z`;
+    if (yearStr) { // yearStr is 'yyyy-MM-dd'
+      this.selectedProduct.year = new Date(yearStr).toISOString();
     } else {
       this.selectedProduct.year = null;
     }
@@ -2180,7 +2194,7 @@ export class ProductsComponent implements OnInit {
     const escaped = value.replace(/"/g, '""');
     return escaped.includes(',') ? `"${escaped}"` : escaped;
   }
-
+// Export pdf
   protected exportToPDF(): void {
     if (this.products.length === 0) return;
 
@@ -2246,7 +2260,7 @@ export class ProductsComponent implements OnInit {
     // Save
     doc.save(`products_${this.getTimestamp()}.pdf`);
   }
-
+// print
   protected printProducts(): void {
     if (this.products.length === 0) return;
 

@@ -18,15 +18,17 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
     public async Task<Result<ProductDto>> Handle(GetProductByIdQuery request, CancellationToken cancellationToken)
     {
         var product = await _context.Products
-            .AsNoTracking()
             .Include(p => p.Category)
             .Include(p => p.Brand)
-            .Include(p => p.Quality)
             .Include(p => p.Department)
+            .Include(p => p.Quality)
             .Include(p => p.Image)
             .Include(p => p.PurchaseItems)
                 .ThenInclude(pi => pi.Purchase)
-                .ThenInclude(p => p.Supplier)
+                    .ThenInclude(p => p!.Supplier)
+            .Include(p => p.PurchaseItems)
+                .ThenInclude(pi => pi.ResponsiblePerson)
+            .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.ProductId, cancellationToken);
 
         if (product == null)
@@ -34,40 +36,57 @@ public class GetProductByIdQueryHandler : IRequestHandler<GetProductByIdQuery, R
             return Result<ProductDto>.Failure("Product not found.");
         }
 
-        var dto = new ProductDto
+        var productDto = new ProductDto
         {
             Id = product.Id,
             Name = product.ProductName,
             CodeNumber = product.CodeNumber,
             Description = product.Description,
+            Attributes = product.Attributes,
             Price = product.Price,
-            ImageUrl = product.Image?.Url,
             PlateNumber = product.PlateNumber,
+            Year = product.Year?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             EngineNumber = product.EngineNumber,
-            Year = product.Year,
-            CreatedAt = product.CreatedDate ?? DateTime.UtcNow,
+            IsActive = product.IsActive,
+            ImageUrl = product.Image?.Url,
+            CreatedDate = product.CreatedDate?.ToString("o"),
+            UpdateDate = product.UpdateDate?.ToString("o"),
             CategoryId = product.CategoryId,
             CategoryName = product.Category?.Name,
             BrandId = product.BrandId,
             BrandName = product.Brand?.Name,
-            QualityId = product.QualityId,
-            Quality = product.Quality?.Name,
             DepartmentId = product.DepartmentId,
             DepartmentName = product.Department?.Name,
-            PurchaseHistory = product.PurchaseItems
-                .OrderByDescending(pi => pi.Purchase != null ? pi.Purchase.InvoiceDate : pi.CreatedDate)
-                .Select(pi => new ProductPurchaseHistoryDto
-                {
-                    PurchaseId = pi.PurchaseId,
-                    PurchaseDate = pi.Purchase != null ? pi.Purchase.InvoiceDate : (pi.CreatedDate ?? DateTime.UtcNow),
-                    VoucherNumber = pi.Purchase?.VoucherNumber,
-                    SupplierName = pi.Purchase?.Supplier?.Name,
-                    Quantity = pi.Quantity,
-                    UnitPrice = pi.UnitPrice,
-                    TotalPrice = pi.TotalPrice
-                }).ToList()
+            QualityId = product.QualityId,
+            Quality = product.Quality?.Name,
         };
 
-        return Result<ProductDto>.Success(dto);
+        var initialPurchaseItem = product.PurchaseItems.OrderBy(pi => pi.CreatedDate).FirstOrDefault();
+        if (initialPurchaseItem?.Purchase != null)
+        {
+            productDto.InitialQuantity = initialPurchaseItem.Quantity;
+            productDto.ResponsiblePerson = initialPurchaseItem.ResponsiblePerson?.FullName;
+            productDto.PurchaseType = initialPurchaseItem.Purchase.AcquisitionType;
+            productDto.VoucherNumber = initialPurchaseItem.Purchase.VoucherNumber;
+            productDto.InvoiceDate = initialPurchaseItem.Purchase.InvoiceDate.ToString("yyyy-MM-dd");
+            productDto.SupplierName = initialPurchaseItem.Purchase.Supplier?.Name;
+            productDto.DonorName = initialPurchaseItem.Purchase.AcquisitionType == "Donated" ? initialPurchaseItem.Purchase.Supplier?.Name : null;
+            productDto.SupplierContact = string.Join(" | ", initialPurchaseItem.Purchase.Supplier?.ContactInfo ?? new List<string>());
+        }
+
+        productDto.PurchaseHistory = product.PurchaseItems
+            .OrderByDescending(pi => pi.Purchase!.InvoiceDate)
+            .Select(pi => new ProductPurchaseHistoryDto
+            {
+                PurchaseId = pi.PurchaseId,
+                PurchaseDate = pi.Purchase!.InvoiceDate.ToString("o"),
+                VoucherNumber = pi.Purchase.VoucherNumber,
+                SupplierName = pi.Purchase.Supplier?.Name,
+                Quantity = pi.Quantity,
+                UnitPrice = pi.UnitPrice,
+                TotalPrice = pi.TotalPrice
+            }).ToList();
+
+        return Result<ProductDto>.Success(productDto);
     }
 }

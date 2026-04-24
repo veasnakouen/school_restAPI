@@ -75,6 +75,11 @@ export interface DepartmentDto {
   name: string;
 }
 
+export interface QualityDto {
+  id: string;
+  name: string;
+}
+
 export interface SupplierDto {
   id: string;
   name: string;
@@ -318,11 +323,23 @@ export const getCategories = (): Promise<CategoryDto[]> =>
 export const createCategory = (category: { name: string; description?: string | null }): Promise<CategoryDto> =>
   apiClient.post('/Category', category).then(res => res.data);
 
+export const updateCategory = (id: string, category: Partial<CategoryDto>): Promise<CategoryDto> =>
+  apiClient.put(`/Category/${id}`, category).then(res => res.data);
+
+export const deleteCategory = (id: string): Promise<any> =>
+  apiClient.delete(`/Category/${id}`).then(res => res.data);
+
 export const getBrands = (): Promise<BrandDto[]> => 
   apiClient.get('/Brand').then(res => res.data);
 
 export const createBrand = (brand: { name: string }): Promise<BrandDto> =>
   apiClient.post('/Brand', brand).then(res => res.data);
+
+export const updateBrand = (id: string, brand: Partial<BrandDto>): Promise<BrandDto> =>
+  apiClient.put(`/Brand/${id}`, brand).then(res => res.data);
+
+export const deleteBrand = (id: string): Promise<any> =>
+  apiClient.delete(`/Brand/${id}`).then(res => res.data);
 
 export const getDepartments = (): Promise<DepartmentDto[]> =>
   apiClient.get('/Department').then(res => res.data);
@@ -330,14 +347,47 @@ export const getDepartments = (): Promise<DepartmentDto[]> =>
 export const createDepartment = (department: { name: string, location?: string }): Promise<DepartmentDto> =>
   apiClient.post('/Department', department).then(res => res.data);
 
+export const updateDepartment = (id: string, department: Partial<DepartmentDto>): Promise<DepartmentDto> =>
+  apiClient.put(`/Department/${id}`, department).then(res => res.data);
+
+export const deleteDepartment = (id: string): Promise<any> =>
+  apiClient.delete(`/Department/${id}`).then(res => res.data);
+
+export const getQualities = (): Promise<QualityDto[]> =>
+  apiClient.get('/Quality').then(res => res.data);
+
+export const createQuality = (quality: { name: string }): Promise<QualityDto> =>
+  apiClient.post('/Quality', quality).then(res => res.data);
+
+export const updateQuality = (id: string, quality: Partial<QualityDto>): Promise<QualityDto> =>
+  apiClient.put(`/Quality/${id}`, quality).then(res => res.data);
+
+export const deleteQuality = (id: string): Promise<any> =>
+  apiClient.delete(`/Quality/${id}`).then(res => res.data);
+
 export const getSuppliers = (): Promise<SupplierDto[]> =>
   apiClient.get('/Supplier').then(res => res.data);
 
 export const createSupplier = (supplier: { name: string }): Promise<SupplierDto> =>
   apiClient.post('/Supplier', supplier).then(res => res.data);
 
+export const updateSupplier = (id: string, supplier: Partial<SupplierDto>): Promise<SupplierDto> =>
+  apiClient.put(`/Supplier/${id}`, supplier).then(res => res.data);
+
+export const deleteSupplier = (id: string): Promise<any> =>
+  apiClient.delete(`/Supplier/${id}`).then(res => res.data);
+
 export const getPersons = (): Promise<PersonDto[]> =>
   apiClient.get('/Person').then(res => res.data);
+
+export const createPerson = (person: { fullName: string; department?: string; email?: string }): Promise<PersonDto> =>
+  apiClient.post('/Person', person).then(res => res.data);
+
+export const updatePerson = (id: string, person: Partial<PersonDto>): Promise<PersonDto> =>
+  apiClient.put(`/Person/${id}`, person).then(res => res.data);
+
+export const deletePerson = (id: string): Promise<any> =>
+  apiClient.delete(`/Person/${id}`).then(res => res.data);
 
 export const createProduct = (product: CreateProductRequest): Promise<ProductDto> =>
   apiClient.post('/inventory/products', product).then(res => res.data);

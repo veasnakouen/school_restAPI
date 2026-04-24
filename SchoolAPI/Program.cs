@@ -106,8 +106,8 @@ builder.Services.AddDatabase(builder.Configuration)
 
 var app = builder.Build();
 
-// Apply migrations and seed roles/admin BEFORE accessing the Permissions table
-await app.SeedDataAsync();
+// Ensure database is created and seed all data automatically
+await DbInitializer.InitializeDatabaseAsync(app);
 
 // Security headers — applied first so all responses are covered
 app.Use(async (ctx, next) =>
