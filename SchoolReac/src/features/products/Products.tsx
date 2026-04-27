@@ -19,18 +19,26 @@ import 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
+import * as ExcelJS from 'exceljs';
 
 
 const ALL_COLUMNS = [
   { id: 'name', label: 'Name' },
   { id: 'codeNumber', label: 'Code Number' },
   { id: 'year', label: 'Year' },
+  { id: 'plateNumber', label: 'Plate Number' },
+  { id: 'engineNumber', label: 'Engine/Serial #' },
   { id: 'categoryName', label: 'Category' },
   { id: 'brandName', label: 'Brand' },
   { id: 'quality', label: 'Condition' },
   { id: 'departmentName', label: 'Dept' },
   { id: 'responsiblePerson', label: 'Responsible Person' },
-  { id: 'price', label: 'Price' }
+  { id: 'initialQuantity', label: 'Qty' },
+  { id: 'voucherNumber', label: 'Voucher #' },
+  { id: 'donorName', label: 'Donor' },
+  { id: 'purchaseType', label: 'Acquisition Type' },
+  { id: 'price', label: 'Price' },
+  { id: 'description', label: 'Description' }
 ];
 
 export const Products: React.FC = () => {
@@ -53,7 +61,9 @@ export const Products: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
   const [filterDepartment, setFilterDepartment] = useState(searchParams.get('department') || '');
-  const [filterCategory, setFilterCategory] = useState(searchParams.get('category') || '');
+  const [filterCategory, setFilterCategory] = useState<string[]>(searchParams.get('category') ? searchParams.get('category')!.split(',') : []);
+  const [filterQuality, setFilterQuality] = useState(searchParams.get('quality') || '');
+  const [filterPurchaseType, setFilterPurchaseType] = useState(searchParams.get('purchaseType') || '');
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10) - 1);
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState<keyof api.ProductDto>('name');
@@ -67,6 +77,8 @@ export const Products: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<api.ProductDto | null>(null);
   const [productsToDelete, setProductsToDelete] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importErrors, setImportErrors] = useState<string[]>([]);
 
   // Purchase History State
   const [purchaseHistory, setPurchaseHistory] = useState<api.ProductPurchaseHistoryDto[]>([]);
@@ -87,12 +99,13 @@ export const Products: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
-    const saved = localStorage.getItem('products_visible_columns');
-    if (saved) {
+    const savedHidden = localStorage.getItem('products_table_hidden_cols_v7');
+    if (savedHidden) {
       try {
-        return JSON.parse(saved);
+        const hiddenArr = JSON.parse(savedHidden);
+        return ALL_COLUMNS.map(c => c.id).filter(id => !hiddenArr.includes(id));
       } catch (e) {
-        console.error('Failed to parse visible columns from local storage', e);
+        console.error('Failed to parse hidden columns from local storage', e);
       }
     }
     return ALL_COLUMNS.map(c => c.id);
@@ -108,7 +121,8 @@ export const Products: React.FC = () => {
   }, [products]);
 
   useEffect(() => {
-    localStorage.setItem('products_visible_columns', JSON.stringify(visibleColumns));
+    const hiddenColumns = ALL_COLUMNS.map(c => c.id).filter(id => !visibleColumns.includes(id));
+    localStorage.setItem('products_table_hidden_cols_v7', JSON.stringify(hiddenColumns));
   }, [visibleColumns]);
 
   useEffect(() => {
@@ -149,19 +163,25 @@ export const Products: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const selectedCat = categories.find(c => c.name === filterCategory);
+      const selectedCats = categories.filter(c => filterCategory.includes(c.name));
+      const categoryIds = selectedCats.map(c => c.id).join(',');
       const selectedDept = departments.find(d => d.name === filterDepartment);
+      const selectedQuality = qualities.find(q => q.name === filterQuality);
 
       let filterOn = undefined;
       let filterQuery = undefined;
 
       // Fallback for free-text categories/departments that don't have an ID
-      if (filterCategory && !selectedCat?.id) {
+      const unmappedCategories = filterCategory.filter(name => !selectedCats.find(c => c.name === name));
+      if (unmappedCategories.length > 0) {
         filterOn = 'categoryName';
-        filterQuery = filterCategory;
+        filterQuery = unmappedCategories.join(',');
       } else if (filterDepartment && !selectedDept?.id) {
         filterOn = 'departmentName';
         filterQuery = filterDepartment;
+      } else if (filterQuality && !selectedQuality?.id) {
+        filterOn = 'quality';
+        filterQuery = filterQuality;
       }
 
       // Cast to any to bypass strict QueryOptions typing
@@ -171,8 +191,10 @@ export const Products: React.FC = () => {
         sortBy,
         isAscending,
         name: debouncedSearchQuery || undefined,
-        categoryId: selectedCat?.id || undefined,
+        categoryId: categoryIds || undefined,
         departmentId: selectedDept?.id || undefined,
+        qualityId: selectedQuality?.id || undefined,
+        purchaseType: filterPurchaseType || undefined,
         filterOn,
         filterQuery
       };
@@ -186,7 +208,7 @@ export const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, debouncedSearchQuery, showToast, categories, departments]);
+  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, debouncedSearchQuery, showToast, categories, departments, qualities]);
 
   useEffect(() => {
     loadProducts();
@@ -200,8 +222,8 @@ export const Products: React.FC = () => {
     } else {
       params.delete('search');
     }
-    if (filterCategory) {
-      params.set('category', filterCategory);
+    if (filterCategory.length > 0) {
+      params.set('category', filterCategory.join(','));
     } else {
       params.delete('category');
     }
@@ -210,11 +232,21 @@ export const Products: React.FC = () => {
     } else {
       params.delete('department');
     }
+    if (filterQuality) {
+      params.set('quality', filterQuality);
+    } else {
+      params.delete('quality');
+    }
+    if (filterPurchaseType) {
+      params.set('purchaseType', filterPurchaseType);
+    } else {
+      params.delete('purchaseType');
+    }
     params.set('page', (currentPage + 1).toString());
 
     // Using replace to not pollute browser history on every filter change
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchQuery, filterCategory, filterDepartment, currentPage, setSearchParams]);
+  }, [debouncedSearchQuery, filterCategory, filterDepartment, filterQuality, filterPurchaseType, currentPage, setSearchParams]);
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -311,7 +343,7 @@ export const Products: React.FC = () => {
   const handleOpenModal = (mode: 'create' | 'edit' | 'view', product?: api.ProductDto | null) => {
     setModalMode(mode);
     if (mode === 'create') {
-      setSelectedProduct({ id: null, name: '', price: 0, departmentName: '', codeNumber: '', attributes: '', purchaseType: 'None', initialQuantity: null, supplierName: '', donorName: '', voucherNumber: '', supplierContact: '', invoiceDate: '', responsiblePerson: '' } as api.ProductDto);
+      setSelectedProduct({ id: null, name: '', price: 0, departmentName: '', codeNumber: '', attributes: '', purchaseType: 'None', initialQuantity: null, supplierName: '', donorName: '', voucherNumber: '', supplierContact: '', invoiceDate: '', responsiblePerson: '', responsiblePersonId: null, qualityId: null } as api.ProductDto);
       setContacts([{ type: 'Phone', value: '' }]);
     } else {
       // Set initial data from the list for a responsive UI
@@ -400,13 +432,34 @@ export const Products: React.FC = () => {
     if (!selectedProduct) return;
     setIsSaving(true);
 
+    // Clean up empty strings to null to ensure the backend validates optional/Date fields properly
+    const payloadToSave: any = { ...selectedProduct };
+    const optionalFields = ['description', 'codeNumber', 'attributes', 'plateNumber', 'engineNumber', 'donorName', 'voucherNumber', 'supplierName', 'responsiblePerson', 'invoiceDate', 'supplierContact', 'year', 'quality', 'categoryName', 'brandName', 'departmentName'];
+    
+    optionalFields.forEach(field => {
+      if (payloadToSave[field] === '') {
+        payloadToSave[field] = null;
+      }
+    });
+
     try {
+      // Auto-create Responsible Person if it's new
+      if (payloadToSave.purchaseType !== 'None' && payloadToSave.responsiblePerson && !payloadToSave.responsiblePersonId) {
+        try {
+          const newPerson = await api.createPerson({ fullName: payloadToSave.responsiblePerson });
+          payloadToSave.responsiblePersonId = newPerson.id;
+          setPersons(prev => [...prev, newPerson]);
+        } catch (e) {
+          console.warn("Could not auto-create person", e);
+        }
+      }
+
       let savedProduct: api.ProductDto;
-      if (modalMode === 'edit' && selectedProduct.id) {
-        const updateResult = await api.updateProduct(selectedProduct.id, selectedProduct);
-        savedProduct = updateResult || selectedProduct;
+      if (modalMode === 'edit' && payloadToSave.id) {
+        const updateResult = await api.updateProduct(payloadToSave.id, payloadToSave);
+        savedProduct = updateResult || payloadToSave;
       } else {
-        savedProduct = await api.createProduct(selectedProduct as api.CreateProductRequest);
+        savedProduct = await api.createProduct(payloadToSave as api.CreateProductRequest);
       }
 
       if (imageFile && savedProduct.id) {
@@ -471,6 +524,71 @@ export const Products: React.FC = () => {
     setImagePreview(null);
   };
 
+  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      // 1. Read and clean the Excel file before sending it to the backend
+      const workbook = new ExcelJS.Workbook();
+      try {
+        await workbook.xlsx.load(await file.arrayBuffer());
+      } catch (parseErr) {
+        showToast('Invalid Excel file format. Please upload a valid .xlsx file.', 'error');
+        setIsImporting(false);
+        return;
+      }
+      const worksheet = workbook.worksheets[0];
+
+      if (worksheet) {
+        // Iterate backwards so we can safely delete ghost rows without shifting indexes
+        for (let i = worksheet.rowCount; i > 1; i--) {
+          const row = worksheet.getRow(i);
+          let isRowEmpty = true;
+
+          row.eachCell({ includeEmpty: false }, (cell) => {
+            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+              isRowEmpty = false;
+              // Trim any accidental whitespace from string cells
+              if (typeof cell.value === 'string') {
+                cell.value = cell.value.trim();
+              }
+            }
+          });
+
+          // Remove completely empty rows (common cause of import crashes)
+          if (isRowEmpty) {
+            worksheet.spliceRows(i, 1);
+          }
+        }
+      }
+
+      // 2. Generate a new cleaned File to send
+      const cleanedBuffer = await workbook.xlsx.writeBuffer();
+      const cleanedFile = new File([cleanedBuffer], file.name, { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      // 3. Send the clean file to the API
+      const result = await api.importProducts(cleanedFile);
+      if (result.errors && result.errors.length > 0) {
+        showToast(`Imported ${result.importedCount} products. Encountered ${result.errors.length} row errors (see console).`, 'warning');
+        console.warn("Import errors:", result.errors);
+        setImportErrors(result.errors);
+      } else {
+        showToast(`Successfully imported ${result.importedCount} products!`, 'success');
+      }
+      await loadProducts();
+    } catch (err: any) {
+      const message = err.response?.data?.title || err.response?.data?.message || 'Failed to import products.';
+      showToast(message, 'error');
+    } finally {
+      setIsImporting(false);
+      event.target.value = ''; // Reset input so the same file can be uploaded again if needed
+    }
+  };
+
   const handleSaveCrop = async () => {
     if (imgRef.current && completedCrop?.width && completedCrop?.height) {
       const canvas = document.createElement('canvas');
@@ -507,7 +625,7 @@ export const Products: React.FC = () => {
     }
   };
 
-  const handleExport = (format: 'csv' | 'pdf') => {
+  const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
     const timestamp = new Date().toISOString().slice(0, 10);
     const activeColumns = ALL_COLUMNS.filter(col => visibleColumns.includes(col.id));
     const headers = activeColumns.map(col => col.label);
@@ -518,12 +636,19 @@ export const Products: React.FC = () => {
         case 'name': return p.name || fallback;
         case 'codeNumber': return p.codeNumber || fallback;
         case 'year': return p.year ? p.year.substring(0, 4) : fallback;
-        case 'categoryName': return p.categoryName || fallback;
-        case 'brandName': return p.brandName || fallback;
-        case 'quality': return p.quality || fallback;
-        case 'departmentName': return p.departmentName || fallback;
-        case 'responsiblePerson': return p.responsiblePerson || fallback;
+        case 'plateNumber': return p.plateNumber || fallback;
+        case 'engineNumber': return p.engineNumber || fallback;
+        case 'categoryName': return p.categoryName || categories.find(c => c.id === p.categoryId)?.name || fallback;
+        case 'brandName': return p.brandName || brands.find(b => b.id === p.brandId)?.name || fallback;
+        case 'quality': return p.quality || qualities.find(q => q.id === p.qualityId)?.name || fallback;
+        case 'departmentName': return p.departmentName || departments.find(d => d.id === p.departmentId)?.name || fallback;
+        case 'responsiblePerson': return p.responsiblePerson || persons.find(per => per.id === p.responsiblePersonId)?.fullName || fallback;
+        case 'initialQuantity': return p.initialQuantity?.toString() || fallback;
+        case 'voucherNumber': return p.voucherNumber || fallback;
+        case 'donorName': return p.donorName || fallback;
+        case 'purchaseType': return p.purchaseType || fallback;
         case 'price': return p.price != null ? `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
+        case 'description': return p.description || fallback;
         default: return fallback;
       }
     };
@@ -535,7 +660,34 @@ export const Products: React.FC = () => {
       totalValue = products.reduce((sum, p) => sum + (p.price || 0), 0);
     }
 
-    if (format === 'csv') {
+    if (format === 'excel') {
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Products');
+
+      worksheet.columns = activeColumns.map(col => ({
+        header: col.label,
+        key: col.id,
+        width: 20
+      }));
+
+      products.forEach(p => {
+        const rowData: any = {};
+        activeColumns.forEach(col => {
+          rowData[col.id] = col.id === 'price' ? (p.price || 0) : getColumnValue(p, col.id, false);
+        });
+        worksheet.addRow(rowData);
+      });
+
+      worksheet.getRow(1).font = { bold: true };
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `products_${timestamp}.xlsx`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } else if (format === 'csv') {
       const rows = products.map(p => activeColumns.map(col => escapeCsvValue(getColumnValue(p, col.id, true))).join(','));
       
       const summaryRow = activeColumns.map((col, index) => {
@@ -631,11 +783,12 @@ export const Products: React.FC = () => {
     doc.text(`Product Details - ${product.codeNumber || 'N/A'}`, 14, 30);
 
     const productData = [
-      ['Category', product.categoryName || '-'],
-      ['Brand', product.brandName || '-'],
+      ['Category', product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'],
+      ['Brand', product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'],
       ['Price', product.price ? `$${product.price.toFixed(2)}` : '-'],
-      ['Quality', product.quality || '-'],
-      ['Department', product.departmentName || '-'],
+      ['Quality', product.quality || qualities.find(q => q.id === product.qualityId)?.name || '-'],
+      ['Department', product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'],
+      ['Responsible Person', product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'],
       ['Created Date', product.createdDate ? new Date(product.createdDate).toLocaleDateString() : '-'],
     ];
 
@@ -678,7 +831,16 @@ export const Products: React.FC = () => {
     link.click();
   };
 
-  const disablePurchaseFields = modalMode === 'edit' && purchaseHistory.length > 0;
+  const disablePurchaseFields = (modalMode === 'edit' && historyLoading) || (modalMode === 'edit' && purchaseHistory.length > 0);
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterCategory([]);
+    setFilterDepartment('');
+    setFilterQuality('');
+    setFilterPurchaseType('');
+    setCurrentPage(0);
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -703,6 +865,15 @@ export const Products: React.FC = () => {
             ))}
           </Menu>
           <Button
+            component="label"
+            variant="outlined"
+            startIcon={isImporting ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+            disabled={isImporting}
+          >
+            Import
+            <input type="file" hidden accept=".xlsx" onChange={handleImportExcel} />
+          </Button>
+          <Button
             variant="outlined"
             startIcon={<FileDownloadIcon />}
             onClick={(e) => setAnchorEl(e.currentTarget)}
@@ -711,6 +882,7 @@ export const Products: React.FC = () => {
             Export
           </Button>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+            <MenuItem onClick={() => handleExport('excel')}>Export as Excel</MenuItem>
             <MenuItem onClick={() => handleExport('csv')}>Export as CSV</MenuItem>
             <MenuItem onClick={() => handleExport('pdf')}>Export as PDF</MenuItem>
           </Menu>
@@ -723,7 +895,7 @@ export const Products: React.FC = () => {
       {/* Table Card */}
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
         {/* Filter Bar */}
-        <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'flex-start', alignItems: { sm: 'center' }, flexWrap: 'wrap' }}>
           <TextField
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(0); }}
@@ -734,12 +906,26 @@ export const Products: React.FC = () => {
           />
           <FormControl size="small" sx={{ minWidth: 180 }}>
             <Select
-              value={filterCategory} // This now holds the category Name
-              onChange={(e) => { setFilterCategory(e.target.value); setCurrentPage(0); }}
+              multiple
+              value={filterCategory}
+              onChange={(e) => { 
+                const val = e.target.value; 
+                setFilterCategory(typeof val === 'string' ? val.split(',') : val as string[]); 
+                setCurrentPage(0); 
+              }}
               displayEmpty
+              renderValue={(selected) => {
+                if ((selected as string[]).length === 0) return "All Categories";
+                return (selected as string[]).join(', ');
+              }}
             >
-              <MenuItem value="">All Categories</MenuItem>
-              {uniqueCategories.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+              <MenuItem disabled value="" sx={{ display: 'none' }}>All Categories</MenuItem>
+              {uniqueCategories.map(name => (
+                <MenuItem key={name} value={name}>
+                  <Checkbox checked={filterCategory.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                  <ListItemText primary={name} />
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -752,6 +938,32 @@ export const Products: React.FC = () => {
               {uniqueDepartments.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
             </Select>
           </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              value={filterQuality}
+              onChange={(e) => { setFilterQuality(e.target.value); setCurrentPage(0); }}
+              displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
+            >
+              <MenuItem value="">All Conditions</MenuItem>
+              {qualities.map(q => <MenuItem key={q.id} value={q.name}>{q.name}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <Select
+              value={filterPurchaseType}
+              onChange={(e) => { setFilterPurchaseType(e.target.value); setCurrentPage(0); }}
+              displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
+            >
+              <MenuItem value="">All Acquisitions</MenuItem>
+              <MenuItem value="Purchased">Purchased</MenuItem>
+              <MenuItem value="Donated">Donated</MenuItem>
+            </Select>
+          </FormControl>
+          {(searchQuery || filterCategory.length > 0 || filterDepartment || filterQuality || filterPurchaseType) && (
+            <Button variant="text" color="inherit" onClick={handleClearFilters} startIcon={<CloseIcon />}>
+              Clear
+            </Button>
+          )}
         </Box>
 
         {/* Bulk Actions Toolbar */}
@@ -800,6 +1012,20 @@ export const Products: React.FC = () => {
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {visibleColumns.includes('plateNumber') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'plateNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('plateNumber')}>
+                      Plate Number
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {visibleColumns.includes('engineNumber') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'engineNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('engineNumber')}>
+                      Engine/Serial #
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {visibleColumns.includes('categoryName') && (
                   <TableCell>
                     <TableSortLabel active={sortBy === 'categoryName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('categoryName')}>
@@ -835,6 +1061,34 @@ export const Products: React.FC = () => {
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {visibleColumns.includes('initialQuantity') && (
+                  <TableCell align="right">
+                    <TableSortLabel active={sortBy === 'initialQuantity'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('initialQuantity')}>
+                      Qty
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {visibleColumns.includes('voucherNumber') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'voucherNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('voucherNumber')}>
+                      Voucher #
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {visibleColumns.includes('donorName') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'donorName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('donorName')}>
+                      Donor
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {visibleColumns.includes('purchaseType') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'purchaseType'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('purchaseType')}>
+                      Acquisition Type
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {visibleColumns.includes('price') && (
                   <TableCell align="right">
                     <TableSortLabel active={sortBy === 'price'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('price')}>
@@ -855,8 +1109,18 @@ export const Products: React.FC = () => {
               ) : (
                 products.map((product) => {
                   const isItemSelected = isSelected(product.id!);
+                  const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
+                  
+                  let rowBgColor = 'inherit';
+                  if (qualityName) {
+                    const q = qualityName.toLowerCase();
+                    if (q.includes('poor') || q.includes('broken') || q.includes('bad')) rowBgColor = 'rgba(244, 67, 54, 0.08)'; // Light Red
+                    else if (q.includes('fair') || q.includes('okay')) rowBgColor = 'rgba(255, 152, 0, 0.08)'; // Light Orange
+                    else if (q.includes('excellent') || q.includes('new') || q.includes('great')) rowBgColor = 'rgba(76, 175, 80, 0.08)'; // Light Green
+                  }
+
                   return (
-                    <TableRow hover onClick={(event) => handleClick(event, product.id!)} role="checkbox" tabIndex={-1} key={product.id} selected={isItemSelected}>
+                    <TableRow hover onClick={(event) => handleClick(event, product.id!)} role="checkbox" tabIndex={-1} key={product.id} selected={isItemSelected} sx={{ bgcolor: rowBgColor }}>
                       <TableCell padding="checkbox">
                         <Checkbox color="primary" checked={isItemSelected} />
                       </TableCell>
@@ -872,11 +1136,17 @@ export const Products: React.FC = () => {
                       )}
                       {visibleColumns.includes('codeNumber') && <TableCell>{product.codeNumber || '-'}</TableCell>}
                       {visibleColumns.includes('year') && <TableCell>{product.year ? product.year.substring(0, 4) : '-'}</TableCell>}
-                      {visibleColumns.includes('categoryName') && <TableCell>{product.categoryName || '-'}</TableCell>}
-                      {visibleColumns.includes('brandName') && <TableCell>{product.brandName || '-'}</TableCell>}
-                      {visibleColumns.includes('quality') && <TableCell>{product.quality || '-'}</TableCell>}
-                      {visibleColumns.includes('departmentName') && <TableCell>{product.departmentName || '-'}</TableCell>}
-                      {visibleColumns.includes('responsiblePerson') && <TableCell>{product.responsiblePerson || '-'}</TableCell>}
+                      {visibleColumns.includes('plateNumber') && <TableCell>{product.plateNumber || '-'}</TableCell>}
+                      {visibleColumns.includes('engineNumber') && <TableCell>{product.engineNumber || '-'}</TableCell>}
+                      {visibleColumns.includes('categoryName') && <TableCell>{product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}</TableCell>}
+                      {visibleColumns.includes('brandName') && <TableCell>{product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'}</TableCell>}
+                      {visibleColumns.includes('quality') && <TableCell>{product.quality || qualities.find(q => q.id === product.qualityId)?.name || '-'}</TableCell>}
+                      {visibleColumns.includes('departmentName') && <TableCell>{product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'}</TableCell>}
+                      {visibleColumns.includes('responsiblePerson') && <TableCell>{product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'}</TableCell>}
+                      {visibleColumns.includes('initialQuantity') && <TableCell align="right">{product.initialQuantity || '-'}</TableCell>}
+                      {visibleColumns.includes('voucherNumber') && <TableCell>{product.voucherNumber || '-'}</TableCell>}
+                      {visibleColumns.includes('donorName') && <TableCell>{product.donorName || '-'}</TableCell>}
+                      {visibleColumns.includes('purchaseType') && <TableCell>{product.purchaseType || '-'}</TableCell>}
                       {visibleColumns.includes('price') && <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>}
                       <TableCell align="center">
                         <Tooltip title="View">
@@ -1068,8 +1338,8 @@ export const Products: React.FC = () => {
                     }}
                     fullWidth
                     required
-                    error={!selectedProduct?.year || (selectedProduct.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear())}
-                    helperText={!selectedProduct?.year ? "Year is required for vehicles." : (selectedProduct.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear() ? "Year cannot be in the future." : "")}
+                    error={Boolean(!selectedProduct?.year || (selectedProduct?.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear()))}
+                    helperText={!selectedProduct?.year ? "Year is required for vehicles." : (selectedProduct?.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear() ? "Year cannot be in the future." : "")}
                     InputLabelProps={{ shrink: true }}
                     inputProps={{
                       max: new Date().toISOString().split("T")[0], // Sets max date to today
@@ -1135,35 +1405,22 @@ export const Products: React.FC = () => {
                 value={qualities.find(q => q.name === selectedProduct?.quality) || selectedProduct?.quality || null}
                 onChange={(event, newValue) => {
                   if (typeof newValue === 'string') {
-                    setSelectedProduct(p => p ? { ...p, quality: newValue } : null);
+                    setSelectedProduct(p => p ? { ...p, qualityId: null, quality: newValue } : null);
                   } else if (newValue && (newValue as any).inputValue) {
-                    setSelectedProduct(p => p ? { ...p, quality: (newValue as any).inputValue } : null);
+                    setSelectedProduct(p => p ? { ...p, qualityId: null, quality: (newValue as any).inputValue } : null);
                   } else if (newValue) {
-                    setSelectedProduct(p => p ? { ...p, quality: (newValue as any).name } : null);
+                    setSelectedProduct(p => p ? { ...p, qualityId: (newValue as any).id, quality: (newValue as any).name } : null);
                   } else {
-                    setSelectedProduct(p => p ? { ...p, quality: null } : null);
+                    setSelectedProduct(p => p ? { ...p, qualityId: null, quality: null } : null);
+                  }
+                }}
+                onInputChange={(event, newInputValue, reason) => {
+                  if (reason === 'input') {
+                    setSelectedProduct(p => p ? { ...p, qualityId: null, quality: newInputValue } : null);
                   }
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label="Quality" placeholder="Select or type to create" />
-                )}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                freeSolo
-                options={persons}
-                getOptionLabel={(option) => typeof option === 'string' ? option : option.fullName}
-                value={selectedProduct?.responsiblePerson || ''}
-                onInputChange={(event, newInputValue) => {
-                  setSelectedProduct(p => p ? { ...p, responsiblePerson: newInputValue } : null);
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Responsible Person"
-                    placeholder="Select or type to assign"
-                  />
                 )}
               />
             </Grid>
@@ -1197,10 +1454,18 @@ export const Products: React.FC = () => {
                           <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} inputProps={{ min: 1 }} required fullWidth disabled={disablePurchaseFields} />
                         </Grid>
                         <Grid item xs={12} sm={4}>
-                          <TextField label="Invoice Date" type="date" value={selectedProduct?.invoiceDate ? selectedProduct.invoiceDate.split('T')[0] : ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, invoiceDate: e.target.value } : null)} fullWidth InputLabelProps={{ shrink: true }} disabled={disablePurchaseFields} />
+                          <TextField 
+                            label="Invoice Date" 
+                            type="date" 
+                            value={selectedProduct?.invoiceDate ? selectedProduct.invoiceDate.split('T')[0] : ''} 
+                            onChange={(e) => setSelectedProduct(p => p ? { ...p, invoiceDate: e.target.value ? `${e.target.value}T00:00:00.000Z` : null } : null)} 
+                            fullWidth 
+                            InputLabelProps={{ shrink: true }} 
+                            disabled={disablePurchaseFields} 
+                          />
                         </Grid>
                         <Grid item xs={12} sm={4}>
-                          <TextField label="Voucher Number" value={selectedProduct?.voucherNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, voucherNumber: e.target.value } : null)} fullWidth placeholder="e.g. INV-12345" disabled={disablePurchaseFields} />
+                          <TextField label="Voucher Number" value={selectedProduct?.voucherNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, voucherNumber: e.target.value } : null)} fullWidth placeholder="e.g. INV-12345" />
                         </Grid>
                         <Grid item xs={12} sm={4}>
                           <Autocomplete
@@ -1240,6 +1505,44 @@ export const Products: React.FC = () => {
                         </Grid>
                         <Grid item xs={12} sm={4}>
                           <TextField label="Donor Name" value={selectedProduct?.donorName || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, donorName: e.target.value } : null)} fullWidth placeholder="e.g. John Doe" disabled={disablePurchaseFields} />
+                        </Grid>
+                        <Grid item xs={12} sm={4}>
+                          <Autocomplete
+                            freeSolo
+                            options={persons}
+                            getOptionLabel={(option) => {
+                              if (typeof option === 'string') return option;
+                              if ((option as any).inputValue) return (option as any).inputValue;
+                              return (option as any).fullName;
+                            }}
+                            filterOptions={(options, params) => {
+                              const filtered = filter(options, params);
+                              const { inputValue } = params;
+                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.fullName.toLowerCase().replace(/\s+/g, ' ').trim());
+                              if (inputValue !== '' && !isExisting) {
+                                filtered.push({ inputValue, fullName: `Add "${inputValue}"` } as any);
+                              }
+                              return filtered;
+                            }}
+                            value={persons.find(p => p.fullName === selectedProduct?.responsiblePerson) || selectedProduct?.responsiblePerson || null}
+                            onChange={(event, newValue) => {
+                              if (typeof newValue === 'string') {
+                                setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: newValue } : null);
+                              } else if (newValue && (newValue as any).inputValue) {
+                                setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: (newValue as any).inputValue } : null);
+                              } else if (newValue) {
+                                setSelectedProduct(p => p ? { ...p, responsiblePersonId: (newValue as any).id, responsiblePerson: (newValue as any).fullName } : null);
+                              } else {
+                                setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: null } : null);
+                              }
+                            }}
+                            onInputChange={(event, newInputValue, reason) => {
+                              if (reason === 'input') {
+                                setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: newInputValue } : null);
+                              }
+                            }}
+                            renderInput={(params) => <TextField {...params} label="Responsible Person" placeholder="Select or type to assign" />}
+                          />
                         </Grid>
                         <Grid item xs={12}>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1369,13 +1672,13 @@ export const Products: React.FC = () => {
                   </Avatar>
                 </Grid>
                 <Grid item xs={12} sm={7} container spacing={2}>
-                  <Grid item xs={6}>{renderProductField('Category', selectedProduct.categoryName)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Category', selectedProduct.categoryName || categories.find(c => c.id === selectedProduct.categoryId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}</Grid>
                   <Grid item xs={6}>{renderProductField('Price', selectedProduct.price ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
-                  <Grid item xs={6}>{renderProductField('Quality', selectedProduct.quality)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Quality', selectedProduct.quality || qualities.find(q => q.id === selectedProduct.qualityId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}</Grid>
                   <Grid item xs={6}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Responsible Person', selectedProduct.responsiblePerson)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Responsible Person', selectedProduct.responsiblePerson || persons.find(p => p.id === selectedProduct.responsiblePersonId)?.fullName)}</Grid>
                   <Grid item xs={6}>{renderProductField('Year', selectedProduct.year ? selectedProduct.year.substring(0, 4) : '-')}</Grid>
                   {selectedProduct.plateNumber && (
                     <Grid item xs={6}>{renderProductField('Plate Number', selectedProduct.plateNumber)}</Grid>
@@ -1452,6 +1755,30 @@ export const Products: React.FC = () => {
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setCropModalOpen(false)}>Cancel</Button>
           <Button onClick={handleSaveCrop} variant="contained" color="primary">Apply Crop</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Errors Modal */}
+      <Dialog open={importErrors.length > 0} onClose={() => setImportErrors([])} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ color: 'error.main' }}>Import Completed with Errors</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Some rows failed validation. Please review the specific errors below:
+          </Typography>
+          <Paper variant="outlined" sx={{ maxHeight: 300, overflow: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableBody>
+                {importErrors.map((err, idx) => (
+                  <TableRow key={idx}>
+                    <TableCell sx={{ color: 'error.main', py: 1 }}>{err}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Paper>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setImportErrors([])} variant="contained" color="primary">Dismiss</Button>
         </DialogActions>
       </Dialog>
     </Box>

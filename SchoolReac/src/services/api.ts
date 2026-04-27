@@ -11,6 +11,7 @@ export interface CreateProductRequest {
   brandName: string | null;
   price: number | null;
   quality: string | null;
+  qualityId?: string | null;
   departmentId?: string | null;
   departmentName?: string | null;
   codeNumber?: string | null;
@@ -25,6 +26,8 @@ export interface CreateProductRequest {
   voucherNumber?: string | null;
   supplierContact?: string | null;
   invoiceDate?: string | null;
+  responsiblePerson?: string | null;
+  responsiblePersonId?: string | null;
 }
 
 // Define types similar to your Angular models
@@ -39,6 +42,7 @@ export interface ProductDto {
   price: number | null;
   imageUrl: string | null;
   quality: string | null;
+  qualityId?: string | null;
   createdDate: string | null;
   updateDate: string | null;
   departmentId?: string | null;
@@ -56,6 +60,7 @@ export interface ProductDto {
   supplierContact?: string | null;
   invoiceDate?: string | null;
   responsiblePerson?: string | null;
+  responsiblePersonId?: string | null;
   purchaseHistory?: ProductPurchaseHistoryDto[];
 }
 
@@ -154,6 +159,8 @@ export interface QueryOptions {
   name?: string;
   categoryId?: string;
   departmentId?: string;
+  qualityId?: string;
+  purchaseType?: string;
   filterOn?: string;
   filterQuery?: string;
 }
@@ -161,7 +168,6 @@ export interface QueryOptions {
 const apiClient :AxiosInstance = axios.create({
   baseURL: 'http://localhost:5001/api', // Your API base URL
   headers: {
-    'Content-Type': 'application/json',
     'Accept': 'application/json'
   }, timeout: 30000,
   withCredentials: false, // Set to true if you need to send cookies
@@ -398,12 +404,18 @@ export const updateProduct = (id: string, product: Partial<ProductDto>): Promise
 export const deleteProduct = (id: string): Promise<any> =>
   apiClient.delete(`/inventory/products/${id}`).then(res => res.data);
 
+export const importProducts = async (file: File): Promise<{ message: string, importedCount: number, errors: string[] }> => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Let axios automatically set the multipart/form-data boundary and handle auth interceptors
+  return apiClient.post('/inventory/products/import', formData).then(res => res.data);
+};
+
 export const uploadProductImage = (id: string, file: File): Promise<{ imageUrl: string }> => {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post(`/inventory/products/${id}/image`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }).then(res => res.data);
+  return apiClient.post(`/inventory/products/${id}/image`, formData).then(res => res.data);
 };
 
 export const deleteProductImage = (id: string): Promise<any> => {
@@ -443,9 +455,7 @@ export const toggleUserStatus = (id: string): Promise<{ message: string }> => ap
 export const uploadUserAvatar = (id: string, file: File): Promise<{ imageUrl: string }> => {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post(`/users/${id}/avatar`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }).then(res => res.data);
+  return apiClient.post(`/users/${id}/avatar`, formData).then(res => res.data);
 };
 
 // --- Role & Permission Management ---
@@ -471,9 +481,7 @@ export const changePassword = (passwords: { currentPassword: string, newPassword
 export const uploadAvatar = (file: File): Promise<{ imageUrl: string }> => {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post('/auth/profile/avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(res => res.data);
+  return apiClient.post('/auth/profile/avatar', formData).then(res => res.data);
 };
 
 // --- System Settings ---

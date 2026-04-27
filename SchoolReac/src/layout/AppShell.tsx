@@ -224,12 +224,31 @@ export const AppShell: React.FC = () => {
 
             {/* Sidebar */}
             <Box component="nav" sx={{ width: { lg: sidebarOpen ? currentDrawerWidth : 0 }, flexShrink: { lg: 0 }, transition: 'width 0.3s' }}>
+                {/* Mobile Drawer */}
                 <Drawer
-                    variant={isLargeScreen ? 'persistent' : 'temporary'}
-                    open={sidebarOpen}
+                    variant="temporary"
+                    open={!isLargeScreen ? sidebarOpen : false}
                     onClose={() => setSidebarOpen(false)}
                     ModalProps={{ keepMounted: true }} // Better open performance on mobile
                     sx={{
+                        display: { xs: 'block', lg: 'none' },
+                        '& .MuiDrawer-paper': { 
+                            boxSizing: 'border-box', 
+                            width: currentDrawerWidth,
+                            borderRight: '1px solid',
+                            borderColor: 'divider',
+                        },
+                    }}
+                >
+                    {drawerContent}
+                </Drawer>
+
+                {/* Desktop Drawer */}
+                <Drawer
+                    variant="persistent"
+                    open={isLargeScreen ? sidebarOpen : false}
+                    sx={{
+                        display: { xs: 'none', lg: 'block' },
                         '& .MuiDrawer-paper': { 
                             boxSizing: 'border-box', 
                             width: currentDrawerWidth,

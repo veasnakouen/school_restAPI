@@ -147,7 +147,7 @@ app.UseAuthorization();
 app.UseMiddleware<MaintenanceModeMiddleware>();
 
 app.MapControllers();
-
+app.UseStaticFiles();
 // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
 using (var scope = app.Services.CreateScope())
 {

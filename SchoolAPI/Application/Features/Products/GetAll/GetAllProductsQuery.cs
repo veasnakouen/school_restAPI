@@ -8,10 +8,12 @@ public record GetAllProductsQuery(
     string? Name,
     string? CategoryId,
     string? DepartmentId,
-    string? SortBy,
+    string? QualityId = null,
+    string? PurchaseType = null,
     bool IsAscending = true,
     int PageNumber = 1,
     int PageSize = 10,
+    string? SortBy = null,
     string? FilterOn = null,
     string? FilterQuery = null
 ) : IRequest<Result<PagedResult<ProductDto>>>;

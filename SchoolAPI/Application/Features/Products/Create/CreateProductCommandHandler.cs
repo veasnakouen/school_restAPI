@@ -1,6 +1,5 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
@@ -11,225 +10,184 @@ namespace SchoolAPI.Application.Features.Products.Create;
 public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand, Result<ProductDto>>
 {
     private readonly IApplicationDbContext _context;
-    private readonly ILogger<CreateProductCommandHandler> _logger;
 
-    public CreateProductCommandHandler(IApplicationDbContext context, ILogger<CreateProductCommandHandler> logger)
+    public CreateProductCommandHandler(IApplicationDbContext context)
     {
         _context = context;
-        _logger = logger;
     }
 
     public async Task<Result<ProductDto>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
-        var dto = request.ProductDto;
+        var productDto = request.ProductDto;
 
-        try
+        // 1. Find or Create related entities from names sent by the frontend
+        var category = await FindOrCreateCategoryAsync(productDto.CategoryName, cancellationToken);
+        var brand = await FindOrCreateBrandAsync(productDto.BrandName, cancellationToken);
+        var department = await FindOrCreateDepartmentAsync(productDto.DepartmentName, cancellationToken);
+        var quality = await FindOrCreateQualityAsync(productDto.Quality, cancellationToken);
+
+        DateTime? year = null;
+        if (!string.IsNullOrWhiteSpace(productDto.Year) && DateTime.TryParse(productDto.Year, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedYear))
         {
-            // 1. Find or Create Category
-            string? categoryId = null;
-            if (!string.IsNullOrWhiteSpace(dto.CategoryName))
+            year = parsedYear.ToUniversalTime();
+        }
+
+        // 2. Create the Product entity
+        var product = new Product
+        {
+            Id = Guid.NewGuid().ToString(),
+            ProductName = productDto.Name,
+            Description = productDto.Description ?? string.Empty,
+            Price = productDto.Price,
+            CodeNumber = productDto.CodeNumber,
+            Attributes = productDto.Attributes,
+            Year = year,
+            PlateNumber = productDto.PlateNumber,
+            EngineNumber = productDto.EngineNumber,
+            IsActive = true,
+            CategoryId = category?.Id,
+            BrandId = brand?.Id,
+            DepartmentId = department?.Id,
+            QualityId = quality?.Id,
+            CreatedDate = DateTime.UtcNow
+        };
+
+        _context.Products.Add(product);
+
+        // 3. Handle Purchase Information (The missing logic)
+        if (productDto.PurchaseType != null && productDto.PurchaseType != "None" && productDto.InitialQuantity.HasValue && productDto.InitialQuantity > 0)
+        {
+            var supplierName = string.IsNullOrWhiteSpace(productDto.SupplierName) ? "Unknown" : productDto.SupplierName;
+            var supplier = await FindOrCreateSupplierAsync(supplierName, productDto.SupplierContact, cancellationToken);
+            
+            var responsiblePerson = await FindOrCreatePersonAsync(productDto.ResponsiblePersonId, productDto.ResponsiblePerson, cancellationToken);
+
+            DateTime? invoiceDate = null;
+            if (!string.IsNullOrWhiteSpace(productDto.InvoiceDate) && DateTime.TryParse(productDto.InvoiceDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedInvoiceDate))
             {
-                var category = await _context.Categories.FirstOrDefaultAsync(c => EF.Functions.ILike(c.Name, dto.CategoryName), cancellationToken);
-                if (category == null)
-                {
-                    category = new Category { Id = Guid.NewGuid().ToString(), Name = dto.CategoryName };
-                    _context.Categories.Add(category);
-                }
-                categoryId = category.Id;
+                invoiceDate = parsedInvoiceDate.ToUniversalTime();
             }
 
-            // 2. Find or Create Brand
-            string? brandId = null;
-            if (!string.IsNullOrWhiteSpace(dto.BrandName))
-            {
-                var brand = await _context.Brands.FirstOrDefaultAsync(b => EF.Functions.ILike(b.Name, dto.BrandName), cancellationToken);
-                if (brand == null)
-                {
-                    brand = new Brand { Id = Guid.NewGuid().ToString(), Name = dto.BrandName };
-                    _context.Brands.Add(brand);
-                }
-                brandId = brand.Id;
-            }
-
-            // 3. Find or Create Quality
-            string? qualityId = null;
-            if (!string.IsNullOrWhiteSpace(dto.Quality))
-            {
-                var quality = await _context.Qualities.FirstOrDefaultAsync(q => EF.Functions.ILike(q.Name, dto.Quality), cancellationToken);
-                if (quality == null)
-                {
-                    quality = new Quality { Id = Guid.NewGuid().ToString(), Name = dto.Quality };
-                    _context.Qualities.Add(quality);
-                }
-                qualityId = quality.Id;
-            }
-
-            // Find or Create Department
-            string? departmentId = null;
-            if (!string.IsNullOrWhiteSpace(dto.DepartmentName))
-            {
-                var department = await _context.Departments.FirstOrDefaultAsync(d => EF.Functions.ILike(d.Name, dto.DepartmentName), cancellationToken);
-                if (department == null)
-                {
-                    department = new Department { Id = Guid.NewGuid().ToString(), Name = dto.DepartmentName };
-                    _context.Departments.Add(department);
-                }
-                departmentId = department.Id;
-            }
-
-            // 4. Check for duplicate ProductCode before creating
-            if (!string.IsNullOrWhiteSpace(dto.CodeNumber))
-            {
-                var existingProduct = await _context.Products
-                    .FirstOrDefaultAsync(p => p.CodeNumber != null && EF.Functions.ILike(p.CodeNumber, dto.CodeNumber), cancellationToken);
-                if (existingProduct != null)
-                {
-                    return Result<ProductDto>.Failure($"A product with code '{dto.CodeNumber}' already exists.");
-                }
-            }
-
-            // 4. Create the Product
-            var product = new Product
+            var purchase = new Purchase
             {
                 Id = Guid.NewGuid().ToString(),
-                ProductName = dto.Name,
-                CodeNumber = dto.CodeNumber,
-                Description = dto.Description ?? string.Empty,
-                Attributes = dto.Attributes,
-                Price = dto.Price,
-                PlateNumber = dto.PlateNumber,
-                Year = DateTime.TryParse(dto.Year, out var yearDate) ? yearDate.ToUniversalTime() : null,
-                EngineNumber = dto.EngineNumber,
-                CategoryId = categoryId,
-                BrandId = brandId,
-                QualityId = qualityId,
-                DepartmentId = departmentId,
-                IsActive = true,
+                AcquisitionType = productDto.PurchaseType,
+                VoucherNumber = productDto.VoucherNumber,
+                InvoiceDate = invoiceDate ?? DateTime.UtcNow,
+                SupplierId = supplier!.Id, // Guaranteed to be valid now!
+                Notes = !string.IsNullOrWhiteSpace(productDto.DonorName) ? $"Donated by: {productDto.DonorName}" : null,
                 CreatedDate = DateTime.UtcNow
             };
+            _context.Purchases.Add(purchase);
 
-            _context.Products.Add(product);
-
-            // 5. Handle Initial Stock Acquisition (Purchased or Donated)
-            if (dto.InitialQuantity > 0 && !string.IsNullOrWhiteSpace(dto.PurchaseType) && dto.PurchaseType != "None")
+            var purchaseItem = new PurchaseItem
             {
-                string? sourceName = !string.IsNullOrWhiteSpace(dto.SupplierName) ? dto.SupplierName : dto.DonorName;
-
-                if (!string.IsNullOrWhiteSpace(sourceName))
-                {
-                    // Find or Create Supplier (We treat Donors as Suppliers in the context of a Purchase transaction to track inventory reliably)
-                    var supplier = await _context.Suppliers.FirstOrDefaultAsync(s => EF.Functions.ILike(s.Name, sourceName), cancellationToken);
-                    if (supplier == null)
-                    {
-                        supplier = new Supplier
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            Name = sourceName,
-                            ContactInfo = !string.IsNullOrWhiteSpace(dto.SupplierContact) ? new List<string> { dto.SupplierContact } : new List<string>()
-                        };
-                        _context.Suppliers.Add(supplier);
-                    }
-                    else if (!string.IsNullOrWhiteSpace(dto.SupplierContact) && (supplier.ContactInfo == null || !supplier.ContactInfo.Contains(dto.SupplierContact)))
-                    {
-                        supplier.ContactInfo ??= new List<string>();
-                        supplier.ContactInfo.Add(dto.SupplierContact);
-                    }
-
-                    var purchase = new Purchase
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        SupplierId = supplier.Id,
-                        VoucherNumber = dto.VoucherNumber,
-                        InvoiceDate = DateTime.TryParse(dto.InvoiceDate, out var invoiceDate) ? invoiceDate.ToUniversalTime() : DateTime.UtcNow,
-                        TotalAmount = dto.PurchaseType == "Donated" ? 0 : (dto.Price ?? 0) * (dto.InitialQuantity ?? 0),
-                        AcquisitionType = dto.PurchaseType,
-                        Notes = dto.PurchaseType == "Donated" ? $"Initial stock donated by {sourceName}" : "Initial stock purchase",
-                        CreatedDate = DateTime.UtcNow
-                    };
-                    _context.Purchases.Add(purchase);
-
-                    var purchaseItem = new PurchaseItem
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        PurchaseId = purchase.Id,
-                        ProductId = product.Id,
-                        Quantity = dto.InitialQuantity.Value,
-                        UnitPrice = dto.PurchaseType == "Donated" ? 0 : (dto.Price ?? 0),
-                        Location = dto.DepartmentName ?? "",
-                        CreatedDate = DateTime.UtcNow
-                    };
-
-                    // --- RELATIONAL ASSIGNMENT LOGIC ---
-                    if (!string.IsNullOrWhiteSpace(dto.ResponsiblePerson))
-                    {
-                        // 1. Find or create the Person
-                        var person = await _context.Persons.FirstOrDefaultAsync(p => EF.Functions.ILike(p.FullName, dto.ResponsiblePerson ?? ""), cancellationToken);
-                        if (person == null)
-                        {
-                            person = new Person { Id = Guid.NewGuid(), FullName = dto.ResponsiblePerson };
-                            _context.Persons.Add(person);
-                        }
-
-                        // 2. Link Person to Purchase Item
-                        purchaseItem.ResponsiblePersonId = person.Id;
-
-                        // 3. Create the required Stock Movement
-                        var stockMovement = new StockMovement
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            Type = MovementType.Purchase,
-                            Direction = MovementDirection.In,
-                            ProductId = product.Id,
-                            PurchaseItemId = purchaseItem.Id,
-                            Quantity = dto.InitialQuantity.Value,
-                            QuantityBefore = 0,
-                            QuantityAfter = dto.InitialQuantity.Value,
-                            ToPersonId = person.Id,
-                            MovedById = person.Id,
-                            ToLocation = dto.DepartmentName ?? "",
-                            Reason = "Initial stock acquisition",
-                            MovedAt = DateTime.UtcNow,
-                            CreatedDate = DateTime.UtcNow
-                        };
-                        _context.StockMovements.Add(stockMovement);
-
-                        // 4. Create the Asset Assignment
-                        var assignment = new AssetAssignment
-                        {
-                            Id = Guid.NewGuid().ToString(),
-                            ProductId = product.Id,
-                            PurchaseItemId = purchaseItem.Id,
-                            Quantity = dto.InitialQuantity.Value,
-                            AssignedToId = person.Id,
-                            AssignedById = person.Id, // Fallback to same person
-                            Location = dto.DepartmentName ?? "",
-                            AssignedAt = DateTime.UtcNow,
-                            Purpose = "Initial assignment upon purchase",
-                            Status = AssignmentStatus.Active,
-                            StockMovementId = stockMovement.Id
-                        };
-                        _context.AssetAssignments.Add(assignment);
-                    }
-
-                    _context.PurchaseItems.Add(purchaseItem);
-                }
-            }
-
-            // This saves the Product, Category/Brand, AND initial Purchase records in one atomic transaction!
-            await _context.SaveChangesAsync(cancellationToken);
-
-            dto.Id = product.Id;
-            dto.CategoryId = categoryId;
-            dto.BrandId = brandId;
-            dto.QualityId = qualityId;
-            dto.DepartmentId = departmentId;
-
-            return Result<ProductDto>.Success(dto);
+                Id = Guid.NewGuid().ToString(),
+                ProductId = product.Id,
+                PurchaseId = purchase.Id,
+                Quantity = (int)productDto.InitialQuantity.Value,
+                UnitPrice = productDto.Price ?? 0,
+                ResponsiblePersonId = responsiblePerson?.Id,
+                CreatedDate = DateTime.UtcNow
+            };
+            _context.PurchaseItems.Add(purchaseItem);
         }
-        catch (Exception ex)
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        productDto.Id = product.Id;
+        return Result<ProductDto>.Success(productDto);
+    }
+
+    private async Task<Category?> FindOrCreateCategoryAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var normalizedName = name.Trim();
+        var entity = await _context.Categories.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+        if (entity == null)
         {
-            _logger.LogError(ex, "An error occurred while creating product '{ProductName}'. DTO: {@ProductDto}", dto.Name, dto);
-            return Result<ProductDto>.Failure($"An unexpected error occurred: {ex.Message}");
+            entity = new Category { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            await _context.Categories.AddAsync(entity, cancellationToken);
         }
+        return entity;
+    }
+
+    private async Task<Brand?> FindOrCreateBrandAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var normalizedName = name.Trim();
+        var entity = await _context.Brands.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+        if (entity == null)
+        {
+            entity = new Brand { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            await _context.Brands.AddAsync(entity, cancellationToken);
+        }
+        return entity;
+    }
+
+    private async Task<Department?> FindOrCreateDepartmentAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var normalizedName = name.Trim();
+        var entity = await _context.Departments.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+        if (entity == null)
+        {
+            entity = new Department { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            await _context.Departments.AddAsync(entity, cancellationToken);
+        }
+        return entity;
+    }
+
+    private async Task<Quality?> FindOrCreateQualityAsync(string? name, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var normalizedName = name.Trim();
+        var entity = await _context.Qualities.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+        if (entity == null)
+        {
+            entity = new Quality { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            await _context.Qualities.AddAsync(entity, cancellationToken);
+        }
+        return entity;
+    }
+
+    private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, string? contact, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        var normalizedName = name.Trim();
+        var entity = await _context.Suppliers.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+        if (entity == null)
+        {
+            entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            await _context.Suppliers.AddAsync(entity, cancellationToken);
+        }
+        return entity;
+    }
+
+    private async Task<Person?> FindOrCreatePersonAsync(string? personId, string? personName, CancellationToken cancellationToken)
+    {
+        // Prefer finding by ID if provided and valid
+        if (!string.IsNullOrWhiteSpace(personId) && Guid.TryParse(personId, out var parsedId))
+        {
+            var personById = await _context.Persons.FindAsync(new object[] { parsedId }, cancellationToken);
+            if (personById != null)
+            {
+                return personById;
+            }
+        }
+
+        // Fallback to finding or creating by name
+        if (!string.IsNullOrWhiteSpace(personName))
+        {
+            var normalizedName = personName.Trim();
+            var personByName = await _context.Persons.FirstOrDefaultAsync(p => EF.Functions.ILike(p.FullName, normalizedName), cancellationToken);
+            if (personByName != null) return personByName;
+            
+            var newPerson = new Person { Id = Guid.NewGuid(), FullName = normalizedName, IsActive = true };
+            await _context.Persons.AddAsync(newPerson, cancellationToken);
+            return newPerson;
+        }
+
+        return null;
     }
 }

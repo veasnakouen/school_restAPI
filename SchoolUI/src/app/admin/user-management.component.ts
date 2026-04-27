@@ -11,7 +11,7 @@ import { forkJoin, of, Subject } from 'rxjs';
 const USER_MANAGEMENT_TEMPLATE = `
 <div class="pt-0 px-3 pb-3 max-w-5xl mx-auto">
   <!-- Header Section -->
-  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-2">
+  <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
     <div class="flex items-center gap-3">
       <app-avatar size="md" shape="rounded" alt="User management"></app-avatar>
       <div>
@@ -49,9 +49,9 @@ const USER_MANAGEMENT_TEMPLATE = `
         </div>
 
         <!-- Status Filter -->
-        <div class="flex gap-2 items-center">
+        <div class="flex gap-2 items-center w-full sm:w-auto">
           <select
-            class="select select-bordered select-sm"
+            class="select select-bordered select-sm flex-1 sm:flex-none"
             [(ngModel)]="statusFilter"
             (ngModelChange)="onStatusFilterChange()"
           >
@@ -63,7 +63,7 @@ const USER_MANAGEMENT_TEMPLATE = `
           <!-- Clear Filters Button -->
           <button
             type="button"
-            class="btn btn-ghost btn-sm gap-1"
+            class="btn btn-ghost btn-sm gap-1 flex-none"
             (click)="clearFilters()"
             *ngIf="searchQuery || statusFilter !== 'all'"
           >
@@ -77,8 +77,8 @@ const USER_MANAGEMENT_TEMPLATE = `
     </div>
 
     <!-- Table -->
-    <div class="overflow-x-auto px-2">
-      <table class="table">
+    <div class="overflow-x-auto px-2 w-full">
+      <table class="table whitespace-nowrap">
         <!-- Table Header -->
         <thead>
           <tr>
@@ -256,7 +256,7 @@ const USER_MANAGEMENT_TEMPLATE = `
       <!-- Pagination -->
       <div class="px-6 py-4 border-t border-base-200" *ngIf="filteredUsers.length > 0">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div class="flex items-center gap-2 flex-1 sm:flex-initial">
+          <div class="flex items-center justify-between sm:justify-start w-full sm:w-auto gap-2 flex-1 sm:flex-initial">
             <span class="text-sm opacity-70">Rows per page:</span>
             <select
               class="select select-bordered select-sm"
@@ -271,64 +271,66 @@ const USER_MANAGEMENT_TEMPLATE = `
             Showing {{ startIndex }}-{{ endIndex }} of {{ totalItems }} users
           </div>
 
-          <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalItems > pageSize">
-            <button
-              type="button"
-              class="join-item btn btn-sm btn-ghost"
-              aria-label="Go to first page"
-              (click)="goToFirstPage()"
-              [disabled]="currentPage === 1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </button>
+          <div class="overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+            <div class="join bg-base-200 flex w-max mx-auto sm:mx-0 sm:justify-end" *ngIf="totalItems > pageSize">
+              <button
+                type="button"
+                class="join-item btn btn-sm btn-ghost"
+                aria-label="Go to first page"
+                (click)="goToFirstPage()"
+                [disabled]="currentPage === 1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              class="join-item btn btn-sm btn-ghost"
-              aria-label="Go to previous page"
-              (click)="previousPage()"
-              [disabled]="currentPage === 1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+              <button
+                type="button"
+                class="join-item btn btn-sm btn-ghost"
+                aria-label="Go to previous page"
+                (click)="previousPage()"
+                [disabled]="currentPage === 1"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              *ngFor="let page of pages"
-              class="join-item btn btn-sm"
-              [class.btn-active]="page === currentPage"
-              (click)="goToPage(page)"
-            >
-              {{ page }}
-            </button>
+              <button
+                type="button"
+                *ngFor="let page of pages"
+                class="join-item btn btn-sm"
+                [class.btn-active]="page === currentPage"
+                (click)="goToPage(page)"
+              >
+                {{ page }}
+              </button>
 
-            <button
-              type="button"
-              class="join-item btn btn-sm btn-ghost"
-              aria-label="Go to next page"
-              (click)="nextPage()"
-              [disabled]="currentPage === totalPages"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+              <button
+                type="button"
+                class="join-item btn btn-sm btn-ghost"
+                aria-label="Go to next page"
+                (click)="nextPage()"
+                [disabled]="currentPage === totalPages"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
 
-            <button
-              type="button"
-              class="join-item btn btn-sm btn-ghost"
-              aria-label="Go to last page"
-              (click)="goToLastPage()"
-              [disabled]="currentPage === totalPages"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-              </svg>
-            </button>
+              <button
+                type="button"
+                class="join-item btn btn-sm btn-ghost"
+                aria-label="Go to last page"
+                (click)="goToLastPage()"
+                [disabled]="currentPage === totalPages"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

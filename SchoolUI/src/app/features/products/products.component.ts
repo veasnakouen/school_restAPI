@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { CategoryApiService } from '../../core/services/category-api.service';
 import { ProductDto, CreateProductRequest, CategoryDto, ProductPurchaseHistoryDto, BrandDto, DepartmentDto, PersonDto, SupplierDto } from '../../models/inventory.model';
@@ -11,11 +11,20 @@ import { finalize, forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as ExcelJS from 'exceljs';
+import { PaginationComponent } from '../../core/interceptors/pagination.component';
+import * as signalR from '@microsoft/signalr';
+
+export interface ExtendedProductDto extends ProductDto {
+  qualityId?: string | null;
+  responsiblePersonId?: string | null;
+  attributes?: string | null;
+}
 
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="space-y-2">
@@ -29,7 +38,7 @@ import autoTable from 'jspdf-autotable';
       </div>
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <!--  -->
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-end flex-wrap">
           <input
             [(ngModel)]="search"
             (ngModelChange)="onSearchChange()"
@@ -55,6 +64,25 @@ import autoTable from 'jspdf-autotable';
             @for (deptName of uniqueDepartments; track deptName) {
               <option [value]="deptName">{{ deptName }}</option>
             }
+          </select>
+          <select
+            [(ngModel)]="filterQuality"
+            (ngModelChange)="onFilterChange()"
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="">All Conditions</option>
+            @for (q of qualities; track q.id) {
+              <option [value]="q.name">{{ q.name }}</option>
+            }
+          </select>
+          <select
+            [(ngModel)]="filterPurchaseType"
+            (ngModelChange)="onFilterChange()"
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="">All Acquisition Types</option>
+            <option value="Purchased">Purchased</option>
+            <option value="Donated">Donated</option>
           </select>
           <button type="button" class="btn btn-success btn-sm btn-outline gap-2" (click)="openCreateModal()">
             <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -111,6 +139,20 @@ import autoTable from 'jspdf-autotable';
           </ul>
         </div>
 
+        <!-- Import Button -->
+        <label class="btn btn-sm btn-outline gap-2 mr-2" [class.btn-disabled]="isImporting">
+          @if (isImporting) {
+            <span class="loading loading-spinner loading-xs"></span>
+            @if (importProgress > 0) { {{ importProgress }}% } @else { Uploading... }
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            Import
+          }
+          <input type="file" class="hidden" accept=".xlsx" (change)="handleImportExcel($event)" [disabled]="isImporting" />
+        </label>
+
         <!-- Export Buttons -->
           <div class="dropdown dropdown-center">
             <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
@@ -122,6 +164,14 @@ import autoTable from 'jspdf-autotable';
               Export
             </div>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
+              <li>
+                <button type="button" (click)="exportToExcel()" [disabled]="products.length === 0" class="gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Excel
+                </button>
+              </li>
               <li>
                 <button type="button" (click)="exportToCSV()" [disabled]="products.length === 0" class="gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -149,6 +199,17 @@ import autoTable from 'jspdf-autotable';
             </ul>
           </div>
       </div>
+
+      <!-- Real-time Progress Bar -->
+      @if (isImporting && importProgress > 0) {
+        <div class="my-4 p-4 rounded-2xl bg-base-200 border border-info flex flex-col gap-2">
+          <div class="flex justify-between items-center text-sm font-bold text-info">
+            <span>{{ importStatusMessage || 'Processing Import...' }}</span>
+            <span>{{ importProgress }}%</span>
+          </div>
+          <progress class="progress progress-info w-full" [value]="importProgress" max="100"></progress>
+        </div>
+      }
 
       <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
         <div class="overflow-x-auto px-4">
@@ -192,6 +253,26 @@ import autoTable from 'jspdf-autotable';
                     </div>
                   </th>
                 }
+                @if (visibleColumns.has('plateNumber')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('plateNumber')">
+                    <div class="flex items-center gap-1">
+                      Plate Number
+                      @if (sortBy === 'plateNumber') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('engineNumber')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('engineNumber')">
+                    <div class="flex items-center gap-1">
+                      Engine/Serial #
+                      @if (sortBy === 'engineNumber') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
                 @if (visibleColumns.has('category')) {
                   <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('category')">
                     <div class="flex items-center gap-1">
@@ -207,6 +288,16 @@ import autoTable from 'jspdf-autotable';
                     <div class="flex items-center gap-1">
                       Brand
                       @if (sortBy === 'brand') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('department')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('department')">
+                    <div class="flex items-center gap-1">
+                      Department
+                      @if (sortBy === 'department') {
                         <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
                       }
                     </div>
@@ -232,6 +323,46 @@ import autoTable from 'jspdf-autotable';
                     </div>
                   </th>
                 }
+                @if (visibleColumns.has('initialQuantity')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors text-right" (click)="sortTable('initialQuantity')">
+                    <div class="flex items-center justify-end gap-1">
+                      Qty
+                      @if (sortBy === 'initialQuantity') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('voucherNumber')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('voucherNumber')">
+                    <div class="flex items-center gap-1">
+                      Voucher #
+                      @if (sortBy === 'voucherNumber') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('donorName')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('donorName')">
+                    <div class="flex items-center gap-1">
+                      Donor
+                      @if (sortBy === 'donorName') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('purchaseType')) {
+                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('purchaseType')">
+                    <div class="flex items-center gap-1">
+                      Acquisition Type
+                      @if (sortBy === 'purchaseType') {
+                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                      }
+                    </div>
+                  </th>
+                }
                 @if (visibleColumns.has('price')) {
                   <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('price')">
                     <div class="flex items-center gap-1">
@@ -247,7 +378,7 @@ import autoTable from 'jspdf-autotable';
             </thead>
             <tbody>
               @for (item of products; track item.id) {
-                <tr>
+                <tr [ngClass]="getQualityRowClass(item.quality || getLookupName(qualities, item.qualityId))">
                   <td>
                     <label>
                       <input type="checkbox" class="checkbox checkbox-sm" 
@@ -264,23 +395,63 @@ import autoTable from 'jspdf-autotable';
                   @if (visibleColumns.has('year')) {
                     <td>{{ item.year ? (item.year | date:'yyyy') : '-' }}</td>
                   }
+                  @if (visibleColumns.has('plateNumber')) {
+                    <td>{{ item.plateNumber || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('engineNumber')) {
+                    <td>{{ item.engineNumber || '-' }}</td>
+                  }
                   @if (visibleColumns.has('category')) {
-                    <td>{{ item.categoryName || '-' }}</td>
+                    <td>{{ item.categoryName || getLookupName(categories, item.categoryId) || '-' }}</td>
                   }
                   @if (visibleColumns.has('brand')) {
-                    <td>{{ item.brandName || '-' }}</td>
+                    <td>{{ item.brandName || getLookupName(brands, item.brandId) || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('department')) {
+                    <td>{{ item.departmentName || getLookupName(departments, item.departmentId) || '-' }}</td>
                   }
                   @if (visibleColumns.has('quality')) {
-                    <td>{{ item.quality || '-' }}</td>
+                    <td>{{ item.quality || getLookupName(qualities, item.qualityId) || '-' }}</td>
                   }
                   @if (visibleColumns.has('responsiblePerson')) {
-                    <td>{{ item.responsiblePerson || '-' }}</td>
+                    <td>{{ item.responsiblePerson || getLookupName(persons, item.responsiblePersonId) || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('initialQuantity')) {
+                    <td class="text-right">{{ item.initialQuantity || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('voucherNumber')) {
+                    <td>{{ item.voucherNumber || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('donorName')) {
+                    <td>{{ item.donorName || '-' }}</td>
+                  }
+                  @if (visibleColumns.has('purchaseType')) {
+                    <td>
+                      @if (item.purchaseType) {
+                        <span class="badge badge-sm" [class.badge-success]="item.purchaseType === 'Donated'" [class.badge-info]="item.purchaseType === 'Purchased'">{{ item.purchaseType }}</span>
+                      } @else {
+                        -
+                      }
+                    </td>
                   }
                   @if (visibleColumns.has('price')) {
                     <td>{{ item.price | number:'1.2-2' }}</td>
                   }
                   <td>
                     <div class="flex gap-2 justify-center">
+                      <div class="tooltip tooltip-top" data-tip="Transfer Stock">
+                        <button
+                          type="button"
+                          aria-label="Transfer stock"
+                          class="btn btn-success btn-sm btn-square text-success-content"
+                          (click)="openTransferModal(item)"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                        </button>
+                      </div>
+
                       <div class="tooltip tooltip-top" data-tip="View Product">
                         <button
                           type="button"
@@ -330,101 +501,13 @@ import autoTable from 'jspdf-autotable';
             <tfoot *ngIf="totalItems > 0">
               <tr>
                 <td [attr.colspan]="visibleColumnCount" class="p-0 border-t border-base-200">
-                  <div class="px-4 py-4 w-full bg-base-100">
-                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-                      <!-- Rows per page selector (Left) -->
-                      <div class="flex items-center gap-2 flex-1 sm:flex-initial">
-                        <span class="text-sm opacity-70">Rows per page:</span>
-                        <select
-                          [(ngModel)]="pageSize"
-                          (ngModelChange)="onPageSizeChange($event)"
-                          class="select select-bordered select-sm"
-                        >
-                          <option [ngValue]="5">5</option>
-                          <option [ngValue]="10">10</option>
-                          <option [ngValue]="20">20</option>
-                          <option [ngValue]="50">50</option>
-                          <option [ngValue]="100">100</option>
-                        </select>
-                      </div>
-
-                      <!-- Page Info (Center) -->
-                      <div class="text-sm opacity-70 text-center">
-                        Showing {{ startIndex }}-{{ endIndex }} of {{ totalItems }} products
-                      </div>
-
-                      <!-- Pagination Controls (Right) -->
-                      <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalPages > 1">
-                        <!-- First Page -->
-                        <button
-                          type="button"
-                          class="join-item btn btn-sm btn-ghost"
-                          aria-label="Go to first page"
-                          (click)="goToFirstPage()"
-                          [disabled]="currentPage === 1"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-                          </svg>
-                        </button>
-
-                        <!-- Previous Page -->
-                        <button
-                          type="button"
-                          class="join-item btn btn-sm btn-ghost"
-                          aria-label="Go to previous page"
-                          (click)="previousPage()"
-                          [disabled]="currentPage === 1"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                          </svg>
-                        </button>
-
-                        <!-- Page Numbers -->
-                        @for (page of visiblePages; track page) {
-                          @if (page === '...') {
-                            <span class="join-item btn btn-sm btn-disabled">...</span>
-                          } @else {
-                            <button
-                              type="button"
-                              class="join-item btn btn-sm"
-                              [class.btn-active]="page === currentPage"
-                              (click)="goToPage(+page)"
-                            >
-                              {{ page }}
-                            </button>
-                          }
-                        }
-
-                        <!-- Next Page -->
-                        <button
-                          type="button"
-                          class="join-item btn btn-sm btn-ghost"
-                          aria-label="Go to next page"
-                          (click)="nextPage()"
-                          [disabled]="currentPage === totalPages"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                          </svg>
-                        </button>
-
-                        <!-- Last Page -->
-                        <button
-                          type="button"
-                          class="join-item btn btn-sm btn-ghost"
-                          aria-label="Go to last page"
-                          (click)="goToLastPage()"
-                          [disabled]="currentPage === totalPages"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <app-pagination 
+                    [totalItems]="totalItems" 
+                    [pageSize]="pageSize" 
+                    [currentPage]="currentPage"
+                    (pageChange)="goToPage($event)"
+                    (pageSizeChange)="onPageSizeChange($event)">
+                  </app-pagination>
                 </td>
               </tr>
             </tfoot>
@@ -656,15 +739,15 @@ import autoTable from 'jspdf-autotable';
                 <span class="label-text font-semibold">Quality</span>
               </label>
               <select
-                [(ngModel)]="selectedProduct.quality"
+                [(ngModel)]="selectedProduct.qualityId"
+                (ngModelChange)="onQualityChange($event)"
                 name="quality"
                 class="select select-bordered w-full"
               >
                 <option value="">Select quality...</option>
-                <option value="Excellent">Excellent</option>
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-                <option value="Poor">Poor</option>
+              @for (q of qualities; track q.id) {
+                <option [value]="q.id">{{ q.name }}</option>
+              }
               </select>
             </div>
           </div>
@@ -743,16 +826,16 @@ import autoTable from 'jspdf-autotable';
                     <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
                     <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" />
                   </div>
-                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
+                  <div class="form-control w-full">
                     <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
                     <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
+                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
                       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         @if (lookupsLoading) {
                           <span class="loading loading-spinner loading-sm text-base-content/40"></span>
                         }
                         @if (selectedProduct.responsiblePerson) {
-                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')" [disabled]="disablePurchaseFields">✕</button>
+                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
                         }
                       </div>
                       @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
@@ -792,9 +875,9 @@ import autoTable from 'jspdf-autotable';
                       }
                     </div>
                   </div>
-                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
+                    <div class="form-control w-full">
                     <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
-                    <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" placeholder="e.g. INV-12345" />
+                      <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
                   </div>
                 }
                 
@@ -861,8 +944,8 @@ import autoTable from 'jspdf-autotable';
                   @if (viewProduct.brandName) {
                     <span class="badge badge-secondary badge-outline">{{ viewProduct.brandName }}</span>
                   }
-                  @if (viewProduct.quality) {
-                    <span class="badge" [class.badge-success]="viewProduct.quality === 'Excellent'" [class.badge-warning]="viewProduct.quality === 'Good'" [class.badge-info]="viewProduct.quality === 'Fair'" [class.badge-error]="viewProduct.quality === 'Poor'">{{ viewProduct.quality }}</span>
+                  @if (viewProduct.quality || viewProduct.qualityId) {
+                    <span class="badge badge-accent badge-outline">{{ viewProduct.quality || getLookupName(qualities, viewProduct.qualityId) }}</span>
                   }
                 </div>
               </div>
@@ -883,6 +966,12 @@ import autoTable from 'jspdf-autotable';
               <div class="bg-base-200/50 rounded-lg p-4">
                 <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Year</p>
                 <p class="text-base font-medium">{{ viewProduct.year ? (viewProduct.year | date:'yyyy') : '-' }}</p>
+              </div>
+
+              <!-- Department -->
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Department</p>
+                <p class="text-base font-medium">{{ viewProduct.departmentName || getLookupName(departments, viewProduct.departmentId) || '-' }}</p>
               </div>
 
               <!-- Conditional Vehicle Fields in View Modal -->
@@ -984,6 +1073,63 @@ import autoTable from 'jspdf-autotable';
               </svg>
               Edit Product
             </button>
+          </div>
+        }
+      </div>
+      <form method="dialog" class="modal-backdrop">
+        <button type="submit" aria-label="Close dialog">close</button>
+      </form>
+    </dialog>
+
+    <!-- Stock Transfer Modal -->
+    <dialog id="stock-transfer-modal" class="modal modal-bottom sm:modal-middle">
+      <div class="modal-box">
+        <form method="dialog">
+          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
+        </form>
+        <h3 class="font-bold text-lg mb-4">Transfer Stock</h3>
+        
+        @if (productToTransfer) {
+          <div class="space-y-4">
+            <div class="bg-base-200 p-3 rounded-lg text-sm">
+              <p><strong>Product:</strong> {{ productToTransfer.name }}</p>
+              <p><strong>Current Dept:</strong> {{ productToTransfer.departmentName || getLookupName(departments, productToTransfer.departmentId) || 'None' }}</p>
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-semibold">Target Department <span class="text-error">*</span></span></label>
+              <select [(ngModel)]="transferTargetDepartmentId" class="select select-bordered w-full">
+                <option value="" disabled>Select destination department...</option>
+                @for (dept of departments; track dept.id) {
+                  @if (dept.id !== productToTransfer.departmentId) {
+                    <option [value]="dept.id">{{ dept.name }}</option>
+                  }
+                }
+              </select>
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-semibold">Quantity to Transfer <span class="text-error">*</span></span></label>
+              <input type="number" [(ngModel)]="transferQuantity" min="1" class="input input-bordered w-full" />
+            </div>
+
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-semibold">Transfer Notes</span></label>
+              <textarea [(ngModel)]="transferNotes" class="textarea textarea-bordered w-full" placeholder="Reason for transfer..."></textarea>
+            </div>
+
+            <div class="modal-action mt-6">
+              <button type="button" class="btn btn-ghost" (click)="closeTransferModal()">Cancel</button>
+              <button 
+                type="button" 
+                class="btn btn-success" 
+                [disabled]="!transferTargetDepartmentId || transferQuantity < 1 || isTransferring"
+                (click)="executeTransfer()"
+              >
+                @if (isTransferring) { <span class="loading loading-spinner loading-sm"></span> }
+                Confirm Transfer
+              </button>
+            </div>
           </div>
         }
       </div>
@@ -1124,15 +1270,34 @@ import autoTable from 'jspdf-autotable';
         <button type="submit" aria-label="Close dialog">close</button>
       </form>
     </dialog>
+
+    <!-- Import Errors Modal -->
+    <dialog id="product-import-errors-modal" class="modal modal-bottom sm:modal-middle" [class.modal-open]="importErrors.length > 0">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-2 text-error">Import Completed with Errors</h3>
+        <p class="text-base-content/70 mb-4">Some rows failed validation. Please review the specific errors below:</p>
+        <div class="overflow-y-auto max-h-60 bg-base-200 rounded-lg p-2">
+          <ul class="list-disc list-inside px-4">
+            @for (err of importErrors; track $index) {
+              <li class="text-error text-sm py-1">{{ err }}</li>
+            }
+          </ul>
+        </div>
+        <div class="modal-action">
+          <button type="button" class="btn btn-primary" (click)="importErrors = []">Dismiss</button>
+        </div>
+      </div>
+    </dialog>
   `
 })
-export class ProductsComponent implements OnInit {
+export class ProductsComponent implements OnInit, OnDestroy {
   private readonly api = inject(ProductApiService);
   private readonly categoryApi = inject(CategoryApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly http = inject(HttpClient);
+  private readonly apiUrl = 'http://localhost:5001/api/inventory/products';
 
-  protected products: ProductDto[] = [];
+  protected products: ExtendedProductDto[] = [];
   protected categories: CategoryDto[] = [];
   protected loading = false;
   protected errorMessage = '';
@@ -1144,6 +1309,7 @@ export class ProductsComponent implements OnInit {
   protected departments: DepartmentDto[] = [];
   protected persons: PersonDto[] = [];
   protected suppliers: SupplierDto[] = [];
+  protected qualities: any[] = [];
   protected lookupsLoading = false;
 
   protected get todayString(): string {
@@ -1199,19 +1365,43 @@ export class ProductsComponent implements OnInit {
   // Filtering states
   protected filterCategory = '';
   protected filterDepartment = '';
+  protected filterQuality = '';
+  protected filterPurchaseType = '';
 
   // Column visibility
   protected availableColumns = [
     { id: 'name', label: 'Name' },
     { id: 'codeNumber', label: 'Code Number' },
     { id: 'year', label: 'Year' },
+    { id: 'plateNumber', label: 'Plate Number' },
+    { id: 'engineNumber', label: 'Engine/Serial #' },
     { id: 'category', label: 'Category' },
     { id: 'brand', label: 'Brand' },
+    { id: 'department', label: 'Department' },
     { id: 'quality', label: 'Condition' },
     { id: 'responsiblePerson', label: 'Responsible Person' },
-    { id: 'price', label: 'Price' }
+    { id: 'initialQuantity', label: 'Qty' },
+    { id: 'voucherNumber', label: 'Voucher #' },
+    { id: 'donorName', label: 'Donor' },
+    { id: 'purchaseType', label: 'Acquisition Type' },
+    { id: 'price', label: 'Price' },
+    { id: 'description', label: 'Description' }
   ];
   protected visibleColumns = new Set(this.availableColumns.map(c => c.id));
+
+  protected getQualityRowClass(qualityName: string | null | undefined): string {
+    if (!qualityName) return 'hover:bg-base-200';
+    const q = qualityName.toLowerCase();
+    if (q.includes('poor') || q.includes('broken') || q.includes('bad')) return 'bg-error/10 hover:bg-error/20';
+    if (q.includes('fair') || q.includes('okay')) return 'bg-warning/10 hover:bg-warning/20';
+    if (q.includes('excellent') || q.includes('new') || q.includes('great')) return 'bg-success/10 hover:bg-success/20';
+    return 'hover:bg-base-200';
+  }
+
+  protected getLookupName(list: any[], id: string | null | undefined): string | null {
+    if (!id) return null;
+    return list.find(item => item.id === id)?.name || null;
+  }
 
   protected toggleColumnVisibility(colId: string, event: Event): void {
     event.stopPropagation();
@@ -1228,11 +1418,18 @@ export class ProductsComponent implements OnInit {
 
   // Modal states
   protected isEditing = false;
-  protected selectedProduct: ProductDto = this.getEmptyProduct();
-  protected productToDelete: ProductDto | null = null;
-  protected viewProduct: ProductDto | null = null;
+  protected selectedProduct: ExtendedProductDto = this.getEmptyProduct();
+  protected productToDelete: ExtendedProductDto | null = null;
+  protected viewProduct: ExtendedProductDto | null = null;
   protected messageType: 'success' | 'error' | 'warning' = 'success';
   protected messageTitle = '';
+
+  // Transfer states
+  protected productToTransfer: ExtendedProductDto | null = null;
+  protected transferTargetDepartmentId = '';
+  protected transferQuantity = 1;
+  protected transferNotes = '';
+  protected isTransferring = false;
   protected parsedContacts: { type: string, value: string }[] = [];
   protected messageContent = '';
   protected contacts: { type: string, value: string }[] = [{ type: 'Phone', value: '' }];
@@ -1244,12 +1441,18 @@ export class ProductsComponent implements OnInit {
   protected isUploading = false;
   protected imageUploadProgress = 0;
   protected selectedImageUrl: string | null = null;
+  
+  protected isImporting = false;
+  protected importErrors: string[] = [];
+  protected importProgress = 0;
+  protected importStatusMessage = '';
+  private hubConnection: signalR.HubConnection | null = null;
 
   protected purchaseHistory: ProductPurchaseHistoryDto[] = [];
   protected historyLoading = false;
 
   protected get disablePurchaseFields(): boolean {
-    return this.isEditing && this.purchaseHistory.length > 0;
+    return this.isEditing && (this.historyLoading || this.purchaseHistory.length > 0);
   }
 
   protected getTotalPurchased(): number {
@@ -1259,6 +1462,50 @@ export class ProductsComponent implements OnInit {
   ngOnInit(): void {
     this.loadProducts();
     this.loadLookups();
+    this.initSignalR();
+  }
+
+  ngOnDestroy(): void {
+    this.hubConnection?.stop();
+  }
+
+  private initSignalR(): void {
+    this.hubConnection = new signalR.HubConnectionBuilder()
+      .withUrl('http://localhost:5001/hubs/import', {
+        accessTokenFactory: () => {
+          return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || '';
+        }
+      })
+      .withAutomaticReconnect()
+      .build();
+
+    this.hubConnection.on('ImportProgress', (progress: number, message: string) => {
+      this.importProgress = progress;
+      this.importStatusMessage = message;
+      this.cdr.detectChanges();
+    });
+
+    this.hubConnection.on('ImportCompleted', (result: any) => {
+      this.isImporting = false;
+      this.importProgress = 0;
+      if (result.errors && result.errors.length > 0) {
+        this.showMessage('warning', 'Import Partially Successful', `Imported ${result.importedCount} products. Encountered ${result.errors.length} row errors.`);
+        this.importErrors = result.errors;
+      } else {
+        this.showMessage('success', 'Import Successful', `Successfully imported ${result.importedCount} products!`);
+      }
+      this.loadProducts();
+      this.cdr.detectChanges();
+    });
+
+    this.hubConnection.on('ImportFailed', (error: string) => {
+      this.isImporting = false;
+      this.importProgress = 0;
+      this.showMessage('error', 'Import Failed', error);
+      this.cdr.detectChanges();
+    });
+
+    this.hubConnection.start().catch((err: any) => console.error('SignalR Connection Error: ', err));
   }
 
   protected loadLookups(): void {
@@ -1269,7 +1516,8 @@ export class ProductsComponent implements OnInit {
       brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand').pipe(catchError(() => of([]))),
       departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department').pipe(catchError(() => of([]))),
       persons: this.http.get<PersonDto[]>('http://localhost:5001/api/Person').pipe(catchError(() => of([]))),
-      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier').pipe(catchError(() => of([])))
+      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier').pipe(catchError(() => of([]))),
+      qualities: this.http.get<any[]>('http://localhost:5001/api/Quality').pipe(catchError(() => of([])))
     }).subscribe({
       next: (results: any) => {
         const getUnique = (arr: any[] | null | undefined, key: string) => {
@@ -1288,7 +1536,9 @@ export class ProductsComponent implements OnInit {
         this.departments = getUnique(results.departments, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         this.persons = getUnique(results.persons, 'fullName').sort((a: any, b: any) => (a.fullName || '').localeCompare(b.fullName || ''));
         this.suppliers = getUnique(results.suppliers, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
+        this.qualities = getUnique(results.qualities, 'name').sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
         this.lookupsLoading = false;
+        this.sortProductsLocally();
         this.cdr.detectChanges();
       },
       error: (err) => {
@@ -1318,9 +1568,12 @@ export class ProductsComponent implements OnInit {
     // Find IDs based on selected filter names
     const selectedCat = this.categories.find(c => c.name === this.filterCategory);
     const selectedDept = this.departments.find(d => d.name === this.filterDepartment);
+    const selectedQuality = this.qualities.find(q => q.name === this.filterQuality);
 
     if (selectedCat?.id) (query as any).categoryId = selectedCat.id;
     if (selectedDept?.id) (query as any).departmentId = selectedDept.id;
+    if (selectedQuality?.id) (query as any).qualityId = selectedQuality.id;
+    if (this.filterPurchaseType) (query as any).purchaseType = this.filterPurchaseType;
 
     // Fallback for free-text filters that don't have IDs
     if (this.filterCategory && !selectedCat?.id) {
@@ -1329,6 +1582,9 @@ export class ProductsComponent implements OnInit {
     } else if (this.filterDepartment && !selectedDept?.id) {
       query.filterOn = 'departmentName';
       query.filterQuery = this.filterDepartment;
+    } else if (this.filterQuality && !selectedQuality?.id) {
+      query.filterOn = 'quality';
+      query.filterQuery = this.filterQuality;
     }
 
     // Add search filter
@@ -1336,7 +1592,15 @@ export class ProductsComponent implements OnInit {
       (query as any).name = this.search.trim();
     }
 
-    this.api.list(query).pipe(
+    let params = new HttpParams();
+    Object.keys(query).forEach(key => {
+      const val = (query as any)[key];
+      if (val !== undefined && val !== null && val !== '') {
+        params = params.append(key, val.toString());
+      }
+    });
+
+    this.http.get<any>(this.apiUrl, { params }).pipe(
       finalize(() => this.loading = false)
     ).subscribe({
       next: (result) => {
@@ -1344,6 +1608,7 @@ export class ProductsComponent implements OnInit {
           this.products = result.items || [];
           this.totalItems = result.totalCount || 0;
           this.totalPages = Math.ceil(this.totalItems / this.pageSize);
+          this.sortProductsLocally();
         }
         this.cdr.detectChanges();
       },
@@ -1354,7 +1619,7 @@ export class ProductsComponent implements OnInit {
     });
   }
 
-  protected getEmptyProduct(): ProductDto {
+  protected getEmptyProduct(): ExtendedProductDto {
     return {
       id: null,
       name: '',
@@ -1369,6 +1634,7 @@ export class ProductsComponent implements OnInit {
       price: null,
       imageUrl: null,
       attributes: null,
+      qualityId: null,
       year: null,
       plateNumber: null,
       engineNumber: null,
@@ -1379,6 +1645,7 @@ export class ProductsComponent implements OnInit {
       voucherNumber: null,
       supplierContact: null,
       invoiceDate: null,
+      responsiblePersonId: null,
       quality: null,
       responsiblePerson: null,
       createdDate: null,
@@ -1404,91 +1671,10 @@ export class ProductsComponent implements OnInit {
     this.selectedProducts.has(productId) ? this.selectedProducts.delete(productId) : this.selectedProducts.add(productId);
   }
 
-  protected get startIndex(): number {
-    return this.totalItems === 0 ? 0 : (this.currentPage - 1) * this.pageSize + 1;
-  }
-
-  protected get endIndex(): number {
-    return Math.min(this.currentPage * this.pageSize, this.totalItems);
-  }
-
-  protected get visiblePages(): (number | string)[] {
-    const pages: (number | string)[] = [];
-    const maxVisible = 5;
-    const totalPages = this.totalPages;
-
-    if (totalPages <= maxVisible + 2) {
-      // Show all pages if total pages fit comfortably
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      // Always show first page
-      pages.push(1);
-
-      // Calculate start and end of visible range
-      let start = Math.max(2, this.currentPage - Math.floor(maxVisible / 2));
-      let end = Math.min(totalPages - 1, start + maxVisible - 1);
-
-      // Adjust if we're near the end
-      if (end - start < maxVisible - 1) {
-        start = Math.max(2, end - maxVisible + 1);
-      }
-
-      // Add ellipsis if there's a gap after page 1
-      if (start > 2) {
-        pages.push('...');
-      }
-
-      // Add visible page numbers
-      for (let i = start; i <= end; i++) {
-        pages.push(i);
-      }
-
-      // Add ellipsis if there's a gap before last page
-      if (end < totalPages - 1) {
-        pages.push('...');
-      }
-
-      // Always show last page
-      pages.push(totalPages);
-    }
-
-    return pages;
-  }
-
   protected goToPage(page: number | string): void {
     const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
     if (pageNum >= 1 && pageNum <= this.totalPages && pageNum !== this.currentPage) {
       this.currentPage = pageNum;
-      this.loadProducts();
-    }
-  }
-
-  protected goToFirstPage(): void {
-    if (this.currentPage !== 1) {
-      this.currentPage = 1;
-      this.loadProducts();
-    }
-  }
-
-  protected goToLastPage(): void {
-    if (this.currentPage !== this.totalPages) {
-      this.currentPage = this.totalPages;
-      this.loadProducts();
-    }
-  }
-
-  protected nextPage(): void {
-    if (this.currentPage < this.totalPages) {
-      this.currentPage++;
-      this.loadProducts();
-    }
-  }
-
-  protected previousPage(): void {
-    if (this.currentPage > 1) {
-      this.currentPage--;
       this.loadProducts();
     }
   }
@@ -1509,6 +1695,41 @@ export class ProductsComponent implements OnInit {
     }
     this.currentPage = 1;
     this.loadProducts();
+  }
+
+  protected sortProductsLocally(): void {
+    if (!this.sortBy || this.products.length === 0) return;
+
+    this.products.sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (this.sortBy) {
+        case 'department':
+          valA = a.departmentName || this.getLookupName(this.departments, a.departmentId) || '';
+          valB = b.departmentName || this.getLookupName(this.departments, b.departmentId) || '';
+          break;
+        case 'category':
+          valA = a.categoryName || this.getLookupName(this.categories, a.categoryId) || '';
+          valB = b.categoryName || this.getLookupName(this.categories, b.categoryId) || '';
+          break;
+        case 'brand':
+          valA = a.brandName || this.getLookupName(this.brands, a.brandId) || '';
+          valB = b.brandName || this.getLookupName(this.brands, b.brandId) || '';
+          break;
+        default:
+          valA = (a as any)[this.sortBy] || '';
+          valB = (b as any)[this.sortBy] || '';
+          break;
+      }
+
+      if (typeof valA === 'string') valA = valA.toLowerCase();
+      if (typeof valB === 'string') valB = valB.toLowerCase();
+
+      if (valA < valB) return this.isAscending ? -1 : 1;
+      if (valA > valB) return this.isAscending ? 1 : -1;
+      return 0;
+    });
   }
 
   private filterTimeout: any;
@@ -1563,11 +1784,10 @@ export class ProductsComponent implements OnInit {
     
     this.historyLoading = true;
     this.purchaseHistory = [];
-    const getMethod = (this.api as any).get || (this.api as any).getById;
     
-    if (getMethod && product.id) {
-      getMethod.call(this.api, product.id).subscribe({
-        next: (fullProduct: ProductDto) => {
+    if (product.id) {
+      this.http.get<ExtendedProductDto>(`${this.apiUrl}/${product.id}`).subscribe({
+        next: (fullProduct: ExtendedProductDto) => {
           this.viewProduct = fullProduct;
           this.purchaseHistory = fullProduct.purchaseHistory || [];
           this.historyLoading = false;
@@ -1605,7 +1825,7 @@ export class ProductsComponent implements OnInit {
     }
   }
 
-  protected openEditModal(product: ProductDto): void {
+  protected openEditModal(product: ExtendedProductDto): void {
     this.isEditing = true;
     this.selectedProduct = { ...product };
     this.selectedImageUrl = product.imageUrl || null;
@@ -1614,11 +1834,10 @@ export class ProductsComponent implements OnInit {
     
     this.historyLoading = true;
     this.purchaseHistory = [];
-    const getMethod = (this.api as any).get || (this.api as any).getById;
     
-    if (getMethod && product.id) {
-      getMethod.call(this.api, product.id).subscribe({
-        next: (fullProduct: ProductDto) => {
+    if (product.id) {
+      this.http.get<ExtendedProductDto>(`${this.apiUrl}/${product.id}`).subscribe({
+        next: (fullProduct: ExtendedProductDto) => {
           this.purchaseHistory = fullProduct.purchaseHistory || [];
           this.selectedProduct = fullProduct;
           if (fullProduct.supplierContact) {
@@ -1662,29 +1881,30 @@ export class ProductsComponent implements OnInit {
     this.isUploading = true;
     this.imageLoading = true;
 
-    const finalizeAndClose = (success: boolean, action: string, productName: string, errorMsg?: string, keepOpen = false) => {
-      this.isUploading = false;
-      this.imageLoading = false;
-      // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
-      setTimeout(() => {
-        this.loadProducts();
-        if (!keepOpen) {
-          this.closeModal();
-        }
-        if (success) {
-          this.showMessage('success', `${action} Successful`, `${productName} has been ${action.toLowerCase()} successfully.`);
-        } else if (errorMsg) {
-          this.showMessage('error', `${action} Failed`, errorMsg);
-        } else {
-          this.showMessage('warning', `${action} Partially Successful`, `${productName} was ${action.toLowerCase()} but image upload failed. You can upload the image later.`);
-        }
-      });
-    };
+    const performSave = () => {
+      const finalizeAndClose = (success: boolean, action: string, productName: string, errorMsg?: string, keepOpen = false) => {
+        this.isUploading = false;
+        this.imageLoading = false;
+        // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.loadProducts();
+          if (!keepOpen) {
+            this.closeModal();
+          }
+          if (success) {
+            this.showMessage('success', `${action} Successful`, `${productName} has been ${action.toLowerCase()} successfully.`);
+          } else if (errorMsg) {
+            this.showMessage('error', `${action} Failed`, errorMsg);
+          } else {
+            this.showMessage('warning', `${action} Partially Successful`, `${productName} was ${action.toLowerCase()} but image upload failed. You can upload the image later.`);
+          }
+        });
+      };
 
-    if (this.isEditing && this.selectedProduct.id) {
-      // Update existing product
-      this.api.update(this.selectedProduct.id, this.selectedProduct).subscribe({
-        next: (updated) => {
+      if (this.isEditing && this.selectedProduct.id) {
+        // Update existing product
+        this.http.put<ExtendedProductDto>(`${this.apiUrl}/${this.selectedProduct.id}`, this.selectedProduct).subscribe({
+          next: (updated) => {
           // Upload image if selected
           if (this.selectedImage && updated?.id) {
             this.uploadProductImage(updated.id)
@@ -1713,7 +1933,7 @@ export class ProductsComponent implements OnInit {
       });
     } else {
       // Create new product
-      const createRequest: CreateProductRequest = {
+        const createRequest: any = {
         name: this.selectedProduct.name,
         codeNumber: this.selectedProduct.codeNumber,
         description: this.selectedProduct.description,
@@ -1725,6 +1945,7 @@ export class ProductsComponent implements OnInit {
         departmentName: this.selectedProduct.departmentName,
         price: this.selectedProduct.price,
         quality: this.selectedProduct.quality,
+        qualityId: this.selectedProduct.qualityId,
         attributes: this.selectedProduct.attributes,
         year: this.selectedProduct.year,
         plateNumber: this.selectedProduct.plateNumber,
@@ -1737,9 +1958,10 @@ export class ProductsComponent implements OnInit {
         supplierContact: this.selectedProduct.supplierContact,
         invoiceDate: this.selectedProduct.invoiceDate,
         responsiblePerson: this.selectedProduct.responsiblePerson,
+        responsiblePersonId: this.selectedProduct.responsiblePersonId,
       };
 
-      this.api.create(createRequest).subscribe({
+        this.http.post<ExtendedProductDto>(this.apiUrl, createRequest).subscribe({
         next: (created) => {
           // Upload image if selected
           if (this.selectedImage && created?.id) {
@@ -1764,15 +1986,32 @@ export class ProductsComponent implements OnInit {
           console.error('Error creating product:', err);
         }
       });
+      }
+    };
+
+    // Auto-create Responsible Person first if they are new
+    if (this.selectedProduct.purchaseType && this.selectedProduct.purchaseType !== 'None' && this.selectedProduct.responsiblePerson && !this.selectedProduct.responsiblePersonId) {
+      this.http.post<PersonDto>('http://localhost:5001/api/Person', { fullName: this.selectedProduct.responsiblePerson }).subscribe({
+        next: (newPerson) => {
+          this.selectedProduct.responsiblePersonId = newPerson.id;
+          this.persons.push(newPerson);
+          performSave();
+        },
+        error: (err) => {
+          console.warn('Failed to auto-create person', err);
+          performSave(); // Continue anyway, backend might support raw string mapping
+        }
+      });
+    } else {
+      performSave();
     }
   }
 
   protected refreshAfterEdit(id: string): void {
     this.historyLoading = true;
-    const getMethod = (this.api as any).get || (this.api as any).getById;
-    if (getMethod) {
-      getMethod.call(this.api, id).subscribe({
-        next: (fullProduct: ProductDto) => {
+    
+    this.http.get<ExtendedProductDto>(`${this.apiUrl}/${id}`).subscribe({
+        next: (fullProduct: ExtendedProductDto) => {
           this.purchaseHistory = fullProduct.purchaseHistory || [];
           this.selectedProduct = fullProduct;
           if (fullProduct.supplierContact) {
@@ -1789,12 +2028,55 @@ export class ProductsComponent implements OnInit {
           this.cdr.detectChanges();
         }
       });
-    } else {
-      this.historyLoading = false;
+  }
+
+  protected openTransferModal(product: ExtendedProductDto): void {
+    this.productToTransfer = product;
+    this.transferTargetDepartmentId = '';
+    this.transferQuantity = 1;
+    this.transferNotes = '';
+    const modal = document.getElementById('stock-transfer-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.showModal();
     }
   }
 
-  protected confirmDelete(product: ProductDto): void {
+  protected closeTransferModal(): void {
+    const modal = document.getElementById('stock-transfer-modal') as HTMLDialogElement;
+    if (modal) {
+      modal.close();
+    }
+    this.productToTransfer = null;
+  }
+
+  protected executeTransfer(): void {
+    if (!this.productToTransfer?.id || !this.transferTargetDepartmentId) return;
+    this.isTransferring = true;
+
+    const payload = {
+      productId: this.productToTransfer.id,
+      fromDepartmentId: this.productToTransfer.departmentId,
+      toDepartmentId: this.transferTargetDepartmentId,
+      quantity: this.transferQuantity,
+      notes: this.transferNotes
+    };
+
+    this.http.post(`http://localhost:5001/api/inventory/products/${this.productToTransfer.id}/transfer`, payload).subscribe({
+      next: () => {
+        this.isTransferring = false;
+        this.closeTransferModal();
+        this.loadProducts();
+        this.showMessage('success', 'Transfer Successful', `Stock has been transferred to the new department.`);
+      },
+      error: (err) => {
+        this.isTransferring = false;
+        this.showMessage('error', 'Transfer Failed', 'Could not transfer stock. Please try again.');
+        console.error('Error transferring stock:', err);
+      }
+    });
+  }
+
+  protected confirmDelete(product: ExtendedProductDto): void {
     this.productToDelete = product;
     const modal = document.getElementById('product-delete-confirm-modal') as HTMLDialogElement;
     if (modal) {
@@ -1813,7 +2095,7 @@ export class ProductsComponent implements OnInit {
   protected executeDelete(): void {
     if (!this.productToDelete?.id) return;
 
-    this.api.delete(this.productToDelete.id).subscribe({
+    this.http.delete(`${this.apiUrl}/${this.productToDelete.id}`).subscribe({
       next: () => {
         this.loadProducts();
         this.closeDeleteModal();
@@ -1843,7 +2125,7 @@ export class ProductsComponent implements OnInit {
   protected executeBulkDelete(): void {
     if (this.selectedProducts.size === 0) return;
 
-    const deleteRequests = Array.from(this.selectedProducts).map(id => this.api.delete(id));
+    const deleteRequests = Array.from(this.selectedProducts).map(id => this.http.delete(`${this.apiUrl}/${id}`));
 
     forkJoin(deleteRequests).subscribe({
       next: () => {
@@ -1921,6 +2203,84 @@ export class ProductsComponent implements OnInit {
     }
   }
 
+  protected async handleImportExcel(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.isImporting = true;
+    this.cdr.detectChanges();
+
+    try {
+      // 1. Read and clean the Excel file before sending it to the backend
+      const workbook = new ExcelJS.Workbook();
+      try {
+        await workbook.xlsx.load(await file.arrayBuffer());
+      } catch (parseErr) {
+        this.showMessage('error', 'Invalid Format', 'Please upload a valid .xlsx file.');
+        this.isImporting = false;
+        this.cdr.detectChanges();
+        return;
+      }
+      const worksheet = workbook.worksheets[0];
+
+      if (worksheet) {
+        // Iterate backwards so we can safely delete ghost rows without shifting indexes
+        for (let i = worksheet.rowCount; i > 1; i--) {
+          const row = worksheet.getRow(i);
+          let isRowEmpty = true;
+
+          row.eachCell({ includeEmpty: false }, (cell) => {
+            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+              isRowEmpty = false;
+              if (typeof cell.value === 'string') {
+                cell.value = cell.value.trim();
+              }
+            }
+          });
+
+          if (isRowEmpty) {
+            worksheet.spliceRows(i, 1);
+          }
+        }
+      }
+
+      // 2. Generate a new cleaned File to send
+      const cleanedBuffer = await workbook.xlsx.writeBuffer();
+      const cleanedFile = new File([cleanedBuffer], file.name, { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+
+      // 3. Send the clean file to the API via HttpClient directly (bypassing native fetch)
+      const formData = new FormData();
+      formData.append('file', cleanedFile);
+
+      this.http.post<any>(`${this.apiUrl}/import`, formData).subscribe({
+        next: (result) => {
+          if (result.trackingId && this.hubConnection) {
+             this.hubConnection.invoke('JoinJobGroup', result.trackingId).catch(console.error);
+          }
+          this.importStatusMessage = 'File uploaded. Waiting for background processor...';
+          this.importProgress = 0;
+          input.value = '';
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          const message = err.error?.title || err.error?.message || 'Failed to import products.';
+          this.showMessage('error', 'Import Failed', message);
+          this.isImporting = false;
+          input.value = '';
+          this.cdr.detectChanges();
+        }
+      });
+    } catch (err: any) {
+      this.showMessage('error', 'Import Failed', err.message || 'An unexpected error occurred during import preparation.');
+      this.isImporting = false;
+      input.value = '';
+      this.cdr.detectChanges();
+    }
+  }
+
   protected uploadProductImage(productId: string): Promise<void> {
     if (!this.selectedImage) return Promise.resolve();
 
@@ -1980,6 +2340,15 @@ export class ProductsComponent implements OnInit {
     });
   }
 
+  protected onQualityChange(qualityId: string): void {
+    const selectedQuality = this.qualities.find(q => q.id === qualityId);
+    if (selectedQuality) {
+      this.selectedProduct.quality = selectedQuality.name;
+    } else {
+      this.selectedProduct.quality = null;
+    }
+  }
+
   protected onCategoryNameChange(categoryName: string): void {
     if (!categoryName) {
       this.selectedProduct.categoryId = null;
@@ -2016,8 +2385,8 @@ export class ProductsComponent implements OnInit {
   protected onAutocompleteInput(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', value: string) {
     this.filterSuggestions(type, value);
 
-    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ProductDto;
-    const idProp = (type + 'Id') as keyof ProductDto;
+    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ExtendedProductDto;
+    const idProp = (type === 'person' ? 'responsiblePersonId' : type + 'Id') as keyof ExtendedProductDto;
     (this.selectedProduct as any)[nameProp] = value;
 
     let source: any[] = [];
@@ -2063,8 +2432,8 @@ export class ProductsComponent implements OnInit {
 
   protected selectSuggestion(type: 'category' | 'brand' | 'department' | 'person' | 'supplier', suggestion: any) {
     const nameField = type === 'person' ? 'fullName' : 'name';
-    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ProductDto;
-    const idProp = (type + 'Id') as keyof ProductDto;
+    const nameProp = (type === 'person' ? 'responsiblePerson' : type + 'Name') as keyof ExtendedProductDto;
+    const idProp = (type === 'person' ? 'responsiblePersonId' : type + 'Id') as keyof ExtendedProductDto;
 
     (this.selectedProduct as any)[nameProp] = suggestion.isNew ? suggestion.newName : suggestion[nameField];
     (this.selectedProduct as any)[idProp] = suggestion.isNew ? null : suggestion.id;
@@ -2146,19 +2515,61 @@ export class ProductsComponent implements OnInit {
 
   // ===== EXPORT METHODS =====
 
-  private getColumnValue(product: ProductDto, colId: string, isCsv: boolean = false): string {
+  private getColumnValue(product: ExtendedProductDto, colId: string, isCsv: boolean = false): string {
     const fallback = isCsv ? '' : '-';
     switch (colId) {
       case 'name': return product.name || fallback;
       case 'codeNumber': return product.codeNumber || fallback;
       case 'year': return product.year ? product.year.toString().substring(0, 4) : fallback;
-      case 'category': return product.categoryName || fallback;
-      case 'brand': return product.brandName || fallback;
-      case 'quality': return product.quality || fallback;
-      case 'responsiblePerson': return product.responsiblePerson || fallback;
+      case 'plateNumber': return product.plateNumber || fallback;
+      case 'engineNumber': return product.engineNumber || fallback;
+      case 'category': return product.categoryName || this.getLookupName(this.categories, product.categoryId) || fallback;
+      case 'brand': return product.brandName || this.getLookupName(this.brands, product.brandId) || fallback;
+      case 'department': return product.departmentName || this.getLookupName(this.departments, product.departmentId) || fallback;
+      case 'quality': return product.quality || this.getLookupName(this.qualities, product.qualityId) || fallback;
+      case 'responsiblePerson': return product.responsiblePerson || this.getLookupName(this.persons, product.responsiblePersonId) || fallback;
+      case 'initialQuantity': return product.initialQuantity?.toString() || fallback;
+      case 'voucherNumber': return product.voucherNumber || fallback;
+      case 'donorName': return product.donorName || fallback;
+      case 'purchaseType': return product.purchaseType || fallback;
       case 'price': return product.price != null ? `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
+      case 'description': return product.description || fallback;
       default: return fallback;
     }
+  }
+
+  protected async exportToExcel(): Promise<void> {
+    if (this.products.length === 0) return;
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Products');
+
+    const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
+    
+    worksheet.columns = activeColumns.map(col => ({
+      header: col.label,
+      key: col.id,
+      width: 20
+    }));
+
+    this.products.forEach(p => {
+      const rowData: any = {};
+      activeColumns.forEach(col => {
+        rowData[col.id] = col.id === 'price' ? (p.price || 0) : this.getColumnValue(p, col.id, false);
+      });
+      worksheet.addRow(rowData);
+    });
+
+    worksheet.getRow(1).font = { bold: true };
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `products_${this.getTimestamp()}.xlsx`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   protected exportToCSV(): void {
@@ -2351,6 +2762,8 @@ export class ProductsComponent implements OnInit {
     if (this.search) filters.push(`Search: ${this.search}`);
     if (this.filterCategory) filters.push(`Category: ${this.filterCategory}`);
     if (this.filterDepartment) filters.push(`Department: ${this.filterDepartment}`);
+    if (this.filterQuality) filters.push(`Condition: ${this.filterQuality}`);
+    if (this.filterPurchaseType) filters.push(`Acquisition: ${this.filterPurchaseType}`);
     if (this.sortBy) {
       const sortDirection = this.isAscending ? 'Ascending' : 'Descending';
       filters.push(`Sort: ${this.sortBy} (${sortDirection})`);

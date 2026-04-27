@@ -383,7 +383,7 @@ public class AuthController : BaseController
 
             var classes = await _classService.GetAllClasses(pageNumber: 1, pageSize: 5);
             var students = await _classService.GetAllStudentsAsync(pageNumber: 1, pageSize: 5);
-            var products = await _mediator.Send(new GetAllProductsQuery(null, null, null, null, true, 1, 5), cancellationToken);
+            var products = await _mediator.Send(new GetAllProductsQuery(null, null, null, null,null, true, 1, 5), cancellationToken);
 
             return Ok(new
             {

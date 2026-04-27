@@ -33,6 +33,7 @@ public class ProductDto
     public string? SupplierContact { get; set; }
     public string? InvoiceDate { get; set; }
     public string? ResponsiblePerson { get; set; }
+    public string? ResponsiblePersonId { get; set; }
 
     // History
     public List<ProductPurchaseHistoryDto>? PurchaseHistory { get; set; }

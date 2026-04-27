@@ -21,6 +21,11 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
     public async Task<Result<PagedResult<ProductDto>>> Handle(GetAllProductsQuery request, CancellationToken cancellationToken)
     {
         var query = _context.Products
+            .Include(p => p.Quality)
+            .Include(p=>p.PurchaseItems)
+            .ThenInclude(pi => pi.ResponsiblePerson)
+            .Include(p => p.PurchaseItems)
+                .ThenInclude(pi => pi.Purchase)
             .Include(p => p.Category)
             .Include(p => p.Brand)
             .Include(p => p.Department)
@@ -35,11 +40,20 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         }
         if (!string.IsNullOrWhiteSpace(request.CategoryId))
         {
-            query = query.Where(p => p.CategoryId == request.CategoryId);
+            var categoryIds = request.CategoryId.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            query = query.Where(p => p.CategoryId != null && categoryIds.Contains(p.CategoryId));
         }
         if (!string.IsNullOrWhiteSpace(request.DepartmentId))
         {
             query = query.Where(p => p.DepartmentId == request.DepartmentId);
+        }
+        if (!string.IsNullOrWhiteSpace(request.QualityId))
+        {
+            query = query.Where(p => p.QualityId == request.QualityId);
+        }
+        if (!string.IsNullOrWhiteSpace(request.PurchaseType))
+        {
+            query = query.Where(p => p.PurchaseItems.Any(pi => pi.Purchase != null && pi.Purchase.AcquisitionType == request.PurchaseType));
         }
         
         // Fallback for free-text filters from frontend
@@ -47,11 +61,16 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         {
             if (request.FilterOn.Equals("categoryName", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(p => p.Category != null && EF.Functions.ILike(p.Category.Name, $"%{request.FilterQuery}%"));
+                var catNames = request.FilterQuery.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(n => n.Trim().ToLower()).ToList();
+                query = query.Where(p => p.Category != null && catNames.Any(cn => p.Category.Name.ToLower().Contains(cn)));
             }
             else if (request.FilterOn.Equals("departmentName", StringComparison.OrdinalIgnoreCase))
             {
                 query = query.Where(p => p.Department != null && EF.Functions.ILike(p.Department.Name, $"%{request.FilterQuery}%"));
+            }
+            else if (request.FilterOn.Equals("quality", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => p.Quality != null && EF.Functions.ILike(p.Quality.Name, $"%{request.FilterQuery}%"));
             }
         }
 
@@ -100,12 +119,27 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
                 Name = p.ProductName,
                 Price = p.Price,
                 ImageUrl = p.Image != null ? p.Image.Url : null,
+                CategoryId = p.CategoryId,
                 CategoryName = p.Category != null ? p.Category.Name : null,
+                BrandId = p.BrandId,
                 BrandName = p.Brand != null ? p.Brand.Name : null,
+                DepartmentId = p.DepartmentId,
                 DepartmentName = p.Department != null ? p.Department.Name : null,
+                QualityId = p.QualityId,
+                Quality = p.Quality != null ? p.Quality.Name : null,
+                ResponsiblePersonId = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => pi.ResponsiblePersonId.ToString()).FirstOrDefault(),
+                ResponsiblePerson = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => pi.ResponsiblePerson != null ? pi.ResponsiblePerson.FullName : null).FirstOrDefault(),
+                PurchaseType = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => pi.Purchase != null ? pi.Purchase.AcquisitionType : null).FirstOrDefault(),
+                VoucherNumber = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => pi.Purchase != null ? pi.Purchase.VoucherNumber : null).FirstOrDefault(),
+                DonorName = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => pi.Purchase != null && pi.Purchase.Notes != null ? pi.Purchase.Notes.Replace("Donated by: ", "") : null).FirstOrDefault(),
+                InitialQuantity = p.PurchaseItems.OrderByDescending(pi => pi.CreatedDate).Select(pi => (int?)pi.Quantity).FirstOrDefault(),
                 CodeNumber = p.CodeNumber,
                 Year = p.Year.HasValue ? p.Year.Value.ToString("o") : null,
-                Attributes = p.Attributes
+                PlateNumber = p.PlateNumber,
+                EngineNumber = p.EngineNumber,
+                Attributes = p.Attributes,
+                CreatedDate = p.CreatedDate.HasValue ? p.CreatedDate.Value.ToString("o") : null,
+                UpdateDate = p.UpdateDate.HasValue ? p.UpdateDate.Value.ToString("o") : null
             })
             .ToPagedResultAsync(request.PageNumber, request.PageSize, cancellationToken);
             
