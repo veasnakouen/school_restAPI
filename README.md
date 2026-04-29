@@ -127,8 +127,7 @@ Contributions are welcome. Please open an issue or submit a pull request with a 
 If you want me to update the README to include specific project names, the exact EF Core commands, or the Swagger URL, tell me the project/assembly names (the .csproj filenames) and whether EF Core is used.
 
 ## License
-
-Add a LICENSE file to the repository and reference it here (for example, MIT).
+*****
 
 ## Notes / What I changed
 
