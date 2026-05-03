@@ -1,64 +1,65 @@
-using Microsoft.AspNetCore.Mvc;
-using System;
-using System.IO;
 using Microsoft.AspNetCore.Authorization;
-using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Entities;
 
 namespace SchoolAPI.Controllers;
 
-[ApiController]
 [Route("api/[controller]")]
+[ApiController]
+[Authorize]
 public class OrganizationController : ControllerBase
 {
-    // Path where the logo will be stored so QuestPDF and other services can access it
-    private readonly string _logoPath = "wwwroot/images/organization-logo.png";
+    private readonly IApplicationDbContext _context;
 
-    public class LogoRequest
+    public OrganizationController(IApplicationDbContext context)
     {
-        public string Base64String { get; set; } = string.Empty;
+        _context = context;
     }
 
-    [HttpGet("Logo")]
-    public IActionResult GetLogo()
+    // GET: api/Organization
+    [HttpGet]
+    [AllowAnonymous] // Allow anonymous so the login page can display the custom App Name/Logo!
+    public async Task<IActionResult> GetSettings()
     {
-        if (!System.IO.File.Exists(_logoPath))
+        var org = await _context.Organizations.FirstOrDefaultAsync() ?? new Organization();
+        return Ok(org);
+    }
+
+    // POST: api/Organization
+    [HttpPost]
+    public async Task<IActionResult> UpdateSettings([FromBody] Organization updateDto)
+    {
+        var org = await _context.Organizations.FirstOrDefaultAsync();
+        if (org == null)
         {
-            return Ok(new { base64String = "" });
+            org = new Organization { Id = "DEFAULT" };
+            _context.Organizations.Add(org);
         }
-
-        var imageBytes = System.IO.File.ReadAllBytes(_logoPath);
-        var base64String = Convert.ToBase64String(imageBytes);
         
-        // Reconstruct the Data URL for the React frontend
-        var dataUrl = $"data:image/png;base64,{base64String}";
+        if (!string.IsNullOrWhiteSpace(updateDto.AppName))
+            org.AppName = updateDto.AppName;
+            
+        if (updateDto.LogoBase64 != null)
+            org.LogoBase64 = updateDto.LogoBase64;
 
-        return Ok(new { base64String = dataUrl });
+        await _context.SaveChangesAsync(default);
+        return Ok(org);
+    }
+
+    // Specific endpoints to support the Report.tsx PDF generator
+    [HttpGet("Logo")]
+    public async Task<IActionResult> GetLogo()
+    {
+        var org = await _context.Organizations.FirstOrDefaultAsync();
+        return Ok(new { base64String = org?.LogoBase64 });
     }
 
     [HttpPost("Logo")]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> UpdateLogo([FromBody] LogoRequest request)
+    public async Task<IActionResult> UpdateLogo([FromBody] Organization updateDto)
     {
-        if (string.IsNullOrEmpty(request.Base64String))
-            return BadRequest(new { title = "Logo data is required." });
-
-        // Strip the "data:image/png;base64," prefix before converting to bytes
-        var base64Data = request.Base64String;
-        var commaIndex = base64Data.IndexOf(',');
-        if (commaIndex >= 0) base64Data = base64Data.Substring(commaIndex + 1);
-
-        var imageBytes = Convert.FromBase64String(base64Data);
-
-        // Ensure directory exists
-        var directory = Path.GetDirectoryName(_logoPath);
-        if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        // Save the image securely to disk
-        await System.IO.File.WriteAllBytesAsync(_logoPath, imageBytes);
-
-        return Ok(new { message = "Logo updated successfully!" });
+        // Reuses the main update logic
+        return await UpdateSettings(updateDto);
     }
 }

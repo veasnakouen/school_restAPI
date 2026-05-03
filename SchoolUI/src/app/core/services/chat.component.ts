@@ -54,7 +54,7 @@ import { HttpClient } from '@angular/common/http';
             <!-- Step 2: 1-on-1 Chat -->
             <div class="p-3 border-b border-base-300 bg-primary text-primary-content flex justify-between items-center shadow-sm">
               <div class="flex items-center gap-2">
-                <button class="btn btn-ghost btn-xs btn-circle text-primary-content hover:bg-primary-focus mr-1" (click)="selectedUser = null">
+                <button class="btn btn-ghost btn-xs btn-circle text-primary-content hover:bg-primary-focus mr-1" (click)="selectedUser = null; chatService.activeChatUser.set(null)">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <div class="avatar placeholder">
@@ -73,6 +73,11 @@ import { HttpClient } from '@angular/common/http';
                   <div class="chat-header opacity-60 text-xs mb-1">
                     {{ msg.sender === currentUser ? 'You' : msg.sender }}
                     <time class="ml-1">{{ msg.timestamp | date:'shortTime' }}</time>
+                    @if (msg.sender === currentUser) {
+                      <span class="ml-1 font-bold tracking-tighter" [class.text-info]="msg.isRead" [class.opacity-60]="!msg.isRead" [title]="msg.isRead ? 'Seen' : (chatService.onlineUsers().includes(msg.receiver) ? 'Delivered' : 'Sent')">
+                        {{ msg.isRead ? '✓✓' : (chatService.onlineUsers().includes(msg.receiver) ? '✓✓' : '✓') }}
+                      </span>
+                    }
                   </div>
                   <div class="chat-bubble text-sm shadow-sm flex flex-col" [class.chat-bubble-primary]="msg.sender === currentUser">
                     @if (msg.attachmentUrl) {
@@ -175,6 +180,9 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.chatService.isChatOpen = this.isOpen;
     if (this.isOpen) {
       this.chatService.resetUnreadCount();
+      if (this.selectedUser) {
+        this.chatService.markAsRead(this.selectedUser);
+      }
     }
   }
 
@@ -198,6 +206,8 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   selectUser(user: string) {
     this.selectedUser = user;
+    this.chatService.activeChatUser.set(user);
+    this.chatService.markAsRead(user);
     // Request the message history for this specific user
     this.chatService.loadHistory(user);
     setTimeout(() => this.scrollToBottom(), 50);
@@ -230,7 +240,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
       
       this.http.post<{url: string, name: string}>('http://localhost:5001/api/chat/upload', formData).subscribe({
         next: (res) => {
-          this.chatService.sendPrivateMessage(this.selectedUser!, this.newMessage.trim(), res.url, res.name || file.name);
+          this.chatService.sendMessage(this.selectedUser!, this.newMessage.trim(), res.url, res.name || file.name);
           this.newMessage = '';
           this.isUploading = false;
           input.value = '';
@@ -247,7 +257,7 @@ export class ChatComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   sendMessage() {
     if (this.newMessage.trim() && this.selectedUser && !this.isUploading) {
-      this.chatService.sendPrivateMessage(this.selectedUser, this.newMessage.trim());
+      this.chatService.sendMessage(this.selectedUser, this.newMessage.trim());
       this.newMessage = '';
       setTimeout(() => this.scrollToBottom(), 50);
     }

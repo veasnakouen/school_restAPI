@@ -33,6 +33,8 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         settings.RequireEmailVerification = req.RequireEmailVerification;
         settings.MaintenanceMode = req.MaintenanceMode;
         settings.DefaultToDarkMode = req.DefaultToDarkMode;
+        settings.LogoBase64=req.LogoBase64;
+        settings.BankQrCodeBase64=req.BankQrCodeBase64;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -43,7 +45,9 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
             AllowRegistration = settings.AllowRegistration,
             RequireEmailVerification = settings.RequireEmailVerification,
             MaintenanceMode = settings.MaintenanceMode,
-            DefaultToDarkMode = settings.DefaultToDarkMode
+            DefaultToDarkMode = settings.DefaultToDarkMode,
+            LogoBase64 = settings.LogoBase64,
+            BankQrCodeBase64 = settings.BankQrCodeBase64
         });
     }
 }

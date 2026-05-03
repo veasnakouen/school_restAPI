@@ -43,6 +43,8 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
     public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
     public DbSet<WriteOff> WriteOffs { get; set; }
     public DbSet<SystemSetting> SystemSettings { get; set; }
+    public DbSet<Organization> Organizations { get; set; }
+    public DbSet<ChatMessage> ChatMessages { get; set; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

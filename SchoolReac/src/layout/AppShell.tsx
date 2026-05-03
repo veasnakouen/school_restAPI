@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from "../auth/AuthContext";
+import { LoadingProvider, useLoading } from '../context/LoadingContext';
+import * as api from '../services/api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useTheme } from '../context/ThemeContext';
 import {
     AppBar, Box, CssBaseline, Divider, Drawer, IconButton, List,
     ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography,
     Menu, MenuItem, Avatar, Tooltip, useMediaQuery
+    , LinearProgress // Import LinearProgress
 } from '@mui/material';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
 import {
@@ -36,7 +39,7 @@ const pageMetadata: Record<string, { title: string; description: string }> = {
     '/settings': { title: 'Settings', description: 'Customize preferences and appearance' },
 };
 
-export const AppShell: React.FC = () => {
+const AppShellComponent: React.FC = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
@@ -48,6 +51,8 @@ export const AppShell: React.FC = () => {
     const [sidebarOpen, setSidebarOpen] = useLocalStorage('sidebarOpen', window.innerWidth >= 1024);
     const [isCompact, setIsCompact] = useLocalStorage('sidebarCompact', false);
     const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
+    const [appLogo, setAppLogo] = useState<string | null>(null);
+    const { isLoading, incrementLoading, decrementLoading } = useLoading();
     const isAdmin = user?.roles?.includes('Admin');
 
     const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorElUser(event.currentTarget);
@@ -77,77 +82,158 @@ export const AppShell: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLargeScreen]);
 
+  useEffect(() => {
+    const fetchLogo = async () => {
+      try {
+        const settings = await api.getSystemSettings();
+        setAppLogo(settings.logoBase64 || null);
+      } catch (err: any) {
+        if (err.response?.status !== 404) {
+          console.warn("Failed to load branding", err);
+        }
+      }
+    };
+
+    fetchLogo();
+    
+    const handleBrandingUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.logoBase64 !== undefined) {
+        setAppLogo(customEvent.detail.logoBase64 || null);
+      } else {
+        fetchLogo();
+      }
+    };
+
+    window.addEventListener('brandingUpdated', handleBrandingUpdated);
+    return () => window.removeEventListener('brandingUpdated', handleBrandingUpdated);
+  }, []);
+
+  useEffect(() => {
+    // Set the loading callbacks for the API service
+    api.setLoadingCallbacks(incrementLoading, decrementLoading);
+  }, [incrementLoading, decrementLoading]);
+
     const initials = user?.fullName?.charAt(0).toUpperCase() || user?.userName?.charAt(0).toUpperCase() || 'U';
     const currentDrawerWidth = isCompact && isLargeScreen ? compactDrawerWidth : drawerWidth;
 
     const drawerContent = (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Toolbar sx={{ display: 'flex', alignItems: 'center', justifyContent: isCompact && isLargeScreen ? 'center' : 'flex-start', px: 2.5 }}>
-                <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36, mr: isCompact && isLargeScreen ? 0 : 2, fontWeight: 'bold' }}>S</Avatar>
-                {!(isCompact && isLargeScreen) && (
-                    <Box>
-                        <Typography variant="subtitle1" fontWeight="bold" lineHeight={1.2}>School REST UI</Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 2, textTransform: 'uppercase', fontSize: '0.65rem' }}>React Version</Typography>
-                    </Box>
-                )}
-            </Toolbar>
-            <Divider />
-            <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
-                {navigationItems.map((item) => {
-                    if (item.path.startsWith('/admin') && !isAdmin) return null;
-
-                    const isActive = location.pathname.startsWith(item.path);
-                    return (
-                        <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
-                            <ListItemButton
-                                component={NavLink}
-                                to={item.path}
-                                end={item.exact}
-                                onClick={() => !isLargeScreen && setSidebarOpen(false)}
-                                sx={{
-                                    minHeight: 48,
-                                    justifyContent: isCompact && isLargeScreen ? 'center' : 'initial',
-                                    px: 2.5,
-                                    borderRadius: 2,
-                                    ...(isActive && {
-                                        bgcolor: 'primary.main',
-                                        color: 'primary.contrastText',
-                                        '&:hover': { bgcolor: 'primary.dark' },
-                                        '& .MuiListItemIcon-root': { color: 'inherit' }
-                                    })
-                                }}
-                            >
-                                <ListItemIcon sx={{
-                                    minWidth: 0,
-                                    mr: isCompact && isLargeScreen ? 0 : 2,
-                                    justifyContent: 'center',
-                                    color: isActive ? 'inherit' : 'primary.main'
-                                }}>
-                                    {item.icon}
-                                </ListItemIcon>
-                                {!(isCompact && isLargeScreen) && (
-                                    <ListItemText 
-                                        primary={item.label} 
-                                        secondary={item.description} 
-                                        primaryTypographyProps={{ fontWeight: isActive ? 'bold' : 'medium', fontSize: '0.875rem' }}
-                                        secondaryTypographyProps={{ fontSize: '0.7rem', color: isActive ? 'inherit' : 'text.secondary' }}
-                                    />
-                                )}
-                            </ListItemButton>
-                        </ListItem>
-                    );
-                })}
-            </List>
-            <Divider />
-            <Box sx={{ p: 2, display: { xs: 'none', lg: 'block' } }}>
-                <ListItemButton onClick={() => setIsCompact(!isCompact)} sx={{ borderRadius: 2, justifyContent: isCompact ? 'center' : 'initial' }}>
-                    <ListItemIcon sx={{ minWidth: 0, mr: isCompact ? 0 : 2 }}>
-                        {isCompact ? <ChevronRightIcon /> : <ChevronLeftIcon />}
-                    </ListItemIcon>
-                    {!isCompact && <ListItemText primary="Collapse Sidebar" primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 'medium' }} />}
-                </ListItemButton>
+      <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+        <Toolbar
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent:
+              isCompact && isLargeScreen ? "center" : "flex-start",
+            px: 2.5,
+          }}
+        >
+          <Avatar
+            src={appLogo ? (appLogo.startsWith('data:') ? appLogo : `data:image/png;base64,${appLogo}`) : "/logo-color.png"}
+            alt="App Logo"
+            sx={{
+              bgcolor: "transparent",
+              width: 36,
+              height: 36,
+              mr: isCompact && isLargeScreen ? 0 : 2,
+            }}
+          />
+          {!(isCompact && isLargeScreen) && (
+            <Box>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  fontSize: "0.65rem",
+                }}
+              >
+                IMS
+              </Typography>
             </Box>
+          )}
+        </Toolbar>
+        <Divider />
+        <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
+          {navigationItems.map((item) => {
+            if (item.path.startsWith("/admin") && !isAdmin) return null;
+
+            const isActive = location.pathname.startsWith(item.path);
+            return (
+              <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
+                <ListItemButton
+                  component={NavLink}
+                  to={item.path}
+                  end={item.exact}
+                  onClick={() => !isLargeScreen && setSidebarOpen(false)}
+                  sx={{
+                    minHeight: 48,
+                    justifyContent:
+                      isCompact && isLargeScreen ? "center" : "initial",
+                    px: 2.5,
+                    borderRadius: 2,
+                    ...(isActive && {
+                      bgcolor: "primary.main",
+                      color: "primary.contrastText",
+                      "&:hover": { bgcolor: "primary.dark" },
+                      "& .MuiListItemIcon-root": { color: "inherit" },
+                    }),
+                  }}
+                >
+                  <ListItemIcon
+                    sx={{
+                      minWidth: 0,
+                      mr: isCompact && isLargeScreen ? 0 : 2,
+                      justifyContent: "center",
+                      color: isActive ? "inherit" : "primary.main",
+                    }}
+                  >
+                    {item.icon}
+                  </ListItemIcon>
+                  {!(isCompact && isLargeScreen) && (
+                    <ListItemText
+                      primary={item.label}
+                      secondary={item.description}
+                      primaryTypographyProps={{
+                        fontWeight: isActive ? "bold" : "medium",
+                        fontSize: "0.875rem",
+                      }}
+                      secondaryTypographyProps={{
+                        fontSize: "0.7rem",
+                        color: isActive ? "inherit" : "text.secondary",
+                      }}
+                    />
+                  )}
+                </ListItemButton>
+              </ListItem>
+            );
+          })}
+        </List>
+        <Divider />
+        <Box sx={{ p: 2, display: { xs: "none", lg: "block" } }}>
+          <ListItemButton
+            onClick={() => setIsCompact(!isCompact)}
+            sx={{
+              borderRadius: 2,
+              justifyContent: isCompact ? "center" : "initial",
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 0, mr: isCompact ? 0 : 2 }}>
+              {isCompact ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+            </ListItemIcon>
+            {!isCompact && (
+              <ListItemText
+                primary="Collapse Sidebar"
+                primaryTypographyProps={{
+                  fontSize: "0.875rem",
+                  fontWeight: "medium",
+                }}
+              />
+            )}
+          </ListItemButton>
         </Box>
+      </Box>
     );
 
     return (
@@ -218,6 +304,8 @@ export const AppShell: React.FC = () => {
                                 <Typography textAlign="center" color="error">Sign out</Typography>
                             </MenuItem>
                         </Menu>
+                        {/* Animated Progress Bar */}
+                        {isLoading && <LinearProgress sx={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} />}
                     </Box>
                 </Toolbar>
             </AppBar>
@@ -286,5 +374,13 @@ export const AppShell: React.FC = () => {
                 </Typography>
             </Box>
         </Box>
+    );
+};
+
+export const AppShell: React.FC = () => {
+    return (
+        <LoadingProvider>
+            <AppShellComponent />
+        </LoadingProvider>
     );
 };

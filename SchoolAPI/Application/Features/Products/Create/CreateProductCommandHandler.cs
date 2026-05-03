@@ -4,16 +4,20 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using Microsoft.AspNetCore.SignalR;
+using SchoolAPI.Hubs;
 
 namespace SchoolAPI.Application.Features.Products.Create;
 
 public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand, Result<ProductDto>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IHubContext<DashboardHub> _hubContext;
 
-    public CreateProductCommandHandler(IApplicationDbContext context)
+    public CreateProductCommandHandler(IApplicationDbContext context, IHubContext<DashboardHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     public async Task<Result<ProductDto>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
@@ -95,6 +99,10 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
 
         await _context.SaveChangesAsync(cancellationToken);
 
+        // Ping the React & Angular dashboards instantly to redraw!
+        await _hubContext.Clients.All.SendAsync("DashboardUpdated", cancellationToken);
+        await _hubContext.Clients.All.SendAsync("ProductStockUpdated", $"New product added: {product.ProductName}", "success", cancellationToken);
+
         productDto.Id = product.Id;
         return Result<ProductDto>.Success(productDto);
     }
@@ -151,18 +159,39 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
         return entity;
     }
 
-    private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, string? contact, CancellationToken cancellationToken)
+    // private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, string? contact, CancellationToken cancellationToken)
+    // {
+    //     if (string.IsNullOrWhiteSpace(name)) return null;
+    //     var normalizedName = name.Trim();
+    //     var entity = await _context.Suppliers.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+    //     if (entity == null)
+    //     {
+    //         entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+    //         await _context.Suppliers.AddAsync(entity, cancellationToken);
+    //     }
+    //     return entity;
+    // }
+    private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, Dictionary<string, string>? contact, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var normalizedName = name.Trim();
+        var contactList = contact != null ? contact.Select(kv => $"{kv.Key}: {kv.Value}").ToList() : new List<string>();
+        
         var entity = await _context.Suppliers.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+
         if (entity == null)
         {
-            entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName, ContactInfo = contactList };
             await _context.Suppliers.AddAsync(entity, cancellationToken);
         }
+        else if (contactList.Any())
+        {
+            entity.ContactInfo = contactList;
+        }
+        
         return entity;
     }
+
 
     private async Task<Person?> FindOrCreatePersonAsync(string? personId, string? personName, CancellationToken cancellationToken)
     {

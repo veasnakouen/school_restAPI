@@ -503,6 +503,37 @@ namespace SchoolAPI.Data.Migrations
                     b.ToTable("Categories");
                 });
 
+            modelBuilder.Entity("SchoolAPI.Entities.ChatMessage", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AttachmentName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AttachmentUrl")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Receiver")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Sender")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ChatMessages");
+                });
+
             modelBuilder.Entity("SchoolAPI.Entities.ClassRoom", b =>
                 {
                     b.Property<Guid>("Id")
@@ -692,6 +723,23 @@ namespace SchoolAPI.Data.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Members");
+                });
+
+            modelBuilder.Entity("SchoolAPI.Entities.Organization", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AppName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("LogoBase64")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Organizations");
                 });
 
             modelBuilder.Entity("SchoolAPI.Entities.OutReach", b =>
@@ -1227,12 +1275,18 @@ namespace SchoolAPI.Data.Migrations
                     b.Property<bool>("AllowRegistration")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("BankQrCodeBase64")
+                        .HasColumnType("text");
+
                     b.Property<string>("ContactEmail")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<bool>("DefaultToDarkMode")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("LogoBase64")
+                        .HasColumnType("text");
 
                     b.Property<bool>("MaintenanceMode")
                         .HasColumnType("boolean");

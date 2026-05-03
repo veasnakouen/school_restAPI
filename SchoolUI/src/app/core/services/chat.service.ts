@@ -6,24 +6,27 @@ export interface ChatMessage {
   receiver: string;
   message: string;
   timestamp: Date;
-  attachmentUrl?: string | null;
-  attachmentName?: string | null;
+  attachmentUrl?: string;
+  attachmentName?: string;
+  isRead?: boolean;
 }
 
-@Injectable({ providedIn: 'root' })
+@Injectable({
+  providedIn: 'root'
+})
 export class ChatService {
   private hubConnection: signalR.HubConnection | null = null;
-  
-  public messages = signal<ChatMessage[]>([]);
+
+  // Angular Signals for the UI component to bind to
   public onlineUsers = signal<string[]>([]);
+  public messages = signal<ChatMessage[]>([]);
+  public typingUsers = signal<string[]>([]);
   public unreadCount = signal<number>(0);
   public isChatOpen = false;
-  public typingUsers = signal<string[]>([]);
-  private typingTimeouts = new Map<string, any>();
+  public activeChatUser = signal<string | null>(null);
+  private typingTimers = new Map<string, any>();
 
-  public startConnection() {
-    if (this.hubConnection) return;
-
+  public startConnection(): void {
     this.hubConnection = new signalR.HubConnectionBuilder()
       .withUrl('http://localhost:5001/hubs/chat', {
         accessTokenFactory: () => localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || ''
@@ -31,111 +34,98 @@ export class ChatService {
       .withAutomaticReconnect()
       .build();
 
+    this.hubConnection.start()
+      .then(() => console.log('ChatHub connection successfully started'))
+      .catch(err => console.error('Error while starting ChatHub connection: ', err));
+
+    this.registerListeners();
+  }
+
+  public stopConnection(): void {
+    if (this.hubConnection) {
+      this.hubConnection.stop();
+    }
+  }
+
+  private registerListeners(): void {
+    if (!this.hubConnection) return;
+
+    this.hubConnection.on('UpdateOnlineUsers', (users: string[]) => this.onlineUsers.set(users));
+
+    this.hubConnection.on('UserConnected', (userName: string) => {
+      this.onlineUsers.update(users => users.includes(userName) ? users : [...users, userName]);
+    });
+
+    this.hubConnection.on('UserDisconnected', (userName: string) => {
+      this.onlineUsers.update(users => users.filter(u => u !== userName));
+    });
+
     this.hubConnection.on('ReceivePrivateMessage', (sender: string, receiver: string, message: string, timestamp: string, attachmentUrl?: string, attachmentName?: string) => {
-      this.messages.update(m => [...m, { sender, receiver, message, timestamp: new Date(timestamp), attachmentUrl, attachmentName }]);
-      
-      // Only notify and increment the badge if the message is from someone else
-      if (sender !== this.getCurrentUser()) {
-        this.playNotificationSound();
+      const isCurrentlyViewing = this.isChatOpen && this.activeChatUser() === sender;
+      const newMsg: ChatMessage = { sender, receiver, message, timestamp: new Date(timestamp), attachmentUrl, attachmentName, isRead: isCurrentlyViewing };
+      this.messages.update(msgs => [...msgs, newMsg]);
 
-        if (!this.isChatOpen) {
-          this.unreadCount.update(count => count + 1);
-        }
+      // Increment the unread badge if the chat window is closed!
+      if (!this.isChatOpen) {
+        this.unreadCount.update(count => count + 1);
+      } else if (isCurrentlyViewing) {
+        // Automatically fire read receipt back if we are actively viewing this chat
+        this.hubConnection?.invoke('MarkAsRead', sender).catch(err => console.error(err));
       }
     });
 
-    // Listen for history dumps from the database
-    this.hubConnection.on('ReceiveHistory', (history: any[]) => {
-      this.messages.update(existing => {
-        const merged = [...existing];
-        for (const msg of history) {
-          // Simple deduplication to prevent showing duplicate messages if they are already in state
-          const exists = merged.some(m => m.sender === msg.sender && m.receiver === msg.receiver && new Date(m.timestamp).getTime() === new Date(msg.timestamp).getTime());
-          if (!exists) {
-            merged.push({ sender: msg.sender, receiver: msg.receiver, message: msg.message, timestamp: new Date(msg.timestamp), attachmentUrl: msg.attachmentUrl, attachmentName: msg.attachmentName });
-          }
-        }
-        return merged.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-      });
+    this.hubConnection.on('MessagesSeen', (receiverName: string) => {
+      // The receiver has read our messages, update the local UI to turn the checkmarks blue
+      this.messages.update(msgs => msgs.map(msg => (msg.receiver === receiverName) ? { ...msg, isRead: true } : msg));
     });
 
-    // Listen for typing indicators
-    this.hubConnection.on('UserTyping', (user: string) => {
-      this.typingUsers.update(users => users.includes(user) ? users : [...users, user]);
+    this.hubConnection.on('ReceiveHistory', (history: ChatMessage[]) => {
+      const parsedHistory = history.map(msg => ({ ...msg, timestamp: new Date(msg.timestamp) }));
+      this.messages.set(parsedHistory);
+    });
+
+    this.hubConnection.on('UserTyping', (userName: string) => {
+      this.typingUsers.update(users => users.includes(userName) ? users : [...users, userName]);
       
-      // Clear any existing timeout for this user
-      if (this.typingTimeouts.has(user)) {
-        clearTimeout(this.typingTimeouts.get(user));
+      // Automatically clear the "Typing..." indicator after 3 seconds of silence
+      if (this.typingTimers.has(userName)) {
+        clearTimeout(this.typingTimers.get(userName));
       }
-
-      // Set a new timeout to remove the typing indicator after 3 seconds of silence
-      const timeout = setTimeout(() => {
-        this.typingUsers.update(users => users.filter(u => u !== user));
-        this.typingTimeouts.delete(user);
-      }, 3000);
-      this.typingTimeouts.set(user, timeout);
+      this.typingTimers.set(userName, setTimeout(() => {
+        this.typingUsers.update(users => users.filter(u => u !== userName));
+        this.typingTimers.delete(userName);
+      }, 3000));
     });
-
-    this.hubConnection.on('UserConnected', (user: string) => {
-      this.onlineUsers.update(users => [...new Set([...users, user])]);
-    });
-
-    this.hubConnection.on('UserDisconnected', (user: string) => {
-      this.onlineUsers.update(users => users.filter(u => u !== user));
-    });
-
-    this.hubConnection.on('UpdateOnlineUsers', (users: string[]) => {
-      this.onlineUsers.set(users);
-    });
-
-    this.hubConnection.start().catch((err: any) => console.error('Error starting chat connection: ', err));
   }
 
-  public stopConnection() {
-    this.hubConnection?.stop();
-    this.hubConnection = null;
-  }
-
-  public resetUnreadCount() {
+  public resetUnreadCount(): void {
     this.unreadCount.set(0);
   }
 
-  public sendPrivateMessage(targetUser: string, message: string, attachmentUrl?: string, attachmentName?: string) {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      this.hubConnection.invoke('SendPrivateMessage', targetUser, message, attachmentUrl || null, attachmentName || null).catch((err: any) => console.error(err));
-    }
-  }
-
-  public sendTypingIndicator(targetUser: string) {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      this.hubConnection.invoke('SendTypingIndicator', targetUser).catch((err: any) => console.error(err));
-    }
-  }
-
-  public loadHistory(targetUser: string) {
-    if (this.hubConnection?.state === signalR.HubConnectionState.Connected) {
-      this.hubConnection.invoke('LoadHistory', targetUser).catch((err: any) => console.error(err));
-    }
-  }
-
-  private getCurrentUser(): string {
-    try {
-      const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
-      if (userStr) {
-        const userObj = JSON.parse(userStr);
-        return userObj.userName || userObj.fullName || userObj.email || '';
+  public markAsRead(targetUserName: string): Promise<void> {
+    let changed = false;
+    this.messages.update(msgs => msgs.map(msg => {
+      if (msg.sender === targetUserName && !msg.isRead) {
+        changed = true;
+        return { ...msg, isRead: true };
       }
-    } catch {}
-    return '';
+      return msg;
+    }));
+    
+    if (changed && this.hubConnection) {
+      return this.hubConnection.invoke('MarkAsRead', targetUserName).catch(err => console.error(err)) || Promise.resolve();
+    }
+    return Promise.resolve();
   }
 
-  private playNotificationSound() {
-    try {
-      const audio = new Audio('assets/notification.mp3');
-      audio.play().catch(() => {
-        // Browsers block autoplaying audio if the user hasn't interacted with the page yet.
-        // Catching the error prevents console spam.
-      });
-    } catch (err) {}
+  // Invokable server methods
+  public sendMessage(targetUserName: string, message: string, attachmentUrl?: string, attachmentName?: string): Promise<void> {
+    return this.hubConnection?.invoke('SendPrivateMessage', targetUserName, message, attachmentUrl, attachmentName) || Promise.reject('Connection not established');
+  }
+  public sendTypingIndicator(targetUserName: string): Promise<void> {
+    return this.hubConnection?.invoke('SendTypingIndicator', targetUserName) || Promise.reject('Connection not established');
+  }
+  public loadHistory(targetUserName: string): Promise<void> {
+    return this.hubConnection?.invoke('LoadHistory', targetUserName) || Promise.reject('Connection not established');
   }
 }

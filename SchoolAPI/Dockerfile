@@ -1,6 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
 WORKDIR /src
 
+# that should be copy form the solution file ("**.sln")
+# COPY School.sln ./
+# COPY SchoolAPI/SchoolAPI.csproj ./SchoolAPI/
+# COPY SchoolData/SchoolData.csproj ./SchoolData/
 COPY SchoolAPI.csproj ./
 RUN dotnet restore SchoolAPI.csproj
 

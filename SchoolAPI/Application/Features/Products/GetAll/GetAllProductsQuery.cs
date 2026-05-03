@@ -15,5 +15,9 @@ public record GetAllProductsQuery(
     int PageSize = 10,
     string? SortBy = null,
     string? FilterOn = null,
-    string? FilterQuery = null
+    string? FilterQuery = null,
+    DateTime? InvoiceStartDate = null,
+    DateTime? InvoiceEndDate = null,
+    decimal? MinPrice = null,
+    decimal? MaxPrice = null
 ) : IRequest<Result<PagedResult<ProductDto>>>;

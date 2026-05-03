@@ -1,4 +1,4 @@
-import React, { use } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Card, CardContent, Grid, Typography } from '@mui/material';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
@@ -23,8 +23,15 @@ const statsPromise = Promise.all([
 ]);
 
 export const DashboardData: React.FC = () => {
-  // The `use` hook will suspend this component until the promise resolves.
-  const [productsRes, usersRes, rolesRes] = use(statsPromise);
+  const [data, setData] = useState<any>(null);
+
+  useEffect(() => {
+    statsPromise.then(res => setData(res));
+  }, []);
+
+  if (!data) return null;
+
+  const [productsRes, usersRes, rolesRes] = data;
 
   const stats = {
     products: productsRes?.totalCount || 0,

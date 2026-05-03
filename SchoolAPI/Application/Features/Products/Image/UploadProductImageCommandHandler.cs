@@ -18,12 +18,13 @@ public class UploadProductImageCommandHandler : IRequestHandler<UploadProductIma
     private readonly ILogger<UploadProductImageCommandHandler> _logger;
     private readonly ICacheVersionService _cacheVersionService;
 
-    public UploadProductImageCommandHandler(IApplicationDbContext context, IPhotoService photoService, IMapper mapper, ICacheVersionService cacheVersionService)
+    public UploadProductImageCommandHandler(IApplicationDbContext context, IPhotoService photoService, IMapper mapper, ICacheVersionService cacheVersionService, ILogger<UploadProductImageCommandHandler> logger)
     {
         _context = context;
         _photoService = photoService;
         _mapper = mapper;
         _cacheVersionService = cacheVersionService;
+        _logger = logger;
     }
 
     public async Task<Result<ProductDto>> Handle(UploadProductImageCommand request, CancellationToken cancellationToken)

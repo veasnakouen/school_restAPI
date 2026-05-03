@@ -27,9 +27,9 @@ public class TransactionController : ControllerBase
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetAllTransactions([FromQuery] string? filterOn = null, [FromQuery] string? filterQuery = null, [FromQuery] string? sortBy = null, [FromQuery] bool isAscending = true, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetAllTransactions([FromQuery] string? filterOn = null, [FromQuery] string? filterQuery = null, [FromQuery] string? sortBy = null, [FromQuery] bool isAscending = true, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10, [FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null, CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetAllTransactionsQuery(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize), cancellationToken);
+        var result = await _sender.Send(new GetAllTransactionsQuery(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize, startDate, endDate), cancellationToken);
         return result.IsSuccess ? Ok(result.Data) : NotFound(result.ErrorMessage);
     }
 

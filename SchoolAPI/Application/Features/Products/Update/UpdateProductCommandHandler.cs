@@ -4,16 +4,20 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using Microsoft.AspNetCore.SignalR;
+using SchoolAPI.Hubs;
 
 namespace SchoolAPI.Application.Features.Products.Update;
 
 public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand, Result<ProductDto>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly IHubContext<DashboardHub> _hubContext;
 
-    public UpdateProductCommandHandler(IApplicationDbContext context)
+    public UpdateProductCommandHandler(IApplicationDbContext context, IHubContext<DashboardHub> hubContext)
     {
         _context = context;
+        _hubContext = hubContext;
     }
 
     public async Task<Result<ProductDto>> Handle(UpdateProductCommand request, CancellationToken cancellationToken)
@@ -96,17 +100,39 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
             {
                 var responsiblePerson = await FindOrCreatePersonAsync(productDto.ResponsiblePersonId, productDto.ResponsiblePerson, cancellationToken);
                 latestItem.ResponsiblePersonId = responsiblePerson?.Id;
-                    _context.PurchaseItems.Update(latestItem);
+
+                if (productDto.InitialQuantity.HasValue && productDto.InitialQuantity > 0)
+                {
+                    latestItem.Quantity = (int)productDto.InitialQuantity.Value;
+                }
+                latestItem.UnitPrice = productDto.Price ?? 0;
+                
 
                 if (latestItem.Purchase != null)
                 {
                     latestItem.Purchase.VoucherNumber = productDto.VoucherNumber;
-                        _context.Purchases.Update(latestItem.Purchase);
+                    latestItem.Purchase.AcquisitionType = productDto.PurchaseType;
+                    
+                    var supplierName = string.IsNullOrWhiteSpace(productDto.SupplierName) ? "Unknown" : productDto.SupplierName;
+                    var supplier = await FindOrCreateSupplierAsync(supplierName, productDto.SupplierContact, cancellationToken);
+                    latestItem.Purchase.SupplierId = supplier!.Id;
+
+                    if (!string.IsNullOrWhiteSpace(productDto.InvoiceDate) && DateTime.TryParse(productDto.InvoiceDate, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsedInvoiceDate))
+                    {
+                        latestItem.Purchase.InvoiceDate = parsedInvoiceDate.ToUniversalTime();
+                    }
+
+                    latestItem.Purchase.Notes = !string.IsNullOrWhiteSpace(productDto.DonorName) ? $"Donated by: {productDto.DonorName}" : null;
+
                 }
             }
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Ping the React & Angular dashboards instantly to redraw!
+        await _hubContext.Clients.All.SendAsync("DashboardUpdated", cancellationToken);
+        await _hubContext.Clients.All.SendAsync("ProductStockUpdated", $"Product updated: {product.ProductName}", "info", cancellationToken);
 
         return Result<ProductDto>.Success(productDto);
     }
@@ -163,16 +189,24 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         return entity;
     }
 
-    private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, string? contact, CancellationToken cancellationToken)
+    private async Task<Supplier?> FindOrCreateSupplierAsync(string? name, Dictionary<string, string>? contact, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         var normalizedName = name.Trim();
+        var contactList = contact != null ? contact.Select(kv => $"{kv.Key}: {kv.Value}").ToList() : new List<string>();
+        
         var entity = await _context.Suppliers.FirstOrDefaultAsync(e => EF.Functions.ILike(e.Name, normalizedName), cancellationToken);
+
         if (entity == null)
         {
-            entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName };
+            entity = new Supplier { Id = Guid.NewGuid().ToString(), Name = normalizedName, ContactInfo = contactList };
             await _context.Suppliers.AddAsync(entity, cancellationToken);
         }
+        else if (contactList.Any())
+        {
+            entity.ContactInfo = contactList;
+        }
+        
         return entity;
     }
 

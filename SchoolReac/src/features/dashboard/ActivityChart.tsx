@@ -5,12 +5,10 @@ import {
   Chart as ChartJS,
   ChartEvent,
   ActiveElement,
-  TooltipModel,
   ArcElement,
   Title,
   Tooltip,
   Legend,
-  ChartType,
   ChartOptions
 } from "chart.js";
 import { Pie } from "react-chartjs-2";
@@ -55,10 +53,10 @@ const getOrCreateTooltip = (chart: ChartJS): HTMLDivElement | null => {
   return tooltipEl;
 };
 
-const updateTooltipContent = (tooltip: TooltipModel<ChartType>, tooltipEl: HTMLElement) => {
+const updateTooltipContent = (tooltip: any, tooltipEl: HTMLElement) => {
   if (tooltip.body) {
-    const titleLines = tooltip.title || [];
-    const bodyLines = tooltip.body.map((b) => b.lines);
+    const titleLines: string[] = tooltip.title || [];
+    const bodyLines = tooltip.body.map((b: any) => b.lines);
 
     const tableRoot = tooltipEl.querySelector("table");
     if (!tableRoot) return;
@@ -71,7 +69,7 @@ const updateTooltipContent = (tooltip: TooltipModel<ChartType>, tooltipEl: HTMLE
     // Add title
     if (titleLines.length > 0) {
       const thead = document.createElement("thead");
-      titleLines.forEach((title) => {
+      titleLines.forEach((title: string) => {
         const tr = document.createElement("tr");
         const th = document.createElement("th");
         th.style.textAlign = "left";
@@ -87,7 +85,7 @@ const updateTooltipContent = (tooltip: TooltipModel<ChartType>, tooltipEl: HTMLE
 
     // Add body rows with color indicators
     const tbody = document.createElement("tbody");
-    bodyLines.forEach((body, i) => {
+    bodyLines.forEach((body:any, i:any) => {
       const colors = tooltip.labelColors[i];
       const span = document.createElement("span");
       span.style.display = "inline-block";
@@ -117,19 +115,17 @@ const updateTooltipContent = (tooltip: TooltipModel<ChartType>, tooltipEl: HTMLE
   }
 };
 
-const updateTooltipPosition = (chart: ChartJS, tooltip: TooltipModel<ChartType>, tooltipEl: HTMLElement) => {
+const updateTooltipPosition = (chart: ChartJS, tooltip: any, tooltipEl: HTMLElement) => {
   const { canvas } = chart;
   const rect = canvas.getBoundingClientRect();
 
   tooltipEl.style.opacity = "1";
   tooltipEl.style.left = `${rect.left + window.scrollX + tooltip.caretX}px`;
   tooltipEl.style.top = `${rect.top + window.scrollY + tooltip.caretY - 10}px`;
-  // tooltipEl.style.font = tooltip.options.bodyFont.string;
-  tooltipEl.style.padding = `${tooltip.options.padding}px`;
   tooltipEl.style.transform = "translate(-50%, -110%)"; // Position above cursor
 };
 
-const externalTooltipHandler = (context: { chart: ChartJS; tooltip: TooltipModel<ChartType> }) => {
+const externalTooltipHandler = (context: any) => {
   const { chart, tooltip } = context;
   const tooltipEl = getOrCreateTooltip(chart);
 
@@ -214,7 +210,7 @@ export const ActivityChart: React.FC<ActivityChartProps> = ({ stats}) => {
       animateRotate: true,
       animateScale: true,
     },
-  } as const;
+} as any;
 
   const data = {
     labels: ["Products", "Users", "Roles"],

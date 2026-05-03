@@ -18,6 +18,6 @@ public class TransactionDto
     public string Resource { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal TotalCost { get; set; }
-    public DateTime CreatedDate { get; set; }
-    public DateTime UpdateDate { get; set; }
+    public string? CreatedDate { get; set; }
+    public string? UpdateDate { get; set; }
 }

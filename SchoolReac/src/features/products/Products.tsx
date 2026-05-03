@@ -6,13 +6,16 @@ import {
   Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions,
   IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions,
-  Grid, Divider, ListItemText
+  Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent
 } from '@mui/material';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme as useMuiTheme } from '@mui/material/styles';
 import {
   Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, MoreVert as MoreVertIcon,
   Image as ImageIcon, BrokenImage as BrokenImageIcon, CloudUpload as CloudUploadIcon,
   DeleteForever as DeleteForeverIcon, Close as CloseIcon, Visibility as VisibilityIcon,
-  FileDownload as FileDownloadIcon, ViewColumn as ViewColumnIcon
+  FileDownload as FileDownloadIcon, ViewColumn as ViewColumnIcon, SwapHoriz as SwapHorizIcon,
+  ViewList as ViewListIcon, GridView as GridViewIcon, Category as CategoryIcon
 } from '@mui/icons-material';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -36,9 +39,10 @@ const ALL_COLUMNS = [
   { id: 'initialQuantity', label: 'Qty' },
   { id: 'voucherNumber', label: 'Voucher #' },
   { id: 'donorName', label: 'Donor' },
+  { id: 'supplier', label: 'Supplier' },
   { id: 'purchaseType', label: 'Acquisition Type' },
   { id: 'price', label: 'Price' },
-  { id: 'description', label: 'Description' }
+  { id: 'description', label: 'Description' } // Ensure this is present in ALL_COLUMNS
 ];
 
 export const Products: React.FC = () => {
@@ -60,15 +64,24 @@ export const Products: React.FC = () => {
   // UI & Control State
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
-  const [filterDepartment, setFilterDepartment] = useState(searchParams.get('department') || '');
+  const [filterDepartment, setFilterDepartment] = useState<string[]>(searchParams.get('department') ? searchParams.get('department')!.split(',') : []);
   const [filterCategory, setFilterCategory] = useState<string[]>(searchParams.get('category') ? searchParams.get('category')!.split(',') : []);
-  const [filterQuality, setFilterQuality] = useState(searchParams.get('quality') || '');
+  const [filterQuality, setFilterQuality] = useState<string[]>(searchParams.get('quality') ? searchParams.get('quality')!.split(',') : []);
   const [filterPurchaseType, setFilterPurchaseType] = useState(searchParams.get('purchaseType') || '');
+  const [filterStartDate, setFilterStartDate] = useState(searchParams.get('startDate') || '');
+  const [filterEndDate, setFilterEndDate] = useState(searchParams.get('endDate') || '');
+  const [filterPrice, setFilterPrice] = useState(searchParams.get('price') || '');
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10) - 1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = localStorage.getItem('products_page_size');
+    return saved ? parseInt(saved, 10) : 10;
+  });
   const [sortBy, setSortBy] = useState<keyof api.ProductDto>('name');
   const [isAscending, setIsAscending] = useState(true);
   const [selected, setSelected] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
+    return (localStorage.getItem('products_view_mode') as 'list' | 'grid') || 'list';
+  });
 
   // Modal & Form State
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
@@ -83,6 +96,13 @@ export const Products: React.FC = () => {
   // Purchase History State
   const [purchaseHistory, setPurchaseHistory] = useState<api.ProductPurchaseHistoryDto[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Transfer State
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [productToTransfer, setProductToTransfer] = useState<api.ProductDto | null>(null);
+  const [transferDeptId, setTransferDeptId] = useState<string>('');
+  const [transferNotes, setTransferNotes] = useState<string>('');
+  const [isTransferring, setIsTransferring] = useState(false);
 
   // Image State
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -99,18 +119,27 @@ export const Products: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
-    const savedHidden = localStorage.getItem('products_table_hidden_cols_v7');
-    if (savedHidden) {
+    const localStorageKey = 'products_table_hidden_cols_v7';
+    const savedHidden = localStorage.getItem(localStorageKey);
+    let initialVisible = ALL_COLUMNS.map(c => c.id); // Start with all columns visible
+
+    if (savedHidden) { // If there's a saved state in local storage
       try {
         const hiddenArr = JSON.parse(savedHidden);
-        return ALL_COLUMNS.map(c => c.id).filter(id => !hiddenArr.includes(id));
+        initialVisible = ALL_COLUMNS.map(c => c.id).filter(id => !hiddenArr.includes(id));
       } catch (e) {
         console.error('Failed to parse hidden columns from local storage', e);
+        // If parsing fails, fall back to showing all columns (initialVisible already has this)
       }
     }
-    return ALL_COLUMNS.map(c => c.id);
+    // Ensure 'description' is always in the initialVisible list by default, even if it was previously hidden
+    if (!initialVisible.includes('description')) initialVisible.push('description');
+    return initialVisible;
   });
   const viewModalContentRef = useRef<HTMLDivElement>(null);
+
+  const muiTheme = useMuiTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
 
   const filter = createFilterOptions<any>();
 
@@ -124,6 +153,11 @@ export const Products: React.FC = () => {
     const hiddenColumns = ALL_COLUMNS.map(c => c.id).filter(id => !visibleColumns.includes(id));
     localStorage.setItem('products_table_hidden_cols_v7', JSON.stringify(hiddenColumns));
   }, [visibleColumns]);
+
+  useEffect(() => {
+    localStorage.setItem('products_view_mode', viewMode);
+    localStorage.setItem('products_page_size', pageSize.toString());
+  }, [viewMode, pageSize]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -165,23 +199,33 @@ export const Products: React.FC = () => {
     try {
       const selectedCats = categories.filter(c => filterCategory.includes(c.name));
       const categoryIds = selectedCats.map(c => c.id).join(',');
-      const selectedDept = departments.find(d => d.name === filterDepartment);
-      const selectedQuality = qualities.find(q => q.name === filterQuality);
+      const selectedDepts = departments.filter(d => filterDepartment.includes(d.name));
+      const departmentIds = selectedDepts.map(d => d.id).join(',');
+      const selectedQualities = qualities.filter(q => filterQuality.includes(q.name));
+      const qualityIds = selectedQualities.map(q => q.id).join(',');
 
       let filterOn = undefined;
       let filterQuery = undefined;
+      
+      let minPrice = undefined;
+      let maxPrice = undefined;
+      if (filterPrice === 'under100') { maxPrice = 99.99; }
+      else if (filterPrice === 'equal100') { minPrice = 100; maxPrice = 100; }
+      else if (filterPrice === 'over100') { minPrice = 100.01; }
 
-      // Fallback for free-text categories/departments that don't have an ID
+      // Fallback for free-text categories that don't have an ID
       const unmappedCategories = filterCategory.filter(name => !selectedCats.find(c => c.name === name));
+      const unmappedDepartments = filterDepartment.filter(name => !selectedDepts.find(d => d.name === name));
+      const unmappedQualities = filterQuality.filter(name => !selectedQualities.find(q => q.name === name));
       if (unmappedCategories.length > 0) {
         filterOn = 'categoryName';
         filterQuery = unmappedCategories.join(',');
-      } else if (filterDepartment && !selectedDept?.id) {
+      } else if (unmappedDepartments.length > 0) {
         filterOn = 'departmentName';
-        filterQuery = filterDepartment;
-      } else if (filterQuality && !selectedQuality?.id) {
+        filterQuery = unmappedDepartments.join(',');
+      } else if (unmappedQualities.length > 0) {
         filterOn = 'quality';
-        filterQuery = filterQuality;
+        filterQuery = unmappedQualities.join(',');
       }
 
       // Cast to any to bypass strict QueryOptions typing
@@ -192,9 +236,13 @@ export const Products: React.FC = () => {
         isAscending,
         name: debouncedSearchQuery || undefined,
         categoryId: categoryIds || undefined,
-        departmentId: selectedDept?.id || undefined,
-        qualityId: selectedQuality?.id || undefined,
+        departmentId: departmentIds || undefined,
+        qualityId: qualityIds || undefined,
         purchaseType: filterPurchaseType || undefined,
+        invoiceStartDate: filterStartDate ? new Date(filterStartDate).toISOString() : undefined,
+        invoiceEndDate: filterEndDate ? new Date(filterEndDate).toISOString() : undefined,
+        minPrice,
+        maxPrice,
         filterOn,
         filterQuery
       };
@@ -208,7 +256,7 @@ export const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, debouncedSearchQuery, showToast, categories, departments, qualities]);
+  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterPrice, filterStartDate, filterEndDate, debouncedSearchQuery, showToast, categories, departments, qualities]);
 
   useEffect(() => {
     loadProducts();
@@ -227,13 +275,13 @@ export const Products: React.FC = () => {
     } else {
       params.delete('category');
     }
-    if (filterDepartment) {
-      params.set('department', filterDepartment);
+    if (filterDepartment.length > 0) {
+      params.set('department', filterDepartment.join(','));
     } else {
       params.delete('department');
     }
-    if (filterQuality) {
-      params.set('quality', filterQuality);
+    if (filterQuality.length > 0) {
+      params.set('quality', filterQuality.join(','));
     } else {
       params.delete('quality');
     }
@@ -242,11 +290,26 @@ export const Products: React.FC = () => {
     } else {
       params.delete('purchaseType');
     }
+    if (filterStartDate) {
+      params.set('startDate', filterStartDate);
+    } else {
+      params.delete('startDate');
+    }
+    if (filterEndDate) {
+      params.set('endDate', filterEndDate);
+    } else {
+      params.delete('endDate');
+    }
+    if (filterPrice) {
+      params.set('price', filterPrice);
+    } else {
+      params.delete('price');
+    }
     params.set('page', (currentPage + 1).toString());
 
     // Using replace to not pollute browser history on every filter change
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchQuery, filterCategory, filterDepartment, filterQuality, filterPurchaseType, currentPage, setSearchParams]);
+  }, [debouncedSearchQuery, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterStartDate, filterEndDate, filterPrice, currentPage, setSearchParams]);
 
   useEffect(() => {
     const fetchLookups = async () => {
@@ -336,14 +399,17 @@ export const Products: React.FC = () => {
   };
 
   const updateSupplierContact = (currentContacts: { type: string, value: string }[]) => {
-    const combined = currentContacts.filter(c => c.value.trim() !== '').map(c => `${c.type}: ${c.value}`).join(' | ');
-    setSelectedProduct(p => p ? { ...p, supplierContact: combined } : null);
+    const contactObj: Record<string, string> = {};
+    currentContacts.filter(c => c.value.trim() !== '').forEach(c => {
+      contactObj[c.type || 'Other'] = c.value;
+    });
+    setSelectedProduct(p => p ? { ...p, supplierContact: contactObj as any } : null);
   };
 
   const handleOpenModal = (mode: 'create' | 'edit' | 'view', product?: api.ProductDto | null) => {
     setModalMode(mode);
     if (mode === 'create') {
-      setSelectedProduct({ id: null, name: '', price: 0, departmentName: '', codeNumber: '', attributes: '', purchaseType: 'None', initialQuantity: null, supplierName: '', donorName: '', voucherNumber: '', supplierContact: '', invoiceDate: '', responsiblePerson: '', responsiblePersonId: null, qualityId: null } as api.ProductDto);
+      setSelectedProduct({ id: null, name: '', price: 0, departmentName: '', codeNumber: '', attributes: '', purchaseType: 'None', initialQuantity: null, supplierName: '', donorName: '', voucherNumber: '', supplierContact: {} as any, invoiceDate: '', responsiblePerson: '', responsiblePersonId: null, qualityId: null } as api.ProductDto);
       setContacts([{ type: 'Phone', value: '' }]);
     } else {
       // Set initial data from the list for a responsive UI
@@ -363,9 +429,15 @@ export const Products: React.FC = () => {
               // then overwrite with the complete data from `fullProduct`.
               setSelectedProduct({ ...product, ...fullProduct });
 
-              const contactStr = fullProduct.supplierContact;
-              if (contactStr) {
-                const parsed = contactStr.split(' | ').map(part => {
+              const contactData = fullProduct.supplierContact;
+              if (contactData && typeof contactData === 'object' && !Array.isArray(contactData)) {
+                const parsed = Object.keys(contactData).map(key => ({
+                  type: key || 'Unknown',
+                  value: (contactData as any)[key] || ''
+                })).filter(c => c.value !== '');
+                setContacts(parsed.length > 0 ? parsed : [{ type: 'Phone', value: '' }]);
+              } else if (typeof contactData === 'string' && contactData) {
+                const parsed = (contactData as string).split(' | ').map(part => {
                   const [type, ...rest] = part.split(': ');
                   return { type: type || 'Unknown', value: rest.join(': ') || '' };
                 }).filter(c => c.value !== '');
@@ -396,6 +468,33 @@ export const Products: React.FC = () => {
     setCompletedCrop(null);
     setCrop(undefined);
     setPurchaseHistory([]);
+  };
+
+  const openTransferModal = (product: api.ProductDto) => {
+    setProductToTransfer(product);
+    setTransferDeptId('');
+    setTransferNotes('');
+    setTransferModalOpen(true);
+  };
+
+  const handleTransfer = async () => {
+    if (!productToTransfer || !transferDeptId) return;
+    setIsTransferring(true);
+    try {
+      // Use the new transfer endpoint
+      // await api.transferProduct(productToTransfer.id!, { newDepartmentId: transferDeptId, notes: transferNotes });
+      
+      // Fallback: If you haven't created the endpoint yet, you can just update the product:
+      await api.updateProduct(productToTransfer.id!, { ...productToTransfer, departmentId: transferDeptId });
+
+      showToast('Product transferred successfully!', 'success');
+      setTransferModalOpen(false);
+      loadProducts();
+    } catch (err: any) {
+      showToast('Failed to transfer product.', 'error');
+    } finally {
+      setIsTransferring(false);
+    }
   };
 
   const handleViewPurchase = (purchaseId: string) => {
@@ -433,8 +532,8 @@ export const Products: React.FC = () => {
     setIsSaving(true);
 
     // Clean up empty strings to null to ensure the backend validates optional/Date fields properly
-    const payloadToSave: any = { ...selectedProduct };
-    const optionalFields = ['description', 'codeNumber', 'attributes', 'plateNumber', 'engineNumber', 'donorName', 'voucherNumber', 'supplierName', 'responsiblePerson', 'invoiceDate', 'supplierContact', 'year', 'quality', 'categoryName', 'brandName', 'departmentName'];
+    const payloadToSave: any = { ...selectedProduct }; // supplierContact is an object, not a string, so it's handled separately.
+    const optionalFields = ['description', 'codeNumber', 'attributes', 'plateNumber', 'engineNumber', 'donorName', 'voucherNumber', 'supplierName', 'responsiblePerson', 'invoiceDate', 'year', 'quality', 'categoryName', 'brandName', 'departmentName'];
     
     optionalFields.forEach(field => {
       if (payloadToSave[field] === '') {
@@ -590,25 +689,30 @@ export const Products: React.FC = () => {
   };
 
   const handleSaveCrop = async () => {
-    if (imgRef.current && completedCrop?.width && completedCrop?.height) {
+    if (imgRef.current) {
+      const cropWidth = completedCrop?.width || imgRef.current.width;
+      const cropHeight = completedCrop?.height || imgRef.current.height;
+      const cropX = completedCrop?.x || 0;
+      const cropY = completedCrop?.y || 0;
+
       const canvas = document.createElement('canvas');
       const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
       const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-      canvas.width = completedCrop.width;
-      canvas.height = completedCrop.height;
+      canvas.width = cropWidth;
+      canvas.height = cropHeight;
       const ctx = canvas.getContext('2d');
 
       if (ctx) {
         ctx.drawImage(
           imgRef.current,
-          completedCrop.x * scaleX,
-          completedCrop.y * scaleY,
-          completedCrop.width * scaleX,
-          completedCrop.height * scaleY,
+          cropX * scaleX,
+          cropY * scaleY,
+          cropWidth * scaleX,
+          cropHeight * scaleY,
           0,
           0,
-          completedCrop.width,
-          completedCrop.height
+          cropWidth,
+          cropHeight
         );
 
         canvas.toBlob((blob) => {
@@ -626,6 +730,65 @@ export const Products: React.FC = () => {
   };
 
   const handleExport = async (format: 'csv' | 'pdf' | 'excel') => {
+    setAnchorEl(null);
+    showToast(`Preparing ${format.toUpperCase()} export, please wait...`, 'info');
+
+    let exportData: api.ProductDto[] = [];
+    try {
+      const selectedCats = categories.filter(c => filterCategory.includes(c.name));
+      const categoryIds = selectedCats.map(c => c.id).join(',');
+      const selectedDepts = departments.filter(d => filterDepartment.includes(d.name));
+      const departmentIds = selectedDepts.map(d => d.id).join(',');
+      const selectedQualities = qualities.filter(q => filterQuality.includes(q.name));
+      const qualityIds = selectedQualities.map(q => q.id).join(',');
+
+      let filterOn = undefined;
+      let filterQuery = undefined;
+      
+      let minPrice = undefined;
+      let maxPrice = undefined;
+      if (filterPrice === 'under100') { maxPrice = 99.99; }
+      else if (filterPrice === 'equal100') { minPrice = 100; maxPrice = 100; }
+      else if (filterPrice === 'over100') { minPrice = 100.01; }
+
+      const unmappedCategories = filterCategory.filter(name => !selectedCats.find(c => c.name === name));
+      const unmappedDepartments = filterDepartment.filter(name => !selectedDepts.find(d => d.name === name));
+      const unmappedQualities = filterQuality.filter(name => !selectedQualities.find(q => q.name === name));
+      if (unmappedCategories.length > 0) {
+        filterOn = 'categoryName';
+        filterQuery = unmappedCategories.join(',');
+      } else if (unmappedDepartments.length > 0) {
+        filterOn = 'departmentName';
+        filterQuery = unmappedDepartments.join(',');
+      } else if (unmappedQualities.length > 0) {
+        filterOn = 'quality';
+        filterQuery = unmappedQualities.join(',');
+      }
+
+      const params: any = {
+        pageNumber: 1,
+        pageSize: totalItems > 0 ? totalItems : 10000,
+        sortBy,
+        isAscending,
+        name: debouncedSearchQuery || undefined,
+        categoryId: categoryIds || undefined,
+        departmentId: departmentIds || undefined,
+        qualityId: qualityIds || undefined,
+        purchaseType: filterPurchaseType || undefined,
+        invoiceStartDate: filterStartDate ? new Date(filterStartDate).toISOString() : undefined,
+        invoiceEndDate: filterEndDate ? new Date(filterEndDate).toISOString() : undefined,
+        minPrice,
+        maxPrice,
+        filterOn,
+        filterQuery
+      };
+      const result = await api.getProducts(params);
+      exportData = result.items ?? [];
+    } catch (err) {
+      console.warn("Failed to fetch full list for export, falling back to current page.", err);
+      exportData = products;
+    }
+
     const timestamp = new Date().toISOString().slice(0, 10);
     const activeColumns = ALL_COLUMNS.filter(col => visibleColumns.includes(col.id));
     const headers = activeColumns.map(col => col.label);
@@ -646,6 +809,11 @@ export const Products: React.FC = () => {
         case 'initialQuantity': return p.initialQuantity?.toString() || fallback;
         case 'voucherNumber': return p.voucherNumber || fallback;
         case 'donorName': return p.donorName || fallback;
+        case 'supplier': 
+          const contactStr = p.supplierContact 
+            ? (typeof p.supplierContact === 'string' ? p.supplierContact : Object.entries(p.supplierContact).map(([k, v]) => `${k}: ${v}`).join(' | '))
+            : ((p as any).supplierContactList && (p as any).supplierContactList.length > 0 ? (p as any).supplierContactList.join(' | ') : '');
+          return p.supplierName ? `${p.supplierName}${contactStr ? ` (${contactStr})` : ''}` : fallback;
         case 'purchaseType': return p.purchaseType || fallback;
         case 'price': return p.price != null ? `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
         case 'description': return p.description || fallback;
@@ -655,9 +823,9 @@ export const Products: React.FC = () => {
 
     const hasPrice = activeColumns.some(c => c.id === 'price');
     const priceIndex = activeColumns.findIndex(c => c.id === 'price');
-    let totalValue = 0;
+    let exportTotalValue = 0;
     if (hasPrice) {
-      totalValue = products.reduce((sum, p) => sum + (p.price || 0), 0);
+      exportTotalValue = exportData.reduce((sum, p) => sum + (p.price || 0), 0);
     }
 
     if (format === 'excel') {
@@ -670,7 +838,7 @@ export const Products: React.FC = () => {
         width: 20
       }));
 
-      products.forEach(p => {
+      exportData.forEach(p => {
         const rowData: any = {};
         activeColumns.forEach(col => {
           rowData[col.id] = col.id === 'price' ? (p.price || 0) : getColumnValue(p, col.id, false);
@@ -688,11 +856,11 @@ export const Products: React.FC = () => {
       link.click();
       URL.revokeObjectURL(link.href);
     } else if (format === 'csv') {
-      const rows = products.map(p => activeColumns.map(col => escapeCsvValue(getColumnValue(p, col.id, true))).join(','));
+      const rows = exportData.map(p => activeColumns.map(col => escapeCsvValue(getColumnValue(p, col.id, true))).join(','));
       
       const summaryRow = activeColumns.map((col, index) => {
-        if (index === 0) return escapeCsvValue(`Total Items: ${products.length}`);
-        if (col.id === 'price') return escapeCsvValue(totalValue.toString());
+        if (index === 0) return escapeCsvValue(`Total Items: ${exportData.length}`);
+        if (col.id === 'price') return escapeCsvValue(exportTotalValue.toString());
         return '';
       }).join(',');
       rows.push(summaryRow);
@@ -729,9 +897,9 @@ export const Products: React.FC = () => {
         customColumnStyles[priceIndex] = { halign: 'right' };
       }
 
-      const formattedTotal = `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      const formattedTotal = `$${exportTotalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
       const footRow = activeColumns.map((col, index) => {
-        if (index === 0) return `Total Items: ${products.length}`;
+        if (index === 0) return `Total Items: ${exportData.length}`;
         if (col.id === 'price') return formattedTotal;
         return '';
       });
@@ -739,7 +907,7 @@ export const Products: React.FC = () => {
       (doc as any).autoTable({
         startY: 28,
         head: [headers],
-        body: products.map(p => activeColumns.map(col => getColumnValue(p, col.id, false))),
+        body: exportData.map(p => activeColumns.map(col => getColumnValue(p, col.id, false))),
         foot: [footRow],
         theme: 'striped',
         columnStyles: customColumnStyles,
@@ -751,7 +919,6 @@ export const Products: React.FC = () => {
       });
       doc.save(`products_${timestamp}.pdf`);
     }
-    setAnchorEl(null);
   };
 
   const escapeCsvValue = (value: any): string => {
@@ -831,14 +998,17 @@ export const Products: React.FC = () => {
     link.click();
   };
 
-  const disablePurchaseFields = (modalMode === 'edit' && historyLoading) || (modalMode === 'edit' && purchaseHistory.length > 0);
+  const disablePurchaseFields = modalMode === 'edit' && historyLoading;
 
   const handleClearFilters = () => {
     setSearchQuery('');
     setFilterCategory([]);
-    setFilterDepartment('');
-    setFilterQuality('');
+    setFilterDepartment([]);
+    setFilterQuality([]);
     setFilterPurchaseType('');
+    setFilterStartDate('');
+    setFilterEndDate('');
+    setFilterPrice('');
     setCurrentPage(0);
   };
 
@@ -851,7 +1021,21 @@ export const Products: React.FC = () => {
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your inventory items.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<ViewColumnIcon />} onClick={(e) => setColumnMenuAnchorEl(e.currentTarget)}>
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(e, newMode) => { if (newMode) setViewMode(newMode); }}
+            size="small"
+            sx={{ bgcolor: 'background.paper' }}
+          >
+            <ToggleButton value="list" aria-label="list view">
+              <ViewListIcon fontSize="small" />
+            </ToggleButton>
+            <ToggleButton value="grid" aria-label="grid view">
+              <GridViewIcon fontSize="small" />
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <Button variant="outlined" startIcon={<ViewColumnIcon />} onClick={(e) => setColumnMenuAnchorEl(e.currentTarget)} disabled={viewMode === 'grid'}>
             Columns
           </Button>
           <Menu anchorEl={columnMenuAnchorEl} open={Boolean(columnMenuAnchorEl)} onClose={() => setColumnMenuAnchorEl(null)}>
@@ -928,24 +1112,53 @@ export const Products: React.FC = () => {
               ))}
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 180 }}>
             <Select
-              value={filterDepartment} // This now holds the department Name
-              onChange={(e) => { setFilterDepartment(e.target.value); setCurrentPage(0); }}
-              displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
+              multiple
+              value={filterDepartment}
+              onChange={(e) => { 
+                const val = e.target.value; 
+                setFilterDepartment(typeof val === 'string' ? val.split(',') : val as string[]); 
+                setCurrentPage(0); 
+              }}
+              displayEmpty
+              renderValue={(selected) => {
+                if ((selected as string[]).length === 0) return "All Depts";
+                return (selected as string[]).join(', ');
+              }}
             >
-              <MenuItem value="">All Depts</MenuItem>
-              {uniqueDepartments.map(name => <MenuItem key={name} value={name}>{name}</MenuItem>)}
+              <MenuItem disabled value="" sx={{ display: 'none' }}>All Depts</MenuItem>
+              {uniqueDepartments.map(name => (
+                <MenuItem key={name} value={name}>
+                  <Checkbox checked={filterDepartment.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                  <ListItemText primary={name} />
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <Select
+              multiple
               value={filterQuality}
-              onChange={(e) => { setFilterQuality(e.target.value); setCurrentPage(0); }}
-              displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
+              onChange={(e) => { 
+                const val = e.target.value; 
+                setFilterQuality(typeof val === 'string' ? val.split(',') : val as string[]); 
+                setCurrentPage(0); 
+              }}
+              displayEmpty 
+              sx={{ width: { xs: '100%', sm: 180 } }}
+              renderValue={(selected) => {
+                if ((selected as string[]).length === 0) return "All Conditions";
+                return (selected as string[]).join(', ');
+              }}
             >
-              <MenuItem value="">All Conditions</MenuItem>
-              {qualities.map(q => <MenuItem key={q.id} value={q.name}>{q.name}</MenuItem>)}
+              <MenuItem disabled value="" sx={{ display: 'none' }}>All Conditions</MenuItem>
+              {qualities.map(q => (
+                <MenuItem key={q.id} value={q.name}>
+                  <Checkbox checked={filterQuality.includes(q.name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                  <ListItemText primary={q.name} />
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 160 }}>
@@ -959,7 +1172,39 @@ export const Products: React.FC = () => {
               <MenuItem value="Donated">Donated</MenuItem>
             </Select>
           </FormControl>
-          {(searchQuery || filterCategory.length > 0 || filterDepartment || filterQuality || filterPurchaseType) && (
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <TextField
+              type="date"
+              label="From Date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              value={filterStartDate}
+              onChange={(e) => { setFilterStartDate(e.target.value); setCurrentPage(0); }}
+            />
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <TextField
+              type="date"
+              label="To Date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              value={filterEndDate}
+              onChange={(e) => { setFilterEndDate(e.target.value); setCurrentPage(0); }}
+            />
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <Select
+              value={filterPrice}
+              onChange={(e) => { setFilterPrice(e.target.value as string); setCurrentPage(0); }}
+              displayEmpty
+            >
+              <MenuItem value="">All Prices</MenuItem>
+              <MenuItem value="under100">Under $100</MenuItem>
+              <MenuItem value="equal100">Exactly $100</MenuItem>
+              <MenuItem value="over100">Over $100</MenuItem>
+            </Select>
+          </FormControl>
+          {(searchQuery || filterCategory.length > 0 || filterDepartment.length > 0 || filterQuality.length > 0 || filterPurchaseType || filterPrice || filterStartDate || filterEndDate) && (
             <Button variant="text" color="inherit" onClick={handleClearFilters} startIcon={<CloseIcon />}>
               Clear
             </Button>
@@ -979,6 +1224,7 @@ export const Products: React.FC = () => {
         )}
 
         {/* Table */}
+        {viewMode === 'list' && (
         <TableContainer>
           <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
             <TableHead>
@@ -1082,6 +1328,13 @@ export const Products: React.FC = () => {
                     </TableSortLabel>
                   </TableCell>
                 )}
+                {visibleColumns.includes('supplier') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'supplierName' as any} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('supplierName' as any)}>
+                      Supplier
+                    </TableSortLabel>
+                  </TableCell>
+                )}
                 {visibleColumns.includes('purchaseType') && (
                   <TableCell>
                     <TableSortLabel active={sortBy === 'purchaseType'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('purchaseType')}>
@@ -1093,6 +1346,13 @@ export const Products: React.FC = () => {
                   <TableCell align="right">
                     <TableSortLabel active={sortBy === 'price'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('price')}>
                       Price
+                    </TableSortLabel>
+                  </TableCell>
+                )}
+                {visibleColumns.includes('description') && (
+                  <TableCell>
+                    <TableSortLabel active={sortBy === 'description'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('description')}>
+                      Description
                     </TableSortLabel>
                   </TableCell>
                 )}
@@ -1146,12 +1406,28 @@ export const Products: React.FC = () => {
                       {visibleColumns.includes('initialQuantity') && <TableCell align="right">{product.initialQuantity || '-'}</TableCell>}
                       {visibleColumns.includes('voucherNumber') && <TableCell>{product.voucherNumber || '-'}</TableCell>}
                       {visibleColumns.includes('donorName') && <TableCell>{product.donorName || '-'}</TableCell>}
+                      {visibleColumns.includes('supplier') && (
+                        <TableCell>
+                          <Typography variant="body2">{product.supplierName || '-'}</Typography>
+                          {(product as any).supplierContactList && (product as any).supplierContactList.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {(product as any).supplierContactList.join(' | ')}
+                            </Typography>
+                          )}
+                        </TableCell>
+                      )}
                       {visibleColumns.includes('purchaseType') && <TableCell>{product.purchaseType || '-'}</TableCell>}
                       {visibleColumns.includes('price') && <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>}
+                      {visibleColumns.includes('description') && <TableCell sx={{ whiteSpace: 'normal', minWidth: 150 }}>{product.description || '-'}</TableCell>}
                       <TableCell align="center">
                         <Tooltip title="View">
                           <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal('view', product); }}>
                             <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Transfer Department">
+                          <IconButton size="small" color="secondary" onClick={(e) => { e.stopPropagation(); openTransferModal(product); }}>
+                            <SwapHorizIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit">
@@ -1185,6 +1461,79 @@ export const Products: React.FC = () => {
             )}
           </Table>
         </TableContainer>
+        )}
+
+        {/* Grid View */}
+        {viewMode === 'grid' && (
+          <Box sx={{ p: 2, bgcolor: 'background.default', minHeight: 400 }}>
+            {loading ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+            ) : error ? (
+              <Alert severity="error">{error}</Alert>
+            ) : products.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>No products match your filters.</Box>
+            ) : (
+              <Grid container spacing={3}>
+                {products.map((product) => {
+                  const isItemSelected = isSelected(product.id!);
+                  const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
+                  let badgeColor: 'default' | 'success' | 'warning' | 'error' = 'default';
+                  if (qualityName) {
+                    const q = qualityName.toLowerCase();
+                    if (q.includes('poor') || q.includes('broken') || q.includes('bad')) badgeColor = 'error';
+                    else if (q.includes('fair') || q.includes('okay')) badgeColor = 'warning';
+                    else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
+                  }
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                      <Card 
+                        sx={{ 
+                          height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
+                          boxShadow: isItemSelected ? 4 : 1,
+                          border: isItemSelected ? 2 : 1,
+                          borderColor: isItemSelected ? 'primary.main' : 'divider',
+                          cursor: 'pointer', transition: 'all 0.2s',
+                          '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' }
+                        }}
+                        onClick={(event) => handleClick(event, product.id!)}
+                      >
+                        <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+                          <Checkbox checked={isItemSelected} onChange={(e) => { e.stopPropagation(); handleClick(e, product.id!); }} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }} />
+                        </Box>
+                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: 120, height: 120, bgcolor: 'grey.200' }}>
+                            <ImageIcon sx={{ fontSize: 48, color: 'grey.400' }} />
+                          </Avatar>
+                        </Box>
+                        <CardContent sx={{ flexGrow: 1, p: 2, pb: 1 }}>
+                          <Typography variant="subtitle1" fontWeight="bold" noWrap title={product.name}>{product.name}</Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>{product.codeNumber || 'No Code'}</Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                            <Typography variant="h6" color="primary.main" fontWeight="bold">${product.price?.toFixed(2) || '0.00'}</Typography>
+                            {qualityName && <Chip label={qualityName} size="small" color={badgeColor} variant="outlined" />}
+                          </Box>
+                          <Typography variant="body2" sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CategoryIcon fontSize="small" color="action" />
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}
+                            </span>
+                          </Typography>
+                        </CardContent>
+                        <Divider />
+                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 1, gap: 0.5 }}>
+                          <Tooltip title="View"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal('view', product); }}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Transfer"><IconButton size="small" color="secondary" onClick={(e) => { e.stopPropagation(); openTransferModal(product); }}><SwapHorizIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenModal('edit', product); }}><EditIcon fontSize="small" /></IconButton></Tooltip>
+                          <Tooltip title="Delete"><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                        </Box>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            )}
+          </Box>
+        )}
 
         {/* Pagination */}
         <TablePagination
@@ -1199,7 +1548,7 @@ export const Products: React.FC = () => {
       </Paper>
 
       {/* Create/Edit Modal */}
-      <Dialog open={modalMode === 'create' || modalMode === 'edit'} onClose={handleCloseModal} maxWidth="md" fullWidth>
+      <Dialog open={modalMode === 'create' || modalMode === 'edit'} onClose={handleCloseModal} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>{modalMode === 'create' ? 'Create New Product' : 'Edit Product'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3} sx={{ pt: 1 }}>
@@ -1657,7 +2006,7 @@ export const Products: React.FC = () => {
       </Dialog>
 
       {/* View Modal */}
-      <Dialog open={modalMode === 'view'} onClose={handleCloseModal} maxWidth="sm" fullWidth>
+      <Dialog open={modalMode === 'view'} onClose={handleCloseModal} maxWidth="sm" fullWidth fullScreen={isMobile}>
         {selectedProduct && (
           <>
             <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1672,31 +2021,14 @@ export const Products: React.FC = () => {
                   </Avatar>
                 </Grid>
                 <Grid item xs={12} sm={7} container spacing={2}>
-                  <Grid item xs={6}>{renderProductField('Category', selectedProduct.categoryName || categories.find(c => c.id === selectedProduct.categoryId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Price', selectedProduct.price ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
-                  <Grid item xs={6}>{renderProductField('Quality', selectedProduct.quality || qualities.find(q => q.id === selectedProduct.qualityId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Item Name', selectedProduct.name)}</Grid>
                   <Grid item xs={6}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Responsible Person', selectedProduct.responsiblePerson || persons.find(p => p.id === selectedProduct.responsiblePersonId)?.fullName)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Year', selectedProduct.year ? selectedProduct.year.substring(0, 4) : '-')}</Grid>
-                  {selectedProduct.plateNumber && (
-                    <Grid item xs={6}>{renderProductField('Plate Number', selectedProduct.plateNumber)}</Grid>
-                  )}
-                  {selectedProduct.engineNumber && (
-                    <Grid item xs={6}>{renderProductField('Engine / Serial Number', selectedProduct.engineNumber)}</Grid>
-                  )}
+                  <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Price', selectedProduct.price != null ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
+                  <Grid item xs={6}>{renderProductField('Voucher Number', selectedProduct.voucherNumber)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Purchase Date', selectedProduct.invoiceDate ? new Date(selectedProduct.invoiceDate).toLocaleDateString() : (selectedProduct.createdDate ? new Date(selectedProduct.createdDate).toLocaleDateString() : '-'))}</Grid>
                 </Grid>
-                {selectedProduct.attributes && (
-                  <Grid item xs={12} sx={{ mt: 2 }}>
-                    {renderProductField('Specifications', selectedProduct.attributes)}
-                  </Grid>
-                )}
-                {selectedProduct.description && (
-                  <Grid item xs={12}>
-                    {renderProductField('Description', selectedProduct.description)}
-                  </Grid>
-                )}
               </Grid>
             </DialogContent>
             <DialogActions>
@@ -1748,13 +2080,50 @@ export const Products: React.FC = () => {
               onComplete={(c) => setCompletedCrop(c)}
               aspect={1}
             >
-              <img ref={imgRef} src={cropImgSrc} alt="Crop preview" style={{ maxHeight: '50vh', maxWidth: '100%', objectFit: 'contain' }} />
+              <img ref={imgRef} src={cropImgSrc} alt="Crop preview" style={{ maxHeight: '50vh', maxWidth: '100%', display: 'block' }} />
             </ReactCrop>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setCropModalOpen(false)}>Cancel</Button>
           <Button onClick={handleSaveCrop} variant="contained" color="primary">Apply Crop</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Transfer Modal */}
+      <Dialog open={transferModalOpen} onClose={() => setTransferModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Transfer to New Department</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 3 }}>
+            Move <strong>{productToTransfer?.name}</strong> to a different department.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <FormControl fullWidth>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>Current Department</Typography>
+              <Typography variant="body1" fontWeight="bold">
+                {productToTransfer?.departmentName || departments.find(d => d.id === productToTransfer?.departmentId)?.name || '-'}
+              </Typography>
+            </FormControl>
+            <FormControl fullWidth>
+              <Select
+                displayEmpty
+                value={transferDeptId}
+                onChange={(e) => setTransferDeptId(e.target.value as string)}
+              >
+                <MenuItem value="" disabled>Select Destination Department</MenuItem>
+                {departments.filter(d => d.id !== productToTransfer?.departmentId).map(d => (
+                  <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <TextField label="Transfer Notes / Reason" multiline rows={3} value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} fullWidth placeholder="e.g. Relocated for new academic year" />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setTransferModalOpen(false)} disabled={isTransferring}>Cancel</Button>
+          <Button onClick={handleTransfer} variant="contained" color="primary" disabled={!transferDeptId || isTransferring}>
+            {isTransferring ? <CircularProgress size={24} /> : 'Confirm Transfer'}
+          </Button>
         </DialogActions>
       </Dialog>
 

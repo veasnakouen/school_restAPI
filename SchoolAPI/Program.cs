@@ -1,4 +1,5 @@
 
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using SchoolAPI.Authorization;
 using SchoolAPI.Data;
@@ -62,7 +63,17 @@ builder.Logging
 QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddServices();
-builder.Services.ConfigureCors();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("CorePolicy", policy =>
+    {
+        policy.SetIsOriginAllowed(origin => true) // Dynamically allow your React/Angular ports
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Critical: SignalR requires AllowCredentials!
+    });
+});
 builder.Services.ConfigureEpplus();
 builder.Services.AddRateLimiting();
 
@@ -95,6 +106,8 @@ builder.Services.AddStackExchangeRedisOutputCache(options =>
 });
 builder.Services.AddOutputCache();
 
+builder.Services.AddSignalR();
+
 builder.Services.AddDatabase(builder.Configuration)
         .AddIdentityServices(builder.Configuration)
         .AddJwtAuthentication(builder.Configuration)
@@ -103,6 +116,29 @@ builder.Services.AddDatabase(builder.Configuration)
         .AddFluentValidation()
         .AddSwagger();
 
+// SignalR sends the JWT token in the query string for WebSockets
+// We need to extract it so the .NET backend can authorize the connection
+builder.Services.PostConfigureAll<JwtBearerOptions>(options =>
+{
+    var existingOnMessageReceived = options.Events?.OnMessageReceived;
+    options.Events ??= new JwtBearerEvents();
+    options.Events.OnMessageReceived = async context =>
+    {
+        if (existingOnMessageReceived != null)
+        {
+            await existingOnMessageReceived(context);
+        }
+
+        var accessToken = context.Request.Query["access_token"];
+        var path = context.HttpContext.Request.Path;
+
+        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+        {
+            // Read the token out of the query string
+            context.Token = accessToken;
+        }
+    };
+});
 
 var app = builder.Build();
 
@@ -147,6 +183,8 @@ app.UseAuthorization();
 app.UseMiddleware<MaintenanceModeMiddleware>();
 
 app.MapControllers();
+app.MapHub<SchoolAPI.Hubs.DashboardHub>("/hubs/dashboard");
+app.MapHub<SchoolAPI.Hubs.ChatHub>("/hubs/chat");
 app.UseStaticFiles();
 // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
 using (var scope = app.Services.CreateScope())

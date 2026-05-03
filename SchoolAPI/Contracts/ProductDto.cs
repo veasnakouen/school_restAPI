@@ -30,7 +30,10 @@ public class ProductDto
     public string? SupplierName { get; set; }
     public string? DonorName { get; set; }
     public string? VoucherNumber { get; set; }
-    public string? SupplierContact { get; set; }
+    // public string? SupplierContact { get; set; }
+    // To this:
+    public Dictionary<string, string>? SupplierContact { get; set; }
+    public List<string>? SupplierContactList { get; set; }
     public string? InvoiceDate { get; set; }
     public string? ResponsiblePerson { get; set; }
     public string? ResponsiblePersonId { get; set; }

@@ -211,7 +211,7 @@ public class AuthController : BaseController
             return Unauthorized("Invalid refresh token.");
 
         // Verify the refresh token using hash comparison
-        if (!_tokenService.VerifyRefreshToken(user.RefreshToken, request.RefreshToken) ||
+        if (user.RefreshToken == null || !_tokenService.VerifyRefreshToken(user.RefreshToken, request.RefreshToken) ||
             user.RefreshTokenExpiryTime <= DateTime.UtcNow)
             return Unauthorized("Invalid or expired refresh token.");
 
@@ -445,8 +445,8 @@ public class AuthController : BaseController
 
     public class GrantPermissionToRoleRequest
     {
-        public string RoleName { get; set; }
-        public string Permission { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public string Permission { get; set; } = string.Empty;
     }
 
     [HttpPost("forgot-password")]

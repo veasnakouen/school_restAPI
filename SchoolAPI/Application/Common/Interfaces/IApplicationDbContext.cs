@@ -31,6 +31,8 @@ public interface IApplicationDbContext
     DbSet<Permission> Permissions { get; }
     DbSet<AppUserRole> UserRoles { get; }
     DbSet<SystemSetting> SystemSettings { get; }
+    DbSet<Organization> Organizations { get; }
+    DbSet<ChatMessage> ChatMessages { get; }
     
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

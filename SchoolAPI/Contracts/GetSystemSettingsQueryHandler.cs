@@ -31,7 +31,9 @@ public class GetSystemSettingsQueryHandler : IRequestHandler<GetSystemSettingsQu
             AllowRegistration = settings.AllowRegistration,
             RequireEmailVerification = settings.RequireEmailVerification,
             MaintenanceMode = settings.MaintenanceMode,
-            DefaultToDarkMode = settings.DefaultToDarkMode
+            DefaultToDarkMode = settings.DefaultToDarkMode,
+            LogoBase64 = settings.LogoBase64,
+            BankQrCodeBase64 = settings.BankQrCodeBase64
         });
     }
 }

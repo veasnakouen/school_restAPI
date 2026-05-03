@@ -18,6 +18,7 @@ using SchoolAPI.Services;
 using SchoolAPI.Services.Reporting;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
+using SchoolAPI.Services.Jobs;
 
 namespace SchoolAPI.Extensions
 {
@@ -190,6 +191,7 @@ namespace SchoolAPI.Extensions
             services.AddScoped<IStudentAssessmentRequestReportService, StudentAssessmentRequestReportService>();
             services.AddScoped<IMonthlyTransactionReportService, MonthlyTransactionReportService>();
             services.AddScoped<IMonthlyTransactionReportJob, MonthlyTransactionReportJob>();
+            services.AddScoped<ImageCleanupJob>();
             
             return services;
         }

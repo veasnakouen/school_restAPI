@@ -1,5 +1,6 @@
 import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { DEV_MODE_MOCK_AUTH } from "../auth/AuthContext";
+import { DEV_MODE_MOCK_AUTH } from "../auth/AuthContext"; // Assuming this path
+
 
 // --- Product Management ---
 export interface CreateProductRequest {
@@ -163,16 +164,33 @@ export interface QueryOptions {
   purchaseType?: string;
   filterOn?: string;
   filterQuery?: string;
+  // For date range filtering
+  startDate?: string;
+  endDate?: string;
+  invoiceStartDate?: string;
+  invoiceEndDate?: string;
 }
 
+// Load the URL from environment variables (using 'any' to bypass strict TS checks), falling back to localhost
+let envUrl = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5001';
+// Ensure we don't accidentally double up on '/api' or trailing slashes from the .env file
+envUrl = envUrl.replace(/\/+$/, '').replace(/\/api$/i, '');
+
+export const BASE_URL = envUrl;
+
 const apiClient :AxiosInstance = axios.create({
-  baseURL: 'http://localhost:5001/api', // Your API base URL
+  baseURL: `${BASE_URL}/api`, // Your API base URL
   headers: {
     'Accept': 'application/json'
   }, timeout: 30000,
   withCredentials: false, // Set to true if you need to send cookies
 });
 let isRedirecting = false; // Flag to prevent multiple redirects  
+
+// Global loading state management callbacks
+let incrementLoading: () => void;
+let decrementLoading: () => void;
+export const setLoadingCallbacks = (inc: () => void, dec: () => void) => { incrementLoading = inc; decrementLoading = dec; };
 
 // Add a request interceptor to include the auth token
 apiClient.interceptors.request.use(
@@ -187,6 +205,7 @@ apiClient.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    incrementLoading?.(); // Increment loading counter
     return config;
   },
   (error) => {
@@ -214,9 +233,15 @@ const processQueue = (error: any, token: string | null = null) => {
 
 // Add a response interceptor to handle 401 Unauthorized errors globally
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    decrementLoading?.();
+    return response;
+  },
   async (error: AxiosError) => {
-    // --- Maintenance Mode Interceptor ---
+    // Decrement for any error, but not for cancellations which are not "real" errors.
+    if (!axios.isCancel(error)) {
+      decrementLoading?.();
+    }
     // If the backend returns a 503 Service Unavailable, it likely means Maintenance Mode is active.
     if (error.response?.status === 503) {
       const userStr = localStorage.getItem('user') || sessionStorage.getItem('user');
@@ -492,9 +517,43 @@ export interface SystemSettingsDto {
   requireEmailVerification: boolean;
   maintenanceMode: boolean;
   defaultToDarkMode: boolean;
+  logoBase64?: string;
+  // Merged from PaymentSettingsDto
+  defaultCurrency?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
+  bankRoutingNumber?: string;
+  stripePublicKey?: string;
+  enableOnlinePayments?: boolean;
+  bankQrCodeBase64?: string;
 }
 export const getSystemSettings = (): Promise<SystemSettingsDto> => apiClient.get('/settings').then(res => res.data);
 export const updateSystemSettings = (settings: SystemSettingsDto): Promise<SystemSettingsDto> => apiClient.put('/settings', settings).then(res => res.data);
+
+export const testStripeApiKey = (publicKey: string): Promise<{ success: boolean, message: string }> => {
+  return apiClient.post('/settings/test-stripe', { publicKey }).then(res => res.data);
+};
+
+// --- Transactions ---
+export interface TransactionDto {
+  id: string;
+  productId: string;
+  productName: string;
+  transactionType: string; // This is an enum on backend
+  providerName: string;
+  donorId: string;
+  donorName: string;
+  departmentId: string;
+  departmentName: string;
+  responserId: string;
+  responserName: string;
+  resource: string;
+  quantity: number;
+  totalCost: number;
+  createdDate?: string | null;
+  updateDate?: string | null;
+}
+export const getTransactions = (params: QueryOptions): Promise<PagedResult<TransactionDto>> => apiClient.get('/transactions', { params }).then(res => res.data);
 
 // --- Product Purchase History ---
 export interface ProductPurchaseHistoryDto {

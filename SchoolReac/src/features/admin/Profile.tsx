@@ -335,7 +335,7 @@ export const Profile: React.FC = () => {
               onComplete={(c) => setCompletedCrop(c)}
               aspect={1}
             >
-              <img ref={imgRef} src={cropImgSrc} alt="Crop preview" style={{ maxHeight: '50vh', maxWidth: '100%', objectFit: 'contain' }} />
+              <img ref={imgRef} src={cropImgSrc} alt="Crop preview" style={{ maxHeight: '50vh', maxWidth: '100%', display: 'block' }} />
             </ReactCrop>
           )}
         </DialogContent>

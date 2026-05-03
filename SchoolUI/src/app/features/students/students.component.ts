@@ -5,61 +5,61 @@ import { StudentApiService } from '../../core/services/student-api.service';
 import { StudentDto } from '../../models/academic.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize } from 'rxjs/operators';
+import { TableModule } from 'primeng/table';
+import { InputTextModule } from 'primeng/inputtext';
+import { BadgeModule } from 'primeng/badge';
+import { SharedModule } from 'primeng/api';
 
 @Component({
   selector: 'app-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, TableModule, InputTextModule, BadgeModule, SharedModule],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="space-y-2">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="badge badge-primary badge-outline">People</span>
-            <span class="badge badge-ghost">{{ filteredStudents.length }} visible</span>
+            <p-badge value="People" severity="info"></p-badge>
+            <p-badge [value]="(dt.filteredValue?.length ?? students.length).toString() + ' visible'" severity="secondary"></p-badge>
           </div>
-          <h2 class="section-title text-base-content">Students</h2>
-          <p class="max-w-2xl text-sm text-base-content/65">List and search students.</p>
+          <h2 class="section-title text-gray-800">Students</h2>
+          <p class="max-w-2xl text-sm text-gray-500">List and search students.</p>
         </div>
 
-        <label class="form-control w-full max-w-md">
-          <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Search students</span></div>
-          <input [(ngModel)]="search" placeholder="Search students" class="app-input" />
-        </label>
+        <div class="w-full max-w-md">
+          <div class="pb-2"><span class="text-sm font-semibold text-gray-600">Search students</span></div>
+          <input pInputText [(ngModel)]="search" (ngModelChange)="dt.filterGlobal($event, 'contains')" placeholder="Search students..." class="w-full p-inputtext-sm" />
+        </div>
       </div>
 
-      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6 px-4">
-        <table class="table table-zebra table-pin-rows">
-          <thead>
+      <div class="my-6 shadow-sm rounded-[24px] overflow-hidden border border-gray-200 bg-white">
+        <p-table #dt [value]="students" [globalFilterFields]="['engFirstName', 'engLastName', 'classId', 'gender']" [loading]="loading" [paginator]="true" [rows]="10" styleClass="p-datatable-striped p-datatable-sm">
+          <ng-template pTemplate="header">
             <tr>
               <th>Name</th>
               <th>Gender</th>
               <th>Class</th>
               <th>Date of birth</th>
             </tr>
-          </thead>
-          <tbody>
-            @for (item of filteredStudents; track item.id) {
-              <tr>
-                <td class="font-medium">{{ item.engFirstName }} {{ item.engLastName }}</td>
-                <td>{{ item.gender }}</td>
-                <td>{{ item.classId || '-' }}</td>
-                <td>{{ item.dateOfBirth | date:'mediumDate' }}</td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="4" class="py-10 text-center text-base-content/60">No students match your search.</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+          </ng-template>
+          <ng-template pTemplate="body" let-item>
+            <tr>
+              <td class="font-medium">{{ item.engFirstName }} {{ item.engLastName }}</td>
+              <td>{{ item.gender }}</td>
+              <td>{{ item.classId || '-' }}</td>
+              <td>{{ item.dateOfBirth | date:'mediumDate' }}</td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="4" class="py-10 text-center text-gray-500">No students match your search.</td>
+            </tr>
+          </ng-template>
+        </p-table>
       </div>
 
-      @if (loading) {
-        <div class="alert alert-info border-0 bg-info/10 text-info">Loading students...</div>
-      }
       @if (errorMessage) {
-        <div class="alert alert-error border-0 bg-error/10 text-error">{{ errorMessage }}</div>
+        <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 border border-red-200">{{ errorMessage }}</div>
       }
     </section>
   `
@@ -72,20 +72,6 @@ export class StudentsComponent implements OnInit {
   protected loading = false;
   protected errorMessage = '';
   protected search = '';
-
-  protected get filteredStudents(): StudentDto[] {
-    const term = this.search.trim().toLowerCase();
-    if (!term) {
-      return this.students;
-    }
-
-    return this.students.filter((item) => {
-      const fullName = `${item.engFirstName ?? ''} ${item.engLastName ?? ''}`.toLowerCase();
-      const classId = item.classId?.toLowerCase() ?? '';
-      const gender = item.gender?.toLowerCase() ?? '';
-      return fullName.includes(term) || classId.includes(term) || gender.includes(term);
-    });
-  }
 
   ngOnInit(): void {
     this.loading = true;

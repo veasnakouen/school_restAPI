@@ -5,9 +5,12 @@ using SchoolAPI.Contracts;
 namespace SchoolAPI.Application.Features.Transactions.GetAll;
 
 public record GetAllTransactionsQuery(
-	string? filterOn = null,
-	string? filterQuery = null,
-	string? sortBy = null,
-	bool isAscending = true,
-	int pageNumber = 1,
-	int pageSize = 10) : IRequest<Result<PagedResult<TransactionDto>>>;
+    string? FilterOn,
+    string? FilterQuery,
+    string? SortBy,
+    bool IsAscending,
+    int PageNumber,
+    int PageSize,
+    DateTime? StartDate,
+    DateTime? EndDate
+) : IRequest<Result<PagedResult<TransactionDto>>>;

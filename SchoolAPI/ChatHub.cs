@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Entities;
@@ -48,6 +50,8 @@ public class ChatHub : Hub
             if (!OnlineUsers.Values.Contains(userName))
             {
                 await Clients.All.SendAsync("UserDisconnected", userName);
+                // Also broadcast the new list of online users to everyone
+                await Clients.All.SendAsync("UpdateOnlineUsers", OnlineUsers.Values.Distinct(), Context.ConnectionAborted);
             }
         }
         await base.OnDisconnectedAsync(exception);
@@ -75,7 +79,7 @@ public class ChatHub : Hub
         };
         
         _context.ChatMessages.Add(chatMessage);
-        await _context.SaveChangesAsync(default);
+        await _context.SaveChangesAsync(Context.ConnectionAborted);
 
         // 2. Broadcast to connected clients
         foreach (var connectionId in allConnectionsToNotify)
@@ -104,8 +108,19 @@ public class ChatHub : Hub
             .Where(m => (m.Sender == currentUserName && m.Receiver == targetUserName) || 
                         (m.Sender == targetUserName && m.Receiver == currentUserName))
             .OrderBy(m => m.Timestamp)
-            .ToListAsync(default);
+            .ToListAsync(Context.ConnectionAborted);
 
         await Clients.Caller.SendAsync("ReceiveHistory", history);
+    }
+
+    public async Task MarkAsRead(string senderUserName)
+    {
+        var currentUserName = OnlineUsers.GetValueOrDefault(Context.ConnectionId, "Anonymous");
+        var senderConnections = OnlineUsers.Where(kvp => kvp.Value == senderUserName).Select(kvp => kvp.Key).ToList();
+        
+        foreach (var connectionId in senderConnections)
+        {
+            await Clients.Client(connectionId).SendAsync("MessagesSeen", currentUserName);
+        }
     }
 }

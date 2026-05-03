@@ -3,7 +3,8 @@ import { useFormik, FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../../auth/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
-import { Box, Button, Card, CardContent, Checkbox, CircularProgress, FormControlLabel, Link, TextField, Typography } from '@mui/material';
+import { Box, Button, Card, CardContent, Checkbox, CircularProgress, FormControlLabel, IconButton, InputAdornment, Link, TextField, Typography } from '@mui/material';
+import { Visibility, VisibilityOff } from '@mui/icons-material';
 
 // Define a type for our form values for better type safety
 type LoginFormValues = {
@@ -21,6 +22,7 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { login, isLoading, isAuthenticated } = useAuth();
+
   const location = useLocation();
 
   const formik = useFormik<LoginFormValues>({
@@ -33,7 +35,7 @@ export const LoginPage: React.FC = () => {
     onSubmit: async (values, { setSubmitting }: FormikHelpers<LoginFormValues>) => {
       setError(null);
       try {
-        // Pass email and password to the login function.
+        // Pass email, password, and the rememberMe flag to the login function
         await login({ email: values.email, password: values.password }, values.rememberMe);
         // Navigation is now handled by the conditional redirect below
       } catch (err: any) {
@@ -50,13 +52,23 @@ export const LoginPage: React.FC = () => {
   });
 
   if (isAuthenticated) {
-    const from = location.state?.from?.pathname || '/dashboard';
+    // Reconstruct the exact URL including query params (e.g. ?category=Books)
+    const fromLoc = location.state?.from;
+    const from = fromLoc?.pathname ? `${fromLoc.pathname}${fromLoc.search || ''}${fromLoc.hash || ''}` : '/dashboard';
     return <Navigate to={from} replace />;
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 4 }}>
-      <Card sx={{ maxWidth: 400, width: '100%', boxShadow: 3 }}>
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        p: 4,
+      }}
+    >
+      <Card sx={{ maxWidth: 400, width: "100%", boxShadow: 3 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" component="h2" align="center" gutterBottom>
             Login
@@ -84,15 +96,35 @@ export const LoginPage: React.FC = () => {
               id="password"
               name="password"
               label="Password"
-              type={showPassword ? 'text' : 'password'}
+              type={showPassword ? "text" : "password"}
               value={formik.values.password}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
               error={formik.touched.password && Boolean(formik.errors.password)}
               helperText={formik.touched.password && formik.errors.password}
               margin="normal"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      onMouseDown={(e) => e.preventDefault()}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mt: 1,
+              }}
+            >
               <FormControlLabel
                 control={
                   <Checkbox
@@ -109,7 +141,7 @@ export const LoginPage: React.FC = () => {
                 Forgot password?
               </Link>
             </Box>
-            <Box sx={{ mt: 2, position: 'relative' }}>
+            <Box sx={{ mt: 2, position: "relative" }}>
               <Button
                 color="primary"
                 variant="contained"
@@ -123,11 +155,11 @@ export const LoginPage: React.FC = () => {
                 <CircularProgress
                   size={24}
                   sx={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    marginTop: '-12px',
-                    marginLeft: '-12px',
+                    position: "absolute",
+                    top: "50%",
+                    left: "50%",
+                    marginTop: "-12px",
+                    marginLeft: "-12px",
                   }}
                 />
               )}

@@ -260,7 +260,7 @@ const App = () => {
     const fetchLogo = async () => {
       try {
         // Adjust the URL to match your actual backend endpoint
-        const response = await fetch('http://localhost:5001/api/Organization/Logo');
+        const response = await fetch('http://localhost:5001/api/settings/logo');
         if (response.ok) {
           const result = await response.json();
           // Assuming the API returns an object like { base64String: "data:image/png;base64,..." }
@@ -286,9 +286,9 @@ const App = () => {
       
       // Optionally, push the new logo to your backend to save it permanently
       try {
-        const token = localStorage.getItem('jwt_token'); // Assumes token is in localStorage
-        const response = await fetch('http://localhost:5001/api/Organization/Logo', {
-          method: 'POST', // or PUT depending on your API
+        const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+        const response = await fetch('http://localhost:5001/api/settings/branding', {
+          method: 'POST', 
           headers: { 
             'Content-Type': 'application/json',
             ...(token && { 'Authorization': `Bearer ${token}` })

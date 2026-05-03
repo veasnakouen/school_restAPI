@@ -5,6 +5,8 @@ using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
+using Microsoft.AspNetCore.SignalR;
+using SchoolAPI.Hubs;
 
 namespace SchoolAPI.Application.Features.Purchases.Create;
 
@@ -13,12 +15,14 @@ public class CreatePurchaseCommandHandler : IRequestHandler<CreatePurchaseComman
     private readonly IApplicationDbContext _context;
     private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IHubContext<DashboardHub> _hubContext;
 
-    public CreatePurchaseCommandHandler(IApplicationDbContext context, IMapper mapper, ICurrentUserService currentUserService)
+    public CreatePurchaseCommandHandler(IApplicationDbContext context, IMapper mapper, ICurrentUserService currentUserService, IHubContext<DashboardHub> hubContext)
     {
         _context = context;
         _mapper = mapper;
         _currentUserService = currentUserService;
+        _hubContext = hubContext;
     }
 
     public async Task<Result<PurchaseDto>> Handle(CreatePurchaseCommand request, CancellationToken cancellationToken)
@@ -51,10 +55,14 @@ public class CreatePurchaseCommandHandler : IRequestHandler<CreatePurchaseComman
         foreach (var item in req.Items)
         {
             totalAmount += item.Quantity * item.UnitPrice;
+            
+            var product = productDictionary[item.ProductId];
+            product.UpdateDate = DateTime.UtcNow; // Ensure dashboard timeline recognizes recent activity
+            
             purchaseItems.Add(new PurchaseItem
             {
                 ProductId = item.ProductId,
-                Product = productDictionary[item.ProductId],
+                Product = product,
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice
             });
@@ -97,6 +105,10 @@ public class CreatePurchaseCommandHandler : IRequestHandler<CreatePurchaseComman
 
         _context.Purchases.Add(purchase);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Ping the React & Angular dashboards instantly to redraw!
+        await _hubContext.Clients.All.SendAsync("DashboardUpdated", cancellationToken);
+        await _hubContext.Clients.All.SendAsync("ProductStockUpdated", $"Stock updated: Received {purchaseItems.Sum(p => p.Quantity)} units from {supplier.Name}.", "success", cancellationToken);
 
         // 5. Map the created entity (with its loaded navigation properties) to the DTO and return
         return Result<PurchaseDto>.Success(_mapper.Map<PurchaseDto>(purchase));

@@ -14,374 +14,400 @@ import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
 import { PaginationComponent } from '../../core/interceptors/pagination.component';
 import * as signalR from '@microsoft/signalr';
+import { TableModule } from 'primeng/table';
+import { BadgeModule } from 'primeng/badge';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { SharedModule } from 'primeng/api';
 
 export interface ExtendedProductDto extends ProductDto {
   qualityId?: string | null;
   responsiblePersonId?: string | null;
   attributes?: string | null;
+  supplierContactList?: string[] | null;
 }
 
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent, TableModule, BadgeModule, ButtonModule, DialogModule, ProgressBarModule, SharedModule],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
-      <div class="space-y-2">
-        <div class="flex flex-row items-center gap-2">
-          <span class="badge badge-success badge-outline">Inventory</span>
-          <span class="badge badge-ghost">{{ totalItems }} products</span>
-        </div>
-        <h2 class="section-title text-base-content">Products</h2>
-        <p class="max-w-2xl text-sm text-base-content/65"></p>
-        <!-- <p class="max-w-2xl text-sm text-base-content/65">Inventory items from the API.</p> -->
-      </div>
-      <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-    <!--  -->
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-end flex-wrap">
-          <input
-            [(ngModel)]="search"
-            (ngModelChange)="onSearchChange()"
-            placeholder="Search products"
-            class="input input-bordered w-full max-w-md"
-          />
-          <select
-            [(ngModel)]="filterCategory"
-            (ngModelChange)="onFilterChange()"
-            class="select select-bordered w-full max-w-xs"
-          >
-            <option value="">All Categories</option>
-            @for (catName of uniqueCategories; track catName) {
-              <option [value]="catName">{{ catName }}</option>
-            }
-          </select>
-          <select
-            [(ngModel)]="filterDepartment"
-            (ngModelChange)="onFilterChange()"
-            class="select select-bordered w-full max-w-xs"
-          >
-            <option value="">All Departments</option>
-            @for (deptName of uniqueDepartments; track deptName) {
-              <option [value]="deptName">{{ deptName }}</option>
-            }
-          </select>
-          <select
-            [(ngModel)]="filterQuality"
-            (ngModelChange)="onFilterChange()"
-            class="select select-bordered w-full max-w-xs"
-          >
-            <option value="">All Conditions</option>
-            @for (q of qualities; track q.id) {
-              <option [value]="q.name">{{ q.name }}</option>
-            }
-          </select>
-          <select
-            [(ngModel)]="filterPurchaseType"
-            (ngModelChange)="onFilterChange()"
-            class="select select-bordered w-full max-w-xs"
-          >
-            <option value="">All Acquisition Types</option>
-            <option value="Purchased">Purchased</option>
-            <option value="Donated">Donated</option>
-          </select>
-          <button type="button" class="btn btn-success btn-sm btn-outline gap-2" (click)="openCreateModal()">
-            <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg> -->
-            <i class="icon-plus"></i>
-            Add Product
-          </button>
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div class="space-y-1">
+          <div class="flex flex-row items-center gap-2 mb-1">
+            <p-badge value="Resource Reporting" severity="info" styleClass="font-semibold tracking-wider text-xs"></p-badge>
+          </div>
+          <h2 class="text-3xl font-bold tracking-tight text-gray-800">Inventory Report Builder</h2>
+          <p class="max-w-2xl text-sm text-gray-500">Filter, analyze, and generate comprehensive reports for your school's resources.</p>
         </div>
 
-        <!-- Bulk Actions & Export Buttons -->
-        <div class="flex flex-wrap gap-2 items-center">
-          @if (selectedProducts.size > 0) {
-            <div class="dropdown dropdown-end">
-              <div tabindex="0" role="button" class="btn btn-accent gap-2">
-                Bulk Actions ({{ selectedProducts.size }})
-                <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg> -->
+        <!-- Quick Summary Stats -->
+        <div class="flex flex-row divide-x shadow-sm border border-gray-200 bg-gray-50/50 rounded-lg w-full md:w-auto">
+          <div class="flex flex-col py-2 px-4">
+            <div class="text-xs font-semibold text-gray-500">Total Resources</div>
+            <div class="text-lg font-bold text-blue-600">{{ totalItems }}</div>
+          </div>
+          <div class="flex flex-col py-2 px-4">
+            <div class="text-xs font-semibold text-gray-500">Categories</div>
+            <div class="text-lg font-bold text-gray-800">{{ uniqueCategories.length }}</div>
+          </div>
+          <div class="flex flex-col py-2 px-4">
+            <div class="text-xs font-semibold text-gray-500">Page Value</div>
+            <div class="text-lg font-bold text-green-600">\${{ currentPageValue | number:'1.2-2' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-4">
+        <!-- Filters Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end bg-gray-50/50 p-4 rounded-2xl border border-gray-200">
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Search</span></label>
+            <input
+              [(ngModel)]="search"
+              (ngModelChange)="onSearchChange()"
+              placeholder="Search products..."
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white"
+            />
+          </div>
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
+            <select
+              [(ngModel)]="filterCategory"
+              (ngModelChange)="onFilterChange()"
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
+            >
+              <option value="">All Categories</option>
+              @for (catName of uniqueCategories; track catName) {
+                <option [value]="catName">{{ catName }}</option>
+              }
+            </select>
+          </div>
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Department</span></label>
+            <select
+              [(ngModel)]="filterDepartment"
+              (ngModelChange)="onFilterChange()"
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
+            >
+              <option value="">All Departments</option>
+              @for (deptName of uniqueDepartments; track deptName) {
+                <option [value]="deptName">{{ deptName }}</option>
+              }
+            </select>
+          </div>
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Condition</span></label>
+            <select
+              [(ngModel)]="filterQuality"
+              (ngModelChange)="onFilterChange()"
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
+            >
+              <option value="">All Conditions</option>
+              @for (q of qualities; track q.id) {
+                <option [value]="q.name">{{ q.name }}</option>
+              }
+            </select>
+          </div>
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Acquisition</span></label>
+            <select
+              [(ngModel)]="filterPurchaseType"
+              (ngModelChange)="onFilterChange()"
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
+            >
+              <option value="">All Types</option>
+              <option value="Purchased">Purchased</option>
+              <option value="Donated">Donated</option>
+            </select>
+          </div>
+          <div class="flex flex-col w-full">
+            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Price Range</span></label>
+            <select
+              [(ngModel)]="filterPrice"
+              (ngModelChange)="onFilterChange()"
+              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
+            >
+              <option value="">All Prices</option>
+              <option value="under100">Under $100</option>
+              <option value="equal100">Exactly $100</option>
+              <option value="over100">Over $100</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Toolbar: Bulk Actions & Primary Actions -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white py-1">
+          <div class="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+            @if (selectedProducts.size > 0) {
+              <div class="relative group">
+                <div tabindex="0" role="button" class="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition flex items-center gap-2 cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  Delete Selected ({{ selectedProducts.size }})
+                </div>
+                <ul tabindex="0" class="absolute hidden group-focus-within:block bg-white rounded-lg z-10 w-52 p-2 shadow-lg border border-gray-200 mt-1">
+                  <li>
+                    <button type="button" (click)="confirmBulkDelete()" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-red-600 font-semibold">
+                      Confirm Delete
+                    </button>
+                  </li>
+                </ul>
               </div>
-              <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300">
-                <li>
-                  <button type="button" (click)="confirmBulkDelete()" class="text-error">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                    Delete Selected
-                  </button>
-                </li>
+            }
+            <div class="relative group">
+              <div tabindex="0" role="button" class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center gap-2 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+                Columns
+              </div>
+              <ul tabindex="0" class="absolute hidden group-focus-within:block bg-white rounded-lg z-10 w-52 p-2 shadow-lg border border-gray-200 max-h-96 overflow-y-auto mt-1">
+                @for (col of availableColumns; track col.id) {
+                  <li>
+                    <a (click)="toggleColumnVisibility(col.id, $event)" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" [checked]="visibleColumns.has(col.id)" (click)="$event.stopPropagation(); toggleColumnVisibility(col.id, $event)" />
+                      {{ col.label }}
+                    </a>
+                  </li>
+                }
               </ul>
             </div>
-          }
-          <!-- <button type="button" class="btn btn-primary gap-2" (click)="openCreateModal()">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-            </svg>
-            Add Product
-          </button> -->
-        </div>
-
-        <!-- Columns Dropdown -->
-        <div class="dropdown dropdown-end mr-2">
-          <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-            </svg>
-            Columns
           </div>
-          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-52 p-2 shadow-lg border border-base-300">
-            @for (col of availableColumns; track col.id) {
-              <li>
-                <a (click)="toggleColumnVisibility(col.id, $event)" class="flex items-center gap-3">
-                  <input type="checkbox" class="checkbox checkbox-sm" [checked]="visibleColumns.has(col.id)" (click)="$event.stopPropagation(); toggleColumnVisibility(col.id, $event)" />
-                  {{ col.label }}
-                </a>
-              </li>
-            }
-          </ul>
-        </div>
 
-        <!-- Import Button -->
-        <label class="btn btn-sm btn-outline gap-2 mr-2" [class.btn-disabled]="isImporting">
-          @if (isImporting) {
-            <span class="loading loading-spinner loading-xs"></span>
-            @if (importProgress > 0) { {{ importProgress }}% } @else { Uploading... }
-          } @else {
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-            </svg>
-            Import
-          }
-          <input type="file" class="hidden" accept=".xlsx" (change)="handleImportExcel($event)" [disabled]="isImporting" />
-        </label>
+          <div class="flex flex-wrap gap-2 items-center w-full sm:w-auto sm:justify-end">
+            <label class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center gap-2 cursor-pointer" [class.opacity-50]="isImporting" [class.cursor-not-allowed]="isImporting">
+              @if (isImporting) {
+                <i class="pi pi-spin pi-spinner text-xs"></i>
+                @if (importProgress > 0) { {{ importProgress }}% } @else { Uploading... }
+              } @else {
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                Import
+              }
+              <input type="file" class="hidden" accept=".xlsx" (change)="handleImportExcel($event)" [disabled]="isImporting" />
+            </label>
 
-        <!-- Export Buttons -->
-          <div class="dropdown dropdown-center">
-            <div tabindex="0" role="button" class="btn btn-sm btn-outline gap-2">
-              <!-- <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Export
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg> -->
-              Export
+            <div class="relative group">
+              <div tabindex="0" role="button" class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition shadow-sm flex items-center gap-2 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Generate Report
+              </div>
+              <ul tabindex="0" class="absolute hidden right-0 group-focus-within:block bg-white rounded-lg z-10 w-40 p-2 shadow-lg border border-gray-200 mt-1">
+                <li><button type="button" (click)="exportToExcel()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> Excel</button></li>
+                <li><button type="button" (click)="exportToCSV()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> CSV</button></li>
+                <li><button type="button" (click)="exportToPDF()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> PDF</button></li>
+                <li><button type="button" (click)="printProducts()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg> Print</button></li>
+              </ul>
             </div>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-10 w-40 p-2 shadow-lg border border-base-300">
-              <li>
-                <button type="button" (click)="exportToExcel()" [disabled]="products.length === 0" class="gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Excel
-                </button>
-              </li>
-              <li>
-                <button type="button" (click)="exportToCSV()" [disabled]="products.length === 0" class="gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  CSV
-                </button>
-              </li>
-              <li>
-                <button type="button" (click)="exportToPDF()" [disabled]="products.length === 0" class="gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                  PDF
-                </button>
-              </li>
-              <li>
-                <button type="button" (click)="printProducts()" [disabled]="products.length === 0" class="gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Print
-                </button>
-              </li>
-            </ul>
+
+            <button type="button" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition flex items-center gap-2 cursor-pointer" (click)="openCreateModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+              Add Product
+            </button>
           </div>
+
+        </div>
       </div>
 
       <!-- Real-time Progress Bar -->
       @if (isImporting && importProgress > 0) {
-        <div class="my-4 p-4 rounded-2xl bg-base-200 border border-info flex flex-col gap-2">
-          <div class="flex justify-between items-center text-sm font-bold text-info">
+        <div class="my-4 p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col gap-2">
+          <div class="flex justify-between items-center text-sm font-bold text-blue-700">
             <span>{{ importStatusMessage || 'Processing Import...' }}</span>
             <span>{{ importProgress }}%</span>
           </div>
-          <progress class="progress progress-info w-full" [value]="importProgress" max="100"></progress>
+          <p-progressBar [value]="importProgress" [showValue]="false" [style]="{'height': '8px'}"></p-progressBar>
         </div>
       }
 
-      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
-        <div class="overflow-x-auto px-4">
-          <table class="table table-zebra table-pin-rows">
-            <thead>
+      <div class="w-full max-w-full overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-sm my-6">
+        <p-table [value]="products" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm">
+          <ng-template pTemplate="header">
               <tr>
                 <th class="w-12 text-center">
                   <label>
-                    <input type="checkbox" class="checkbox checkbox-sm" 
+                    <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
                            [checked]="isAllSelected" 
                            (change)="toggleSelectAll()" />
                   </label>
                 </th>
                 @if (visibleColumns.has('name')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('name')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('name')">
                     <div class="flex items-center gap-1">
                       Name
                       @if (sortBy === 'name') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('codeNumber')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('codeNumber')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('codeNumber')">
                     <div class="flex items-center gap-1">
                       Code Number
                       @if (sortBy === 'codeNumber') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('year')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('year')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('year')">
                     <div class="flex items-center gap-1">
                       Year
                       @if (sortBy === 'year') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('plateNumber')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('plateNumber')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('plateNumber')">
                     <div class="flex items-center gap-1">
                       Plate Number
                       @if (sortBy === 'plateNumber') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('engineNumber')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('engineNumber')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('engineNumber')">
                     <div class="flex items-center gap-1">
                       Engine/Serial #
                       @if (sortBy === 'engineNumber') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('category')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('category')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('category')">
                     <div class="flex items-center gap-1">
                       Category
                       @if (sortBy === 'category') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('brand')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('brand')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('brand')">
                     <div class="flex items-center gap-1">
                       Brand
                       @if (sortBy === 'brand') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('department')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('department')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('department')">
                     <div class="flex items-center gap-1">
                       Department
                       @if (sortBy === 'department') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('quality')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('quality')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('quality')">
                     <div class="flex items-center gap-1">
                       Condition
                       @if (sortBy === 'quality') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('responsiblePerson')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('responsiblePerson')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('responsiblePerson')">
                     <div class="flex items-center gap-1">
                       Responsible Person
                       @if (sortBy === 'responsiblePerson') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('initialQuantity')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors text-right" (click)="sortTable('initialQuantity')">
+                  <th class="text-base font-bold cursor-pointer transition-colors text-right" (click)="sortTable('initialQuantity')">
                     <div class="flex items-center justify-end gap-1">
                       Qty
                       @if (sortBy === 'initialQuantity') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('voucherNumber')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('voucherNumber')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('voucherNumber')">
                     <div class="flex items-center gap-1">
                       Voucher #
                       @if (sortBy === 'voucherNumber') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('donorName')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('donorName')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('donorName')">
                     <div class="flex items-center gap-1">
                       Donor
                       @if (sortBy === 'donorName') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('supplier')) {
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('supplierName')">
+                    <div class="flex items-center gap-1">
+                      Supplier
+                      @if (sortBy === 'supplierName') {
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('purchaseType')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('purchaseType')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('purchaseType')">
                     <div class="flex items-center gap-1">
                       Acquisition Type
                       @if (sortBy === 'purchaseType') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 @if (visibleColumns.has('price')) {
-                  <th class="text-base font-bold cursor-pointer hover:bg-base-200 transition-colors" (click)="sortTable('price')">
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('price')">
                     <div class="flex items-center gap-1">
                       Price
                       @if (sortBy === 'price') {
-                        <span class="text-xs">{{ isAscending ? '↑' : '↓' }}</span>
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
+                      }
+                    </div>
+                  </th>
+                }
+                @if (visibleColumns.has('description')) {
+                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('description')">
+                    <div class="flex items-center gap-1">
+                      Description
+                      @if (sortBy === 'description') {
+                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
                       }
                     </div>
                   </th>
                 }
                 <th class="text-center text-base font-bold">Actions</th>
               </tr>
-            </thead>
-            <tbody>
-              @for (item of products; track item.id) {
+          </ng-template>
+          <ng-template pTemplate="body" let-item>
                 <tr [ngClass]="getQualityRowClass(item.quality || getLookupName(qualities, item.qualityId))">
                   <td>
                     <label>
-                      <input type="checkbox" class="checkbox checkbox-sm" 
+                      <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" 
                              [checked]="selectedProducts.has(item.id!)" 
                              (change)="toggleSelection(item.id!)" />
                     </label>
@@ -425,10 +451,24 @@ export interface ExtendedProductDto extends ProductDto {
                   @if (visibleColumns.has('donorName')) {
                     <td>{{ item.donorName || '-' }}</td>
                   }
+                  @if (visibleColumns.has('supplier')) {
+                    <td>
+                      <div class="text-sm">{{ item.supplierName || '-' }}</div>
+                      @if (item.supplierContact) {
+                        <div class="text-xs text-gray-500">{{ item.supplierContact }}</div>
+                  } @else if (item.supplierContactList && item.supplierContactList.length > 0) {
+                    <div class="text-xs text-gray-500">
+                      @for (contact of item.supplierContactList; track contact) {
+                        <span class="mr-2">{{contact}}</span>
+                      }
+                    </div>
+                      }
+                    </td>
+                  }
                   @if (visibleColumns.has('purchaseType')) {
                     <td>
                       @if (item.purchaseType) {
-                        <span class="badge badge-sm" [class.badge-success]="item.purchaseType === 'Donated'" [class.badge-info]="item.purchaseType === 'Purchased'">{{ item.purchaseType }}</span>
+                        <p-badge [value]="item.purchaseType" [severity]="item.purchaseType === 'Donated' ? 'success' : 'info'"></p-badge>
                       } @else {
                         -
                       }
@@ -437,13 +477,16 @@ export interface ExtendedProductDto extends ProductDto {
                   @if (visibleColumns.has('price')) {
                     <td>{{ item.price | number:'1.2-2' }}</td>
                   }
+                  @if (visibleColumns.has('description')) {
+                    <td class="whitespace-normal">{{ item.description || '-' }}</td>
+                  }
                   <td>
                     <div class="flex gap-2 justify-center">
-                      <div class="tooltip tooltip-top" data-tip="Transfer Stock">
+                      <div title="Transfer Stock">
                         <button
                           type="button"
                           aria-label="Transfer stock"
-                          class="btn btn-success btn-sm btn-square text-success-content"
+                          class="p-2 rounded-full text-green-600 hover:bg-green-50 transition-colors"
                           (click)="openTransferModal(item)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -452,11 +495,11 @@ export interface ExtendedProductDto extends ProductDto {
                         </button>
                       </div>
 
-                      <div class="tooltip tooltip-top" data-tip="View Product">
+                      <div title="View Product">
                         <button
                           type="button"
                           aria-label="View product"
-                          class="btn btn-info btn-sm btn-square text-primary-content"
+                          class="p-2 rounded-full text-blue-600 hover:bg-blue-50 transition-colors"
                           (click)="openViewModal(item)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -465,11 +508,11 @@ export interface ExtendedProductDto extends ProductDto {
                           </svg>
                         </button>
                       </div>
-                      <div class="tooltip tooltip-top" data-tip="Edit Product">
+                      <div title="Edit Product">
                         <button
                           type="button"
                           aria-label="Edit product"
-                          class="btn btn-warning btn-sm btn-square text-primary-content"
+                          class="p-2 rounded-full text-yellow-600 hover:bg-yellow-50 transition-colors"
                           (click)="openEditModal(item)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -477,11 +520,11 @@ export interface ExtendedProductDto extends ProductDto {
                           </svg>
                         </button>
                       </div>
-                      <div class="tooltip tooltip-top" data-tip="Delete Product">
+                      <div title="Delete Product">
                         <button
                           type="button"
                           aria-label="Delete product"
-                          class="btn btn-error btn-sm btn-square text-error-content"
+                          class="p-2 rounded-full text-red-600 hover:bg-red-50 transition-colors"
                           (click)="confirmDelete(item)"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -492,15 +535,17 @@ export interface ExtendedProductDto extends ProductDto {
                     </div>
                   </td>
                 </tr>
-              } @empty {
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
                 <tr>
-                  <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-base-content/60">No products match your search.</td>
+                  <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-gray-500">No products match your search.</td>
                 </tr>
-              }
-            </tbody>
-            <tfoot *ngIf="totalItems > 0">
-              <tr>
-                <td [attr.colspan]="visibleColumnCount" class="p-0 border-t border-base-200">
+          </ng-template>
+        </p-table>
+
+        <!-- Custom pagination is kept to ensure your loadProducts() logic still works perfectly! -->
+            @if (totalItems > 0) {
+          <div class="p-2 border-t border-gray-200 bg-white">
                   <app-pagination 
                     [totalItems]="totalItems" 
                     [pageSize]="pageSize" 
@@ -508,39 +553,25 @@ export interface ExtendedProductDto extends ProductDto {
                     (pageChange)="goToPage($event)"
                     (pageSizeChange)="onPageSizeChange($event)">
                   </app-pagination>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+          </div>
+            }
       </div>
 
-      @if (loading) {
-        <div class="alert alert-info border-0 bg-info/10 text-info">Loading products...</div>
-      }
       @if (errorMessage) {
-        <div class="alert alert-error border-0 bg-error/10 text-error">{{ errorMessage }}</div>
+        <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 border border-red-200">{{ errorMessage }}</div>
       }
     </section>
 
     <!-- Edit/Create Product Modal -->
-    <dialog id="product-form-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box max-w-3xl">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 z-10">✕</button>
-        </form>
-        <h3 class="font-bold text-lg mb-4">
-          {{ isEditing ? 'Edit Product' : 'Create New Product' }}
-        </h3>
-
-        <form (ngSubmit)="saveProduct()" #productForm="ngForm" class="space-y-4">
+    <p-dialog [header]="isEditing ? 'Edit Product' : 'Create New Product'" [(visible)]="isFormModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '800px'}">
+        <form (ngSubmit)="saveProduct()" #productForm="ngForm" class="space-y-4 pt-2">
           <!-- Top Section: Image on Right, Name/Code on Left -->
           <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Left: Product Name & Code Number -->
             <div class="md:col-span-2 space-y-4">
-              <div class="form-control w-full">
-                <label class="label">
-                  <span class="label-text font-semibold">Product Name <span class="text-error">*</span></span>
+              <div class="flex flex-col w-full">
+                <label class="py-2">
+                  <span class="font-semibold text-gray-700 text-sm">Product Name <span class="text-red-500">*</span></span>
                 </label>
                 <input
                   type="text"
@@ -548,27 +579,27 @@ export interface ExtendedProductDto extends ProductDto {
                   name="name"
                   required
                   placeholder="e.g. Laptop Dell XPS 15"
-                  class="input input-bordered w-full"
+                  class="p-inputtext p-component w-full"
                 />
               </div>
 
-              <div class="form-control w-full">
-                <label class="label">
-                  <span class="label-text font-semibold">Code Number</span>
+              <div class="flex flex-col w-full mt-4">
+                <label class="py-2">
+                  <span class="font-semibold text-gray-700 text-sm">Code Number</span>
                 </label>
                 <input
                   type="text"
                   [(ngModel)]="selectedProduct.codeNumber"
                   name="codeNumber"
                   placeholder="e.g. PROD-001"
-                  class="input input-bordered w-full"
+                  class="p-inputtext p-component w-full"
                 />
               </div>
             </div>
 
             <!-- Right: Image Upload Area -->
             <div class="flex flex-col items-center gap-3">
-              <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-base-300 bg-base-200 hover:border-primary transition-colors cursor-pointer"
+              <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-500 transition-colors cursor-pointer"
                    (click)="triggerImageUpload()">
                 @if (imagePreview) {
                   <img [src]="imagePreview" alt="Product preview" class="w-full h-full object-cover" />
@@ -576,7 +607,7 @@ export interface ExtendedProductDto extends ProductDto {
                   <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button
                       type="button"
-                      class="btn btn-sm btn-circle btn-primary"
+                      class="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
                       (click)="$event.stopPropagation(); triggerImageUpload()"
                       title="Change image"
                     >
@@ -587,7 +618,7 @@ export interface ExtendedProductDto extends ProductDto {
                     </button>
                     <button
                       type="button"
-                      class="btn btn-sm btn-circle btn-error"
+                      class="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition"
                       (click)="$event.stopPropagation(); removeImage()"
                       title="Remove image"
                     >
@@ -597,7 +628,7 @@ export interface ExtendedProductDto extends ProductDto {
                     </button>
                   </div>
                 } @else {
-                  <div class="w-full h-full flex flex-col items-center justify-center text-base-content/40">
+                  <div class="w-full h-full flex flex-col items-center justify-center text-gray-400">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
@@ -608,14 +639,14 @@ export interface ExtendedProductDto extends ProductDto {
                 
                 <!-- Loading overlay -->
                 @if (imageLoading) {
-                  <div class="absolute inset-0 bg-base-300/80 flex items-center justify-center">
-                    <span class="loading loading-spinner loading-lg"></span>
+                  <div class="absolute inset-0 bg-gray-200/80 flex items-center justify-center">
+                    <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
                   </div>
                 }
               </div>
               
               <!-- Upload button below image -->
-              <label class="btn btn-sm btn-outline gap-2 cursor-pointer w-full">
+              <label class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center justify-center gap-2 cursor-pointer w-full">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                 </svg>
@@ -632,29 +663,29 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <!-- Divider -->
-          <div class="divider my-2"></div>
+          <div class="border-t border-gray-200 my-4"></div>
 
           <!-- Rest of Form Fields -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-control w-full">
-              <label class="label">
-                <span class="label-text font-semibold">Category</span>
+            <div class="flex flex-col w-full">
+              <label class="py-2">
+                <span class="font-semibold text-gray-700 text-sm">Category</span>
               </label>
               <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="input input-bordered w-full pr-14" placeholder="Select or type new category..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
+                <input type="text" [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="p-inputtext p-component w-full pr-14" placeholder="Select or type new category..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
                 <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   @if (lookupsLoading) {
-                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
                   }
                   @if (selectedProduct.categoryName) {
-                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')">✕</button>
+                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')">✕</button>
                   }
                 </div>
                 @if (showSuggestions['category'] && (filteredSuggestions['category']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['category']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('category', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      <li (mousedown)="selectSuggestion('category', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
                       </li>
                     }
                   </ul>
@@ -662,25 +693,25 @@ export interface ExtendedProductDto extends ProductDto {
               </div>
             </div>
 
-            <div class="form-control w-full">
-              <label class="label">
-                <span class="label-text font-semibold">Brand</span>
+            <div class="flex flex-col w-full">
+              <label class="py-2">
+                <span class="font-semibold text-gray-700 text-sm">Brand</span>
               </label>
               <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="input input-bordered w-full pr-14" placeholder="e.g. Dell" (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
+                <input type="text" [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="p-inputtext p-component w-full pr-14" placeholder="e.g. Dell" (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
                 <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   @if (lookupsLoading) {
-                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
                   }
                   @if (selectedProduct.brandName) {
-                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')">✕</button>
+                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')">✕</button>
                   }
                 </div>
                 @if (showSuggestions['brand'] && (filteredSuggestions['brand']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['brand']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('brand', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      <li (mousedown)="selectSuggestion('brand', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
                       </li>
                     }
                   </ul>
@@ -690,25 +721,25 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-control w-full">
-              <label class="label">
-                <span class="label-text font-semibold">Department</span>
+            <div class="flex flex-col w-full">
+              <label class="py-2">
+                <span class="font-semibold text-gray-700 text-sm">Department</span>
               </label>
               <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="input input-bordered w-full pr-14" placeholder="Select or type new department..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
+                <input type="text" [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="p-inputtext p-component w-full pr-14" placeholder="Select or type new department..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
                 <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                   @if (lookupsLoading) {
-                    <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
                   }
                   @if (selectedProduct.departmentName) {
-                    <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')">✕</button>
+                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')">✕</button>
                   }
                 </div>
                 @if (showSuggestions['department'] && (filteredSuggestions['department']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                     @for (suggestion of filteredSuggestions['department']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('department', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                      <li (mousedown)="selectSuggestion('department', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
+                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
                       </li>
                     }
                   </ul>
@@ -717,9 +748,9 @@ export interface ExtendedProductDto extends ProductDto {
             </div>
           </div>
 
-          <div class="form-control w-full">
-            <label class="label">
-              <span class="label-text font-semibold">Price <span class="text-error">*</span></span>
+          <div class="flex flex-col w-full">
+            <label class="py-2">
+              <span class="font-semibold text-gray-700 text-sm">Price <span class="text-red-500">*</span></span>
             </label>
             <input
               type="number"
@@ -727,22 +758,22 @@ export interface ExtendedProductDto extends ProductDto {
               name="price"
               required
               placeholder="e.g. 1200.00"
-              class="input input-bordered w-full"
+              class="p-inputtext p-component w-full"
               step="0.01"
               min="0"
             />
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-control w-full">
-              <label class="label">
-                <span class="label-text font-semibold">Quality</span>
+            <div class="flex flex-col w-full">
+              <label class="py-2">
+                <span class="font-semibold text-gray-700 text-sm">Quality</span>
               </label>
               <select
                 [(ngModel)]="selectedProduct.qualityId"
                 (ngModelChange)="onQualityChange($event)"
                 name="quality"
-                class="select select-bordered w-full"
+                class="p-inputtext p-component w-full py-2"
               >
                 <option value="">Select quality...</option>
               @for (q of qualities; track q.id) {
@@ -754,67 +785,67 @@ export interface ExtendedProductDto extends ProductDto {
 
           <!-- Vehicle Specific Fields (Only shows if Motorbike or Car) -->
           @if (isVehicleCategory) {
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-base-200/50 p-4 rounded-xl border border-base-300">
-              <div class="form-control w-full">
-                <label class="label">
-                  <span class="label-text font-semibold">Year</span>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+              <div class="flex flex-col w-full">
+                <label class="py-2">
+                  <span class="font-semibold text-gray-700 text-sm">Year</span>
                 </label>
                 <input
                   type="date"
                   [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'"
                   (ngModelChange)="onYearChange($event)"
                   name="year"
-                  class="input input-bordered w-full bg-base-100"
+                  class="p-inputtext p-component w-full bg-white"
                   [max]="todayString"
                 />
               </div>
-              <div class="form-control w-full">
-                <label class="label">
-                  <span class="label-text font-semibold">Plate Number</span>
+              <div class="flex flex-col w-full">
+                <label class="py-2">
+                  <span class="font-semibold text-gray-700 text-sm">Plate Number</span>
                 </label>
                 <input
                   type="text"
                   [(ngModel)]="selectedProduct.plateNumber"
                   name="plateNumber"
                   placeholder="e.g. 1A-1234"
-                  class="input input-bordered w-full bg-base-100"
+                  class="p-inputtext p-component w-full bg-white"
                 />
               </div>
-              <div class="form-control w-full">
-                <label class="label">
-                  <span class="label-text font-semibold">Engine / Serial Number</span>
+              <div class="flex flex-col w-full">
+                <label class="py-2">
+                  <span class="font-semibold text-gray-700 text-sm">Engine / Serial Number</span>
                 </label>
                 <input
                   type="text"
                   [(ngModel)]="selectedProduct.engineNumber"
                   name="engineNumber"
                   placeholder="e.g. ENG-123456"
-                  class="input input-bordered w-full bg-base-100"
+                  class="p-inputtext p-component w-full bg-white"
                 />
               </div>
             </div>
           }
 
-          <div class="form-control w-full">
-            <label class="label">
-              <span class="label-text font-semibold">Description</span>
+          <div class="flex flex-col w-full">
+            <label class="py-2">
+              <span class="font-semibold text-gray-700 text-sm">Description</span>
             </label>
             <textarea
               [(ngModel)]="selectedProduct.description"
               name="description"
               placeholder="Product description..."
-              class="textarea textarea-bordered w-full"
+              class="p-inputtext p-component w-full"
               rows="3"
             ></textarea>
           </div>
 
           <!-- Stock Acquisition -->
           @if (!isEditing || (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None')) {
-            <div class="divider my-2">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-300">
-                <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
-                  <label class="label"><span class="label-text font-semibold">Acquisition Type</span></label>
-                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="select select-bordered w-full bg-base-100" [disabled]="disablePurchaseFields">
+            <div class="flex items-center text-sm font-semibold text-gray-400 my-4 before:flex-1 before:border-t before:border-gray-200 before:mr-4 after:flex-1 after:border-t after:border-gray-200 after:ml-4">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/30 p-4 rounded-xl border border-gray-200">
+                <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Acquisition Type</span></label>
+                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="p-inputtext p-component w-full bg-white py-2" [disabled]="disablePurchaseFields">
                     <option [ngValue]="null">None (Just setup product catalog)</option>
                     <option value="Purchased">Purchased</option>
                     <option value="Donated">Donated</option>
@@ -822,27 +853,27 @@ export interface ExtendedProductDto extends ProductDto {
                 </div>
                 
                 @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
-                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="label"><span class="label-text font-semibold">Initial Quantity <span class="text-error">*</span></span></label>
-                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" />
+                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Initial Quantity <span class="text-red-500">*</span></span></label>
+                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="p-inputtext p-component w-full bg-white" [disabled]="disablePurchaseFields" />
                   </div>
-                  <div class="form-control w-full">
-                    <label class="label"><span class="label-text font-semibold">Responsible Person</span></label>
+                  <div class="flex flex-col w-full">
+                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Responsible Person</span></label>
                     <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="input input-bordered w-full bg-base-100 pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="p-inputtext p-component w-full bg-white pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
                       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         @if (lookupsLoading) {
-                          <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                          <i class="pi pi-spin pi-spinner text-gray-400"></i>
                         }
                         @if (selectedProduct.responsiblePerson) {
-                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
+                          <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
                         }
                       </div>
                       @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
-                        <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                        <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                           @for (suggestion of filteredSuggestions['person']; track suggestion) {
-                            <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                              {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                            <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
+                              {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
                             </li>
                           }
                         </ul>
@@ -852,55 +883,55 @@ export interface ExtendedProductDto extends ProductDto {
                 }
                 
                 @if (selectedProduct.purchaseType === 'Purchased') {
-                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="label"><span class="label-text font-semibold">Supplier Name</span></label>
+                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Supplier Name</span></label>
                     <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="input input-bordered w-full bg-base-100 pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
+                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="p-inputtext p-component w-full bg-white pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
                       <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                         @if (lookupsLoading) {
-                          <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+                          <i class="pi pi-spin pi-spinner text-gray-400"></i>
                         }
                         @if (selectedProduct.supplierName) {
-                          <button type="button" class="btn btn-xs btn-circle btn-ghost text-base-content/40 hover:text-base-content" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [disabled]="disablePurchaseFields">✕</button>
+                          <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [disabled]="disablePurchaseFields">✕</button>
                         }
                       </div>
                       @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
-                        <ul class="absolute z-50 w-full bg-base-200 shadow-lg rounded-box mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
+                        <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
                           @for (suggestion of filteredSuggestions['supplier']; track suggestion) {
-                            <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-base-300 cursor-pointer">
-                              {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-success">(Add new)</span> }
+                            <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
+                              {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
                             </li>
                           }
                         </ul>
                       }
                     </div>
                   </div>
-                    <div class="form-control w-full">
-                    <label class="label"><span class="label-text font-semibold">Voucher Number</span></label>
-                      <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="input input-bordered w-full bg-base-100" placeholder="e.g. INV-12345" />
+                    <div class="flex flex-col w-full">
+                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Voucher Number</span></label>
+                      <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="p-inputtext p-component w-full bg-white" placeholder="e.g. INV-12345" />
                   </div>
                 }
                 
                 @if (selectedProduct.purchaseType === 'Donated') {
-                  <div class="form-control w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="label"><span class="label-text font-semibold">Donor Name</span></label>
-                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="input input-bordered w-full bg-base-100" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
+                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Donor Name</span></label>
+                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="p-inputtext p-component w-full bg-white" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
                   </div>
                 }
               </div>
           }
 
-          <div class="modal-action">
-            <button type="button" class="btn btn-ghost" (click)="closeModal()">{{ isEditing ? 'Close' : 'Cancel' }}</button>
+          <div class="flex justify-end gap-2 mt-6">
+            <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeModal()">{{ isEditing ? 'Close' : 'Cancel' }}</button>
             <button
               type="submit"
-              class="btn btn-primary"
+              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
               [disabled]="!isProductFormValid || !productForm.form.valid || imageLoading"
             >
               @if (imageLoading) {
-                <span class="loading loading-spinner loading-sm"></span>
+                <i class="pi pi-spin pi-spinner text-sm"></i>
               } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                 </svg>
               }
@@ -908,197 +939,116 @@ export interface ExtendedProductDto extends ProductDto {
             </button>
           </div>
         </form>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- View Product Modal -->
-    <dialog id="product-view-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box max-w-3xl">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 z-10">✕</button>
-        </form>
+    <p-dialog header="Product Details" [(visible)]="isViewModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '800px'}">
         @if (viewProduct) {
-          <div class="space-y-6">
+          <div class="space-y-6 pt-2">
             <!-- Header -->
             <div class="flex items-start gap-6">
               @if (viewProduct.imageUrl) {
-                <div class="w-32 h-32 rounded-xl overflow-hidden border-2 border-base-300 flex-shrink-0">
+                <div class="w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0">
                   <img [src]="viewProduct.imageUrl" [alt]="viewProduct.name" class="w-full h-full object-cover" />
                 </div>
               } @else {
-                <div class="w-32 h-32 rounded-xl bg-base-200 flex items-center justify-center flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-base-content/30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="w-32 h-32 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
               }
               <div class="flex-1">
-                <h3 class="font-bold text-2xl mb-2">{{ viewProduct.name }}</h3>
+                <h3 class="font-bold text-3xl mb-2">{{ viewProduct.name }}</h3>
                 <div class="flex flex-wrap gap-2">
                   @if (viewProduct.categoryName) {
-                    <span class="badge badge-primary badge-outline">{{ viewProduct.categoryName }}</span>
+                    <p-badge [value]="viewProduct.categoryName" severity="primary"></p-badge>
                   }
                   @if (viewProduct.brandName) {
-                    <span class="badge badge-secondary badge-outline">{{ viewProduct.brandName }}</span>
+                    <p-badge [value]="viewProduct.brandName" severity="secondary"></p-badge>
                   }
                   @if (viewProduct.quality || viewProduct.qualityId) {
-                    <span class="badge badge-accent badge-outline">{{ viewProduct.quality || getLookupName(qualities, viewProduct.qualityId) }}</span>
+                    <p-badge [value]="viewProduct.quality || getLookupName(qualities, viewProduct.qualityId) || ''" severity="info"></p-badge>
                   }
                 </div>
               </div>
             </div>
 
             <!-- Divider -->
-            <div class="divider my-2"></div>
+            <div class="border-t border-gray-200 my-4"></div>
 
             <!-- Product Details Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <!-- Code Number -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Code Number</p>
-                <p class="text-base font-medium">{{ viewProduct.codeNumber || '-' }}</p>
+              <!-- Item Name -->
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Item Name</p>
+                <p class="text-lg font-medium">{{ viewProduct.name || '-' }}</p>
               </div>
 
-              <!-- Year -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Year</p>
-                <p class="text-base font-medium">{{ viewProduct.year ? (viewProduct.year | date:'yyyy') : '-' }}</p>
+              <!-- Code Number -->
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Code Number</p>
+                <p class="text-lg font-medium">{{ viewProduct.codeNumber || '-' }}</p>
+              </div>
+
+              <!-- Brand -->
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Brand</p>
+                <p class="text-lg font-medium">{{ viewProduct.brandName || getLookupName(brands, viewProduct.brandId) || '-' }}</p>
               </div>
 
               <!-- Department -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Department</p>
-                <p class="text-base font-medium">{{ viewProduct.departmentName || getLookupName(departments, viewProduct.departmentId) || '-' }}</p>
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Department</p>
+                <p class="text-lg font-medium">{{ viewProduct.departmentName || getLookupName(departments, viewProduct.departmentId) || '-' }}</p>
               </div>
-
-              <!-- Conditional Vehicle Fields in View Modal -->
-              @if (viewProduct.plateNumber) {
-                <div class="bg-base-200/50 rounded-lg p-4">
-                  <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Plate Number</p>
-                  <p class="text-base font-medium">{{ viewProduct.plateNumber }}</p>
-                </div>
-              }
-              @if (viewProduct.engineNumber) {
-                <div class="bg-base-200/50 rounded-lg p-4">
-                  <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Engine / Serial Number</p>
-                  <p class="text-base font-medium">{{ viewProduct.engineNumber }}</p>
-                </div>
-              }
 
               <!-- Price -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Price</p>
-                <p class="text-base font-medium text-primary">{{ viewProduct.price ? '$' + (viewProduct.price | number:'1.2-2') : '-' }}</p>
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Price</p>
+                <p class="text-lg font-medium text-blue-600">{{ viewProduct.price ? '$' + (viewProduct.price | number:'1.2-2') : '-' }}</p>
               </div>
 
-              <!-- Created Date -->
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-1">Created Date</p>
-                <p class="text-base font-medium">{{ viewProduct.createdDate ? (viewProduct.createdDate | date:'shortDate') : '-' }}</p>
+              <!-- Voucher Number -->
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Voucher Number</p>
+                <p class="text-lg font-medium">{{ viewProduct.voucherNumber || '-' }}</p>
               </div>
-            </div>
 
-            <!-- Description -->
-            @if (viewProduct.description) {
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Description</p>
-                <p class="text-base whitespace-pre-wrap">{{ viewProduct.description }}</p>
-              </div>
-            }
-
-            <!-- Contact Information -->
-            @if (parsedContacts.length > 0) {
-              <div class="bg-base-200/50 rounded-lg p-4">
-                <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Contact Information</p>
-                @for (contact of parsedContacts; track $index) {
-                  <p class="text-base font-medium">{{ contact.type }}: {{ contact.value }}</p>
-                }
-              </div>
-            }
-
-            <!-- Purchase History Table for View Modal -->
-            <div class="grid grid-cols-1">
-              <p class="text-xs font-semibold text-base-content/60 uppercase tracking-wider mb-2">Purchase History</p>
-              <div class="overflow-x-auto rounded-xl border border-base-300">
-                <table class="table table-zebra table-sm w-full">
-                  <thead class="bg-base-200">
-                    <tr>
-                      <th>Date</th>
-                      <th>Voucher #</th>
-                      <th>Supplier</th>
-                      <th class="text-right">Qty</th>
-                      <th class="text-right">Unit Price</th>
-                      <th class="text-right">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @if (historyLoading) {
-                      <tr><td colspan="6" class="text-center py-4"><span class="loading loading-spinner loading-sm"></span></td></tr>
-                    } @else if (purchaseHistory.length === 0) {
-                      <tr><td colspan="6" class="text-center py-4 text-base-content/60">No purchase history found for this product.</td></tr>
-                    } @else {
-                      @for (item of purchaseHistory; track item.purchaseId) {
-                        <tr>
-                          <td>{{ item.purchaseDate | date:'shortDate' }}</td>
-                          <td>{{ item.voucherNumber || '-' }}</td>
-                          <td>{{ item.supplierName || '-' }}</td>
-                          <td class="text-right">{{ item.quantity }}</td>
-                          <td class="text-right">{{ item.unitPrice | currency }}</td>
-                          <td class="text-right">{{ item.totalPrice | currency }}</td>
-                        </tr>
-                      }
-                    }
-                  </tbody>
-                  <tfoot class="bg-base-200 font-bold">
-                    <tr>
-                      <td colspan="6" class="text-right">Total Purchased: {{ getTotalPurchased() }} units</td>
-                    </tr>
-                  </tfoot>
-                </table>
+              <!-- Purchase Date -->
+              <div class="bg-gray-50/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Purchase Date</p>
+                <p class="text-lg font-medium">{{ viewProduct.invoiceDate ? (viewProduct.invoiceDate | date:'shortDate') : (viewProduct.createdDate ? (viewProduct.createdDate | date:'shortDate') : '-') }}</p>
               </div>
             </div>
           </div>
-
-          <!-- Action Buttons -->
-          <div class="modal-action">
-            <form method="dialog">
-              <button type="submit" class="btn btn-ghost">Close</button>
-            </form>
-            <button type="button" class="btn btn-warning gap-2" (click)="closeViewAndEdit()">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit Product
-            </button>
-          </div>
+          
+          <ng-template pTemplate="footer">
+            <div class="flex justify-end gap-2 w-full mt-4">
+              <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeViewModal()">Close</button>
+              <button type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition flex items-center gap-2" (click)="closeViewAndEdit()">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Product
+              </button>
+            </div>
+          </ng-template>
         }
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- Stock Transfer Modal -->
-    <dialog id="stock-transfer-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <h3 class="font-bold text-lg mb-4">Transfer Stock</h3>
-        
+    <p-dialog header="Transfer Stock" [(visible)]="isTransferModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '500px'}">
         @if (productToTransfer) {
-          <div class="space-y-4">
-            <div class="bg-base-200 p-3 rounded-lg text-sm">
+          <div class="space-y-4 pt-2">
+                <div class="bg-gray-100 p-3 rounded-lg text-sm">
               <p><strong>Product:</strong> {{ productToTransfer.name }}</p>
               <p><strong>Current Dept:</strong> {{ productToTransfer.departmentName || getLookupName(departments, productToTransfer.departmentId) || 'None' }}</p>
             </div>
 
-            <div class="form-control w-full">
-              <label class="label"><span class="label-text font-semibold">Target Department <span class="text-error">*</span></span></label>
-              <select [(ngModel)]="transferTargetDepartmentId" class="select select-bordered w-full">
+                <div class="flex flex-col w-full">
+                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Target Department <span class="text-red-500">*</span></span></label>
+                  <select [(ngModel)]="transferTargetDepartmentId" class="p-inputtext p-component w-full py-2">
                 <option value="" disabled>Select destination department...</option>
                 @for (dept of departments; track dept.id) {
                   @if (dept.id !== productToTransfer.departmentId) {
@@ -1108,186 +1058,161 @@ export interface ExtendedProductDto extends ProductDto {
               </select>
             </div>
 
-            <div class="form-control w-full">
-              <label class="label"><span class="label-text font-semibold">Quantity to Transfer <span class="text-error">*</span></span></label>
-              <input type="number" [(ngModel)]="transferQuantity" min="1" class="input input-bordered w-full" />
+                <div class="flex flex-col w-full">
+                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Quantity to Transfer <span class="text-red-500">*</span></span></label>
+                  <input type="number" [(ngModel)]="transferQuantity" min="1" class="p-inputtext p-component w-full" />
             </div>
 
-            <div class="form-control w-full">
-              <label class="label"><span class="label-text font-semibold">Transfer Notes</span></label>
-              <textarea [(ngModel)]="transferNotes" class="textarea textarea-bordered w-full" placeholder="Reason for transfer..."></textarea>
+                <div class="flex flex-col w-full">
+                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Transfer Notes</span></label>
+                  <textarea [(ngModel)]="transferNotes" class="p-inputtext p-component w-full" placeholder="Reason for transfer..."></textarea>
             </div>
 
-            <div class="modal-action mt-6">
-              <button type="button" class="btn btn-ghost" (click)="closeTransferModal()">Cancel</button>
+            <ng-template pTemplate="footer">
+              <div class="flex justify-end gap-2 w-full mt-4">
+                  <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeTransferModal()">Cancel</button>
               <button 
                 type="button" 
-                class="btn btn-success" 
+                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2" 
                 [disabled]="!transferTargetDepartmentId || transferQuantity < 1 || isTransferring"
                 (click)="executeTransfer()"
               >
-                @if (isTransferring) { <span class="loading loading-spinner loading-sm"></span> }
+                    @if (isTransferring) { <i class="pi pi-spin pi-spinner text-sm"></i> }
                 Confirm Transfer
               </button>
-            </div>
+              </div>
+            </ng-template>
           </div>
         }
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- Delete Confirmation Modal -->
-    <dialog id="product-delete-confirm-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
+    <p-dialog header="Confirm Deletion" [(visible)]="isDeleteModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
         @if (productToDelete) {
-          <div class="flex flex-col items-center text-center">
+          <div class="flex flex-col items-center text-center pt-2">
             <div class="mb-4">
-              <div class="rounded-full p-4 bg-error/10">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div class="rounded-full p-4 bg-red-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
             </div>
 
-            <h3 class="font-bold text-lg mb-2 text-error">Confirm Product Deletion</h3>
-
-            <p class="text-base-content/70 mb-4">
-              Are you sure you want to <strong class="text-error">delete</strong> the product
+                <p class="text-gray-500 mb-4">
+                  Are you sure you want to <strong class="text-red-600">delete</strong> the product
               <span class="font-bold">{{ productToDelete.name }}</span>?
             </p>
 
-            <div class="alert alert-warning mb-4">
+                <div class="bg-yellow-50 text-yellow-800 p-4 mb-4 rounded-lg flex items-center gap-3 w-full text-left">
               <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
               <span class="text-sm">This action cannot be undone!</span>
             </div>
 
-            <div class="flex w-full gap-3">
-              <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()">
-                Cancel
-              </button>
-              <button
-                class="btn btn-error flex-1 text-white"
-                type="button"
-                (click)="executeDelete()"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Delete Product
-              </button>
-            </div>
+            <ng-template pTemplate="footer">
+              <div class="flex w-full gap-3 mt-4">
+                    <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition flex-1" type="button" (click)="closeDeleteModal()">
+                  Cancel
+                </button>
+                <button
+                      class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition flex-1 flex items-center justify-center gap-2"
+                  type="button"
+                  (click)="executeDelete()"
+                >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  Delete Product
+                </button>
+              </div>
+            </ng-template>
           </div>
         }
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- Bulk Delete Confirmation Modal -->
-    <dialog id="product-bulk-delete-confirm-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <div class="flex flex-col items-center text-center">
+    <p-dialog header="Confirm Bulk Deletion" [(visible)]="isBulkDeleteModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
+        <div class="flex flex-col items-center text-center pt-2">
           <div class="mb-4">
-            <div class="rounded-full p-4 bg-error/10">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="rounded-full p-4 bg-red-100">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
           </div>
-          <h3 class="font-bold text-lg mb-2 text-error">Confirm Bulk Deletion</h3>
-          <p class="text-base-content/70 mb-4">
-            Are you sure you want to <strong class="text-error">delete {{ selectedProducts.size }} selected products</strong>?
+              <p class="text-gray-500 mb-4">
+                Are you sure you want to <strong class="text-red-600">delete {{ selectedProducts.size }} selected products</strong>?
           </p>
-          <div class="alert alert-warning mb-4">
+              <div class="bg-yellow-50 text-yellow-800 p-4 mb-4 rounded-lg flex items-center gap-3 w-full text-left">
             <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
             <span class="text-sm">This action cannot be undone!</span>
           </div>
-          <div class="flex w-full gap-3">
-            <button class="btn btn-ghost flex-1" type="button" (click)="closeBulkDeleteModal()">Cancel</button>
-            <button
-              class="btn btn-error flex-1 text-white"
-              type="button"
-              (click)="executeBulkDelete()"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-              Delete Selected
-            </button>
-          </div>
+          <ng-template pTemplate="footer">
+            <div class="flex w-full gap-3 mt-4">
+                  <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition flex-1" type="button" (click)="closeBulkDeleteModal()">Cancel</button>
+              <button
+                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition flex-1 flex items-center justify-center gap-2"
+                type="button"
+                (click)="executeBulkDelete()"
+              >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                Delete Selected
+              </button>
+            </div>
+          </ng-template>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- Success/Error/Warning Message Modal -->
-    <dialog id="product-message-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box">
-        <form method="dialog">
-          <button type="submit" aria-label="Close dialog" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button>
-        </form>
-        <div class="flex flex-col items-center text-center">
+    <p-dialog [header]="messageTitle" [(visible)]="isMessageModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
+        <div class="flex flex-col items-center text-center pt-2">
           <div class="mb-4">
-            <div class="rounded-full p-4" [class]="messageType === 'success' ? 'bg-success/10' : messageType === 'warning' ? 'bg-warning/10' : 'bg-error/10'">
+                <div class="rounded-full p-4" [class]="messageType === 'success' ? 'bg-green-100' : messageType === 'warning' ? 'bg-yellow-100' : 'bg-red-100'">
               @if (messageType === 'success') {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               }
               @if (messageType === 'warning') {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               }
               @if (messageType === 'error') {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               }
             </div>
           </div>
 
-          <h3 class="font-bold text-lg mb-2" [class]="messageType === 'success' ? 'text-success' : messageType === 'warning' ? 'text-warning' : 'text-error'">{{ messageTitle }}</h3>
           <p class="text-base-content/70 mb-4">{{ messageContent }}</p>
 
-          <div class="flex w-full">
-            <button class="btn btn-ghost flex-1" type="button" (click)="closeMessageModal()">OK</button>
-          </div>
+          <ng-template pTemplate="footer">
+            <div class="flex w-full mt-4">
+              <button class="btn btn-ghost flex-1" type="button" (click)="closeMessageModal()">OK</button>
+            </div>
+          </ng-template>
         </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="submit" aria-label="Close dialog">close</button>
-      </form>
-    </dialog>
+    </p-dialog>
 
     <!-- Import Errors Modal -->
-    <dialog id="product-import-errors-modal" class="modal modal-bottom sm:modal-middle" [class.modal-open]="importErrors.length > 0">
-      <div class="modal-box">
-        <h3 class="font-bold text-lg mb-2 text-error">Import Completed with Errors</h3>
-        <p class="text-base-content/70 mb-4">Some rows failed validation. Please review the specific errors below:</p>
-        <div class="overflow-y-auto max-h-60 bg-base-200 rounded-lg p-2">
+    <p-dialog header="Import Completed with Errors" [visible]="importErrors.length > 0" (visibleChange)="importErrors = $event ? importErrors : []" [modal]="true" [style]="{width: '100%', maxWidth: '500px'}">
+        <p class="text-base-content/70 mb-4 pt-2">Some rows failed validation. Please review the specific errors below:</p>
+        <div class="overflow-y-auto max-h-60 bg-base-200 rounded-lg p-3">
           <ul class="list-disc list-inside px-4">
             @for (err of importErrors; track $index) {
               <li class="text-error text-sm py-1">{{ err }}</li>
             }
           </ul>
         </div>
-        <div class="modal-action">
-          <button type="button" class="btn btn-primary" (click)="importErrors = []">Dismiss</button>
-        </div>
-      </div>
-    </dialog>
+        <ng-template pTemplate="footer">
+          <div class="flex justify-end w-full mt-4">
+            <button type="button" class="btn btn-primary" (click)="importErrors = []">Dismiss</button>
+          </div>
+        </ng-template>
+    </p-dialog>
   `
 })
 export class ProductsComponent implements OnInit, OnDestroy {
@@ -1354,9 +1279,20 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   // Pagination states
   protected currentPage = 1;
-  protected pageSize = 5;
+  private readonly PAGE_SIZE_STORAGE_KEY = 'school_ui_products_page_size';
+  protected pageSize = this.getInitialPageSize();
   protected totalItems = 0;
   protected totalPages = 0;
+
+  private getInitialPageSize(): number {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(this.PAGE_SIZE_STORAGE_KEY);
+      if (saved && !isNaN(parseInt(saved, 10))) {
+        return parseInt(saved, 10);
+      }
+    }
+      return 10; // Default page size
+  }
 
   // Sorting states
   protected sortBy: string = 'createdDate';
@@ -1367,6 +1303,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected filterDepartment = '';
   protected filterQuality = '';
   protected filterPurchaseType = '';
+  protected filterPrice = '';
 
   // Column visibility
   protected availableColumns = [
@@ -1383,11 +1320,27 @@ export class ProductsComponent implements OnInit, OnDestroy {
     { id: 'initialQuantity', label: 'Qty' },
     { id: 'voucherNumber', label: 'Voucher #' },
     { id: 'donorName', label: 'Donor' },
+    { id: 'supplier', label: 'Supplier' },
     { id: 'purchaseType', label: 'Acquisition Type' },
     { id: 'price', label: 'Price' },
     { id: 'description', label: 'Description' }
   ];
-  protected visibleColumns = new Set(this.availableColumns.map(c => c.id));
+  private readonly COLUMNS_STORAGE_KEY = 'school_ui_products_columns';
+  protected visibleColumns = new Set<string>(this.getInitialVisibleColumns());
+
+  private getInitialVisibleColumns(): string[] {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(this.COLUMNS_STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error('Failed to parse saved columns', e);
+        }
+      }
+    }
+    return this.availableColumns.map(c => c.id);
+  }
 
   protected getQualityRowClass(qualityName: string | null | undefined): string {
     if (!qualityName) return 'hover:bg-base-200';
@@ -1410,6 +1363,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
     } else {
       this.visibleColumns.add(colId);
     }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.COLUMNS_STORAGE_KEY, JSON.stringify(Array.from(this.visibleColumns)));
+    }
   }
 
   protected get visibleColumnCount(): number {
@@ -1423,6 +1379,13 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected viewProduct: ExtendedProductDto | null = null;
   protected messageType: 'success' | 'error' | 'warning' = 'success';
   protected messageTitle = '';
+
+  protected isFormModalVisible = false;
+  protected isViewModalVisible = false;
+  protected isTransferModalVisible = false;
+  protected isDeleteModalVisible = false;
+  protected isBulkDeleteModalVisible = false;
+  protected isMessageModalVisible = false;
 
   // Transfer states
   protected productToTransfer: ExtendedProductDto | null = null;
@@ -1447,12 +1410,17 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected importProgress = 0;
   protected importStatusMessage = '';
   private hubConnection: signalR.HubConnection | null = null;
+  private signalRTimeoutId: any;
 
   protected purchaseHistory: ProductPurchaseHistoryDto[] = [];
   protected historyLoading = false;
 
   protected get disablePurchaseFields(): boolean {
-    return this.isEditing && (this.historyLoading || this.purchaseHistory.length > 0);
+    return this.isEditing && this.historyLoading;
+  }
+
+  protected get currentPageValue(): number {
+    return this.products.reduce((sum, p) => sum + (p.price || 0), 0);
   }
 
   protected getTotalPurchased(): number {
@@ -1466,6 +1434,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.signalRTimeoutId) {
+      clearTimeout(this.signalRTimeoutId);
+    }
     this.hubConnection?.stop();
   }
 
@@ -1506,6 +1477,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
     });
 
     this.hubConnection.start().catch((err: any) => console.error('SignalR Connection Error: ', err));
+    this.signalRTimeoutId = setTimeout(() => {
+      this.hubConnection?.start().catch((err: any) => console.error('SignalR Connection Error: ', err));
+    }, 50);
   }
 
   protected loadLookups(): void {
@@ -1574,6 +1548,15 @@ export class ProductsComponent implements OnInit, OnDestroy {
     if (selectedDept?.id) (query as any).departmentId = selectedDept.id;
     if (selectedQuality?.id) (query as any).qualityId = selectedQuality.id;
     if (this.filterPurchaseType) (query as any).purchaseType = this.filterPurchaseType;
+
+    if (this.filterPrice === 'under100') {
+      (query as any).maxPrice = 99.99;
+    } else if (this.filterPrice === 'equal100') {
+      (query as any).minPrice = 100;
+      (query as any).maxPrice = 100;
+    } else if (this.filterPrice === 'over100') {
+      (query as any).minPrice = 100.01;
+    }
 
     // Fallback for free-text filters that don't have IDs
     if (this.filterCategory && !selectedCat?.id) {
@@ -1681,6 +1664,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   protected onPageSizeChange(value: number | string): void {
     this.pageSize = typeof value === 'string' ? parseInt(value, 10) : value;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(this.PAGE_SIZE_STORAGE_KEY, this.pageSize.toString());
+    }
     this.currentPage = 1;
     this.totalPages = Math.ceil(this.totalItems / this.pageSize);
     this.loadProducts();
@@ -1761,19 +1747,19 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.selectedProduct = this.getEmptyProduct();
     this.contacts = [{ type: 'Phone', value: '' }];
     this.clearImageState();
-    const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isFormModalVisible = true;
   }
 
-  private parseContactString(contactString: string | null | undefined): { type: string, value: string }[] {
-    if (!contactString) {
+  private parseContactString(contactData: any): { type: string, value: string }[] {
+    if (!contactData) {
       return [];
     }
-    return contactString.split(' | ').map(part => {
-      const [type, value] = part.split(': ', 2);
-      return { type: type || 'Unknown', value: value || '' };
+    if (typeof contactData === 'object') {
+      return Object.keys(contactData).map(k => ({ type: k, value: contactData[k] }));
+    }
+    return String(contactData).split(' | ').map(part => {
+      const [type, ...rest] = part.split(': ');
+      return { type: type || 'Unknown', value: rest.join(': ') || '' };
     }).filter(contact => contact.value !== '');
   }
 
@@ -1802,18 +1788,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
       this.historyLoading = false;
     }
 
-    const modal = document.getElementById('product-view-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isViewModalVisible = true;
   }
 
   protected closeViewModal(): void {
-    this.viewProduct = null;
-    const modal = document.getElementById('product-view-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
+    this.isViewModalVisible = false;
   }
 
   protected closeViewAndEdit(): void {
@@ -1858,17 +1837,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
       this.historyLoading = false;
     }
 
-    const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isFormModalVisible = true;
   }
 
   protected closeModal(): void {
-    const modal = document.getElementById('product-form-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
+    this.isFormModalVisible = false;
     this.clearImageState();
   }
 
@@ -2035,18 +2008,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.transferTargetDepartmentId = '';
     this.transferQuantity = 1;
     this.transferNotes = '';
-    const modal = document.getElementById('stock-transfer-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isTransferModalVisible = true;
   }
 
   protected closeTransferModal(): void {
-    const modal = document.getElementById('stock-transfer-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
-    this.productToTransfer = null;
+    this.isTransferModalVisible = false;
   }
 
   protected executeTransfer(): void {
@@ -2078,18 +2044,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   protected confirmDelete(product: ExtendedProductDto): void {
     this.productToDelete = product;
-    const modal = document.getElementById('product-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isDeleteModalVisible = true;
   }
 
   protected closeDeleteModal(): void {
-    const modal = document.getElementById('product-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
-    this.productToDelete = null;
+    this.isDeleteModalVisible = false;
   }
 
   protected executeDelete(): void {
@@ -2109,17 +2068,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected confirmBulkDelete(): void {
-    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isBulkDeleteModalVisible = true;
   }
 
   protected closeBulkDeleteModal(): void {
-    const modal = document.getElementById('product-bulk-delete-confirm-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
+    this.isBulkDeleteModalVisible = false;
   }
 
   protected executeBulkDelete(): void {
@@ -2145,17 +2098,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.messageType = type;
     this.messageTitle = title;
     this.messageContent = content;
-    const modal = document.getElementById('product-message-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.showModal();
-    }
+    this.isMessageModalVisible = true;
   }
 
   protected closeMessageModal(): void {
-    const modal = document.getElementById('product-message-modal') as HTMLDialogElement;
-    if (modal) {
-      modal.close();
-    }
+    this.isMessageModalVisible = false;
   }
 
   protected onImageSelected(event: Event): void {
@@ -2531,11 +2478,92 @@ export class ProductsComponent implements OnInit, OnDestroy {
       case 'initialQuantity': return product.initialQuantity?.toString() || fallback;
       case 'voucherNumber': return product.voucherNumber || fallback;
       case 'donorName': return product.donorName || fallback;
+      case 'supplier': 
+        let contactStr = '';
+        if (product.supplierContact) {
+          contactStr = typeof product.supplierContact === 'string' ? product.supplierContact : Object.entries(product.supplierContact).map(([k, v]) => `${k}: ${v}`).join(' | ');
+        } else if (product.supplierContactList && product.supplierContactList.length > 0) {
+          contactStr = product.supplierContactList.join(' | ');
+        }
+        return product.supplierName ? `${product.supplierName}${contactStr ? ` (${contactStr})` : ''}` : fallback;
       case 'purchaseType': return product.purchaseType || fallback;
       case 'price': return product.price != null ? `$${product.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
       case 'description': return product.description || fallback;
       default: return fallback;
     }
+  }
+
+  private getGroupedExportRows(activeColumns: any[], isCsv: boolean, isExcel: boolean): any[] {
+    // Sort products by name to group them together for subtotals
+    const sortedProducts = [...this.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const rows: any[] = [];
+    let currentName = '';
+    let subTotal = 0;
+    let grandTotal = 0;
+    let itemCount = 0;
+    const hasPrice = activeColumns.some(c => c.id === 'price');
+
+    const formatPrice = (val: number) => {
+      if (isExcel) return val;
+      return `$${val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
+
+    const flushSubtotal = () => {
+      // Only show a subtotal row if there is more than 1 item with the same name
+      if (currentName !== '' && hasPrice && itemCount > 1) {
+        const subRow: any = {};
+        activeColumns.forEach((col, idx) => {
+          if (idx === 0) {
+            subRow[col.id] = `Subtotal (${currentName})`;
+          } else if (col.id === 'price') {
+            subRow[col.id] = formatPrice(subTotal);
+          } else {
+            subRow[col.id] = '';
+          }
+        });
+        subRow._isSubtotal = true;
+        rows.push(subRow);
+      }
+    };
+
+    sortedProducts.forEach(p => {
+      const pName = p.name || 'Unknown';
+      if (pName !== currentName) {
+        flushSubtotal();
+        currentName = pName;
+        subTotal = 0;
+        itemCount = 0;
+      }
+
+      const rowData: any = {};
+      activeColumns.forEach(col => {
+        rowData[col.id] = (isExcel && col.id === 'price') ? (p.price || 0) : this.getColumnValue(p, col.id, isCsv);
+      });
+      rows.push(rowData);
+
+      subTotal += (p.price || 0);
+      grandTotal += (p.price || 0);
+      itemCount++;
+    });
+
+    flushSubtotal(); // Flush the final group
+
+    if (hasPrice && rows.length > 0) {
+      const totalRow: any = {};
+      activeColumns.forEach((col, idx) => {
+        if (idx === 0) {
+          totalRow[col.id] = 'Grand Total';
+        } else if (col.id === 'price') {
+          totalRow[col.id] = formatPrice(grandTotal);
+        } else {
+          totalRow[col.id] = '';
+        }
+      });
+      totalRow._isTotal = true;
+      rows.push(totalRow);
+    }
+
+    return rows;
   }
 
   protected async exportToExcel(): Promise<void> {
@@ -2552,12 +2580,13 @@ export class ProductsComponent implements OnInit, OnDestroy {
       width: 20
     }));
 
-    this.products.forEach(p => {
-      const rowData: any = {};
-      activeColumns.forEach(col => {
-        rowData[col.id] = col.id === 'price' ? (p.price || 0) : this.getColumnValue(p, col.id, false);
-      });
-      worksheet.addRow(rowData);
+    const rowsData = this.getGroupedExportRows(activeColumns, false, true);
+
+    rowsData.forEach(row => {
+      const worksheetRow = worksheet.addRow(row);
+      if (row._isSubtotal || row._isTotal) {
+        worksheetRow.font = { bold: true };
+      }
     });
 
     worksheet.getRow(1).font = { bold: true };
@@ -2625,9 +2654,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
     const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
     const headers = activeColumns.map(col => col.label);
 
+      const rowsData = this.getGroupedExportRows(activeColumns, false, false);
     // Table
-    const tableData = this.products.map(p => 
-      activeColumns.map(col => this.getColumnValue(p, col.id, false))
+      const tableData = rowsData.map(r => 
+        activeColumns.map(col => r[col.id] != null ? String(r[col.id]) : '')
     );
 
     const priceIndex = activeColumns.findIndex(c => c.id === 'price');
@@ -2653,7 +2683,18 @@ export class ProductsComponent implements OnInit, OnDestroy {
         fontSize: 8,
         cellPadding: 3
       },
-      columnStyles: customColumnStyles
+        columnStyles: customColumnStyles,
+        didParseCell: (data: any) => {
+          const rowData = rowsData[data.row.index];
+          if (rowData && (rowData._isSubtotal || rowData._isTotal)) {
+            data.cell.styles.fontStyle = 'bold';
+            if (rowData._isTotal) {
+              data.cell.styles.fillColor = [220, 220, 220]; // Slightly darker for grand total
+            } else {
+              data.cell.styles.fillColor = [240, 240, 240];
+            }
+          }
+        }
     });
 
     // Footer with total count
@@ -2686,23 +2727,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
     const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
     const headersHtml = activeColumns.map(col => `<th>${col.label}</th>`).join('');
 
-    const priceIndex = activeColumns.findIndex(c => c.id === 'price');
-    let tfootHtml = '';
-    if (priceIndex !== -1) {
-      const totalValue = this.products.reduce((sum, p) => sum + (p.price || 0), 0);
-      const formattedTotal = `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      tfootHtml = `
-        <tfoot>
-          <tr>
-            ${activeColumns.map((col, index) => {
-              if (index === 0) return `<th>Total Value</th>`;
-              if (col.id === 'price') return `<th style="text-align: right;">${formattedTotal}</th>`;
-              return `<th></th>`;
-            }).join('')}
-          </tr>
-        </tfoot>
-      `;
-    }
+      const rowsData = this.getGroupedExportRows(activeColumns, false, false);
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -2734,13 +2759,12 @@ export class ProductsComponent implements OnInit, OnDestroy {
             </tr>
           </thead>
           <tbody>
-            ${this.products.map(p => `
-              <tr>
-                ${activeColumns.map(col => `<td>${this.getColumnValue(p, col.id, false)}</td>`).join('')}
-              </tr>
-            `).join('')}
+              ${rowsData.map(r => `
+                <tr style="${r._isSubtotal || r._isTotal ? 'font-weight: bold; background-color: #e5e7eb;' : ''}">
+                  ${activeColumns.map(col => `<td ${col.id === 'price' ? 'style="text-align: right;"' : ''}>${r[col.id] != null ? String(r[col.id]) : ''}</td>`).join('')}
+                </tr>
+              `).join('')}
           </tbody>
-          ${tfootHtml}
         </table>
         <div class="footer">
           Total Products: ${this.products.length} | Generated: ${new Date().toLocaleString()}
@@ -2764,6 +2788,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
     if (this.filterDepartment) filters.push(`Department: ${this.filterDepartment}`);
     if (this.filterQuality) filters.push(`Condition: ${this.filterQuality}`);
     if (this.filterPurchaseType) filters.push(`Acquisition: ${this.filterPurchaseType}`);
+    if (this.filterPrice) filters.push(`Price: ${this.filterPrice}`);
     if (this.sortBy) {
       const sortDirection = this.isAscending ? 'Ascending' : 'Descending';
       filters.push(`Sort: ${this.sortBy} (${sortDirection})`);
