@@ -10,6 +10,7 @@ namespace SchoolAPI.Controllers;
 [Route("api/[controller]")]
 [ApiController]
 [Authorize]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class ChatController : ControllerBase
 {
     private readonly IWebHostEnvironment _env;

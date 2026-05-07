@@ -18,6 +18,7 @@ namespace SchoolAPI.Controllers;
 
 [Route("api/users")]
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Authorize(Roles = "Admin")] // Protect this controller at the Admin level or use a specific Policy
 public class UserManagementController : ControllerBase
 {

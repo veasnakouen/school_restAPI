@@ -19,7 +19,11 @@ import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
-import { SharedModule } from 'primeng/api';
+import { TooltipModule } from 'primeng/tooltip';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmationService, MessageService, SharedModule } from 'primeng/api';
+import { InputTextModule } from 'primeng/inputtext';
+import { PopoverModule } from 'primeng/popover';
 
 export interface ExtendedProductDto extends ProductDto {
   qualityId?: string | null;
@@ -31,7 +35,7 @@ export interface ExtendedProductDto extends ProductDto {
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent, TableModule, BadgeModule, ButtonModule, DialogModule, ProgressBarModule, SharedModule],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent, TableModule, BadgeModule, ButtonModule, DialogModule, ProgressBarModule, TooltipModule, ToastModule, InputTextModule, SharedModule, PopoverModule],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -39,98 +43,66 @@ export interface ExtendedProductDto extends ProductDto {
           <div class="flex flex-row items-center gap-2 mb-1">
             <p-badge value="Resource Reporting" severity="info" styleClass="font-semibold tracking-wider text-xs"></p-badge>
           </div>
-          <h2 class="text-3xl font-bold tracking-tight text-gray-800">Inventory Report Builder</h2>
-          <p class="max-w-2xl text-sm text-gray-500">Filter, analyze, and generate comprehensive reports for your school's resources.</p>
+          <h2 class="text-3xl font-bold tracking-tight text-base-content">Inventory Report Builder</h2>
+          <p class="max-w-2xl text-sm text-base-content/70">Filter, analyze, and generate comprehensive reports for your school's resources.</p>
         </div>
 
         <!-- Quick Summary Stats -->
-        <div class="flex flex-row divide-x shadow-sm border border-gray-200 bg-gray-50/50 rounded-lg w-full md:w-auto">
+        <div class="flex flex-row divide-x shadow-sm border border-base-300 bg-base-200/50 rounded-lg w-full md:w-auto">
           <div class="flex flex-col py-2 px-4">
-            <div class="text-xs font-semibold text-gray-500">Total Resources</div>
-            <div class="text-lg font-bold text-blue-600">{{ totalItems }}</div>
+            <div class="text-xs font-semibold text-base-content/70">Total Resources</div>
+            <div class="text-lg font-bold text-primary">{{ totalItems }}</div>
           </div>
           <div class="flex flex-col py-2 px-4">
-            <div class="text-xs font-semibold text-gray-500">Categories</div>
-            <div class="text-lg font-bold text-gray-800">{{ uniqueCategories.length }}</div>
-          </div>
-          <div class="flex flex-col py-2 px-4">
-            <div class="text-xs font-semibold text-gray-500">Page Value</div>
-            <div class="text-lg font-bold text-green-600">\${{ currentPageValue | number:'1.2-2' }}</div>
+            <div class="text-xs font-semibold text-base-content/70">Categories</div>
+            <div class="text-lg font-bold text-base-content">{{ uniqueCategories.length }}</div>
           </div>
         </div>
       </div>
 
       <div class="flex flex-col gap-4">
         <!-- Filters Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4 items-end bg-gray-50/50 p-4 rounded-2xl border border-gray-200">
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Search</span></label>
-            <input
-              [(ngModel)]="search"
-              (ngModelChange)="onSearchChange()"
-              placeholder="Search products..."
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white"
-            />
+        <div class="flex flex-wrap gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
+          <div class="min-w-[180px] flex-1 sm:min-w-[200px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Search</label>
+            <div class="relative">
+              <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+              <input [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Search products..." class="w-full rounded-md border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
           </div>
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Category</span></label>
-            <select
-              [(ngModel)]="filterCategory"
-              (ngModelChange)="onFilterChange()"
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
-            >
-              <option value="">All Categories</option>
-              @for (catName of uniqueCategories; track catName) {
-                <option [value]="catName">{{ catName }}</option>
-              }
+          <div class="min-w-[140px] flex-1 sm:min-w-[160px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Category</label>
+            <select [(ngModel)]="filterCategory" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">All</option>
+              @for (cat of categories; track cat.id) { <option [value]="cat.name">{{ cat.name }}</option> }
             </select>
           </div>
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Department</span></label>
-            <select
-              [(ngModel)]="filterDepartment"
-              (ngModelChange)="onFilterChange()"
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
-            >
-              <option value="">All Departments</option>
-              @for (deptName of uniqueDepartments; track deptName) {
-                <option [value]="deptName">{{ deptName }}</option>
-              }
+          <div class="min-w-[140px] flex-1 sm:min-w-[160px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Department</label>
+            <select [(ngModel)]="filterDepartment" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">All</option>
+              @for (dept of departments; track dept.id) { <option [value]="dept.name">{{ dept.name }}</option> }
             </select>
           </div>
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Condition</span></label>
-            <select
-              [(ngModel)]="filterQuality"
-              (ngModelChange)="onFilterChange()"
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
-            >
-              <option value="">All Conditions</option>
-              @for (q of qualities; track q.id) {
-                <option [value]="q.name">{{ q.name }}</option>
-              }
+          <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Condition</label>
+            <select [(ngModel)]="filterQuality" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">All</option>
+              @for (q of qualities; track q.id) { <option [value]="q.name">{{ q.name }}</option> }
             </select>
           </div>
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Acquisition</span></label>
-            <select
-              [(ngModel)]="filterPurchaseType"
-              (ngModelChange)="onFilterChange()"
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
-            >
-              <option value="">All Types</option>
+          <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Acquisition</label>
+            <select [(ngModel)]="filterPurchaseType" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">All</option>
               <option value="Purchased">Purchased</option>
               <option value="Donated">Donated</option>
             </select>
           </div>
-          <div class="flex flex-col w-full">
-            <label class="py-1"><span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Price Range</span></label>
-            <select
-              [(ngModel)]="filterPrice"
-              (ngModelChange)="onFilterChange()"
-              class="p-inputtext p-component p-inputtext-sm w-full bg-white appearance-none py-1.5"
-            >
-              <option value="">All Prices</option>
+          <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Price</label>
+            <select [(ngModel)]="filterPrice" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+              <option value="">All</option>
               <option value="under100">Under $100</option>
               <option value="equal100">Exactly $100</option>
               <option value="over100">Over $100</option>
@@ -138,831 +110,371 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
         </div>
 
-        <!-- Toolbar: Bulk Actions & Primary Actions -->
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white py-1">
-          <div class="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+        <!-- Toolbar -->
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-2">
+          <div class="flex items-center gap-2">
             @if (selectedProducts.size > 0) {
-              <div class="relative group">
-                <div tabindex="0" role="button" class="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition flex items-center gap-2 cursor-pointer">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  Delete Selected ({{ selectedProducts.size }})
-                </div>
-                <ul tabindex="0" class="absolute hidden group-focus-within:block bg-white rounded-lg z-10 w-52 p-2 shadow-lg border border-gray-200 mt-1">
-                  <li>
-                    <button type="button" (click)="confirmBulkDelete()" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm text-red-600 font-semibold">
-                      Confirm Delete
-                    </button>
-                  </li>
-                </ul>
-              </div>
+              <p-button label="Delete Selected ({{ selectedProducts.size }})" icon="pi pi-trash" severity="danger" (onClick)="confirmBulkDelete()"></p-button>
             }
-            <div class="relative group">
-              <div tabindex="0" role="button" class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center gap-2 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
-                Columns
-              </div>
-              <ul tabindex="0" class="absolute hidden group-focus-within:block bg-white rounded-lg z-10 w-52 p-2 shadow-lg border border-gray-200 max-h-96 overflow-y-auto mt-1">
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <p-button label="Columns" icon="pi pi-sliders-h" severity="secondary" [outlined]="true" (onClick)="columnPanel.toggle($event)"></p-button>
+            <p-button label="Export" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportPanel.toggle($event)"></p-button>
+            <p-button label="Add Product" icon="pi pi-plus" (onClick)="openCreateModal()"></p-button>
+
+            <p-popover #columnPanel>
+              <div class="flex flex-col gap-1 w-52 max-h-[60vh] overflow-y-auto p-1">
                 @for (col of availableColumns; track col.id) {
-                  <li>
-                    <a (click)="toggleColumnVisibility(col.id, $event)" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-3 cursor-pointer">
-                      <input type="checkbox" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" [checked]="visibleColumns.has(col.id)" (click)="$event.stopPropagation(); toggleColumnVisibility(col.id, $event)" />
-                      {{ col.label }}
-                    </a>
-                  </li>
-                }
-              </ul>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2 items-center w-full sm:w-auto sm:justify-end">
-            <label class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center gap-2 cursor-pointer" [class.opacity-50]="isImporting" [class.cursor-not-allowed]="isImporting">
-              @if (isImporting) {
-                <i class="pi pi-spin pi-spinner text-xs"></i>
-                @if (importProgress > 0) { {{ importProgress }}% } @else { Uploading... }
-              } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                Import
-              }
-              <input type="file" class="hidden" accept=".xlsx" (change)="handleImportExcel($event)" [disabled]="isImporting" />
-            </label>
-
-            <div class="relative group">
-              <div tabindex="0" role="button" class="px-3 py-1.5 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition shadow-sm flex items-center gap-2 cursor-pointer">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                Generate Report
-              </div>
-              <ul tabindex="0" class="absolute hidden right-0 group-focus-within:block bg-white rounded-lg z-10 w-40 p-2 shadow-lg border border-gray-200 mt-1">
-                <li><button type="button" (click)="exportToExcel()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> Excel</button></li>
-                <li><button type="button" (click)="exportToCSV()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg> CSV</button></li>
-                <li><button type="button" (click)="exportToPDF()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg> PDF</button></li>
-                <li><button type="button" (click)="printProducts()" [disabled]="products.length === 0" class="w-full text-left px-3 py-2 hover:bg-gray-50 rounded text-sm flex items-center gap-2 disabled:opacity-50"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg> Print</button></li>
-              </ul>
-            </div>
-
-            <button type="button" class="px-3 py-1.5 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition flex items-center gap-2 cursor-pointer" (click)="openCreateModal()">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-              Add Product
-            </button>
-          </div>
-
-        </div>
-      </div>
-
-      <!-- Real-time Progress Bar -->
-      @if (isImporting && importProgress > 0) {
-        <div class="my-4 p-4 rounded-2xl bg-blue-50 border border-blue-200 flex flex-col gap-2">
-          <div class="flex justify-between items-center text-sm font-bold text-blue-700">
-            <span>{{ importStatusMessage || 'Processing Import...' }}</span>
-            <span>{{ importProgress }}%</span>
-          </div>
-          <p-progressBar [value]="importProgress" [showValue]="false" [style]="{'height': '8px'}"></p-progressBar>
-        </div>
-      }
-
-      <div class="w-full max-w-full overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-sm my-6">
-        <p-table [value]="products" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm">
-          <ng-template pTemplate="header">
-              <tr>
-                <th class="w-12 text-center">
-                  <label>
-                    <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600"
-                           [checked]="isAllSelected" 
-                           (change)="toggleSelectAll()" />
+                  <label class="flex items-center gap-3 cursor-pointer p-2 hover:bg-base-200 rounded-md transition-colors">
+                    <input type="checkbox" [checked]="visibleColumns.has(col.id)" (change)="toggleColumnVisibility(col.id, $event)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+                    <span class="text-sm font-medium text-base-content/80">{{ col.label }}</span>
                   </label>
-                </th>
-                @if (visibleColumns.has('name')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('name')">
-                    <div class="flex items-center gap-1">
-                      Name
-                      @if (sortBy === 'name') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
                 }
-                @if (visibleColumns.has('codeNumber')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('codeNumber')">
-                    <div class="flex items-center gap-1">
-                      Code Number
-                      @if (sortBy === 'codeNumber') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('year')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('year')">
-                    <div class="flex items-center gap-1">
-                      Year
-                      @if (sortBy === 'year') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('plateNumber')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('plateNumber')">
-                    <div class="flex items-center gap-1">
-                      Plate Number
-                      @if (sortBy === 'plateNumber') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('engineNumber')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('engineNumber')">
-                    <div class="flex items-center gap-1">
-                      Engine/Serial #
-                      @if (sortBy === 'engineNumber') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('category')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('category')">
-                    <div class="flex items-center gap-1">
-                      Category
-                      @if (sortBy === 'category') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('brand')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('brand')">
-                    <div class="flex items-center gap-1">
-                      Brand
-                      @if (sortBy === 'brand') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('department')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('department')">
-                    <div class="flex items-center gap-1">
-                      Department
-                      @if (sortBy === 'department') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('quality')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('quality')">
-                    <div class="flex items-center gap-1">
-                      Condition
-                      @if (sortBy === 'quality') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('responsiblePerson')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('responsiblePerson')">
-                    <div class="flex items-center gap-1">
-                      Responsible Person
-                      @if (sortBy === 'responsiblePerson') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('initialQuantity')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors text-right" (click)="sortTable('initialQuantity')">
-                    <div class="flex items-center justify-end gap-1">
-                      Qty
-                      @if (sortBy === 'initialQuantity') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('voucherNumber')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('voucherNumber')">
-                    <div class="flex items-center gap-1">
-                      Voucher #
-                      @if (sortBy === 'voucherNumber') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('donorName')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('donorName')">
-                    <div class="flex items-center gap-1">
-                      Donor
-                      @if (sortBy === 'donorName') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('supplier')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('supplierName')">
-                    <div class="flex items-center gap-1">
-                      Supplier
-                      @if (sortBy === 'supplierName') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('purchaseType')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('purchaseType')">
-                    <div class="flex items-center gap-1">
-                      Acquisition Type
-                      @if (sortBy === 'purchaseType') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('price')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('price')">
-                    <div class="flex items-center gap-1">
-                      Price
-                      @if (sortBy === 'price') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                @if (visibleColumns.has('description')) {
-                  <th class="text-base font-bold cursor-pointer transition-colors" (click)="sortTable('description')">
-                    <div class="flex items-center gap-1">
-                      Description
-                      @if (sortBy === 'description') {
-                        <i class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i>
-                      }
-                    </div>
-                  </th>
-                }
-                <th class="text-center text-base font-bold">Actions</th>
-              </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-item>
-                <tr [ngClass]="getQualityRowClass(item.quality || getLookupName(qualities, item.qualityId))">
-                  <td>
-                    <label>
-                      <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" 
-                             [checked]="selectedProducts.has(item.id!)" 
-                             (change)="toggleSelection(item.id!)" />
-                    </label>
-                  </td>
-                  @if (visibleColumns.has('name')) {
-                    <td class="font-medium">{{ item.name }}</td>
-                  }
-                  @if (visibleColumns.has('codeNumber')) {
-                    <td>{{ item.codeNumber || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('year')) {
-                    <td>{{ item.year ? (item.year | date:'yyyy') : '-' }}</td>
-                  }
-                  @if (visibleColumns.has('plateNumber')) {
-                    <td>{{ item.plateNumber || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('engineNumber')) {
-                    <td>{{ item.engineNumber || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('category')) {
-                    <td>{{ item.categoryName || getLookupName(categories, item.categoryId) || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('brand')) {
-                    <td>{{ item.brandName || getLookupName(brands, item.brandId) || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('department')) {
-                    <td>{{ item.departmentName || getLookupName(departments, item.departmentId) || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('quality')) {
-                    <td>{{ item.quality || getLookupName(qualities, item.qualityId) || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('responsiblePerson')) {
-                    <td>{{ item.responsiblePerson || getLookupName(persons, item.responsiblePersonId) || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('initialQuantity')) {
-                    <td class="text-right">{{ item.initialQuantity || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('voucherNumber')) {
-                    <td>{{ item.voucherNumber || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('donorName')) {
-                    <td>{{ item.donorName || '-' }}</td>
-                  }
-                  @if (visibleColumns.has('supplier')) {
-                    <td>
-                      <div class="text-sm">{{ item.supplierName || '-' }}</div>
-                      @if (item.supplierContact) {
-                        <div class="text-xs text-gray-500">{{ item.supplierContact }}</div>
-                  } @else if (item.supplierContactList && item.supplierContactList.length > 0) {
-                    <div class="text-xs text-gray-500">
-                      @for (contact of item.supplierContactList; track contact) {
-                        <span class="mr-2">{{contact}}</span>
-                      }
-                    </div>
-                      }
-                    </td>
-                  }
-                  @if (visibleColumns.has('purchaseType')) {
-                    <td>
-                      @if (item.purchaseType) {
-                        <p-badge [value]="item.purchaseType" [severity]="item.purchaseType === 'Donated' ? 'success' : 'info'"></p-badge>
-                      } @else {
-                        -
-                      }
-                    </td>
-                  }
-                  @if (visibleColumns.has('price')) {
-                    <td>{{ item.price | number:'1.2-2' }}</td>
-                  }
-                  @if (visibleColumns.has('description')) {
-                    <td class="whitespace-normal">{{ item.description || '-' }}</td>
-                  }
-                  <td>
-                    <div class="flex gap-2 justify-center">
-                      <div title="Transfer Stock">
-                        <button
-                          type="button"
-                          aria-label="Transfer stock"
-                          class="p-2 rounded-full text-green-600 hover:bg-green-50 transition-colors"
-                          (click)="openTransferModal(item)"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                          </svg>
-                        </button>
-                      </div>
+              </div>
+            </p-popover>
 
-                      <div title="View Product">
-                        <button
-                          type="button"
-                          aria-label="View product"
-                          class="p-2 rounded-full text-blue-600 hover:bg-blue-50 transition-colors"
-                          (click)="openViewModal(item)"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div title="Edit Product">
-                        <button
-                          type="button"
-                          aria-label="Edit product"
-                          class="p-2 rounded-full text-yellow-600 hover:bg-yellow-50 transition-colors"
-                          (click)="openEditModal(item)"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                      </div>
-                      <div title="Delete Product">
-                        <button
-                          type="button"
-                          aria-label="Delete product"
-                          class="p-2 rounded-full text-red-600 hover:bg-red-50 transition-colors"
-                          (click)="confirmDelete(item)"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-          </ng-template>
-          <ng-template pTemplate="emptymessage">
-                <tr>
-                  <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-gray-500">No products match your search.</td>
-                </tr>
-          </ng-template>
-        </p-table>
-
-        <!-- Custom pagination is kept to ensure your loadProducts() logic still works perfectly! -->
-            @if (totalItems > 0) {
-          <div class="p-2 border-t border-gray-200 bg-white">
-                  <app-pagination 
-                    [totalItems]="totalItems" 
-                    [pageSize]="pageSize" 
-                    [currentPage]="currentPage"
-                    (pageChange)="goToPage($event)"
-                    (pageSizeChange)="onPageSizeChange($event)">
-                  </app-pagination>
+            <p-popover #exportPanel>
+              <div class="flex flex-col min-w-[150px] p-1">
+                <button class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-md transition-colors text-sm w-full text-left" (click)="exportToExcel(); exportPanel.hide()">
+                  <i class="pi pi-file-excel text-green-600"></i> Excel
+                </button>
+                <button class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-md transition-colors text-sm w-full text-left" (click)="exportToCSV(); exportPanel.hide()">
+                  <i class="pi pi-file text-blue-600"></i> CSV
+                </button>
+                <button class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-md transition-colors text-sm w-full text-left" (click)="exportToPDF(); exportPanel.hide()">
+                  <i class="pi pi-file-pdf text-red-600"></i> PDF
+                </button>
+                <div class="border-t border-base-200 my-1"></div>
+                <button class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-md transition-colors text-sm w-full text-left" (click)="printProducts(); exportPanel.hide()">
+                  <i class="pi pi-print text-gray-600"></i> Print
+                </button>
+              </div>
+            </p-popover>
           </div>
-            }
-      </div>
+        </div>
 
-      @if (errorMessage) {
-        <div class="p-4 mb-4 text-sm text-red-800 rounded-lg bg-red-50 border border-red-200">{{ errorMessage }}</div>
-      }
+        <!-- Table -->
+        <div class="my-6 overflow-x-auto rounded-lg border border-base-300 bg-base-100">
+          <p-table [value]="products" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
+            <ng-template pTemplate="header">
+              <tr>
+                <th style="width: 3rem">
+                  <input type="checkbox" [checked]="isAllSelected" (change)="toggleSelectAll()" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+                </th>
+                @if (visibleColumns.has('name')) { <th class="cursor-pointer" (click)="sortTable('name')">Name <i *ngIf="sortBy === 'name'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('codeNumber')) { <th class="cursor-pointer" (click)="sortTable('codeNumber')">Code Number <i *ngIf="sortBy === 'codeNumber'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('year')) { <th class="cursor-pointer" (click)="sortTable('year')">Year <i *ngIf="sortBy === 'year'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('plateNumber')) { <th class="cursor-pointer" (click)="sortTable('plateNumber')">Plate Number <i *ngIf="sortBy === 'plateNumber'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('engineNumber')) { <th class="cursor-pointer" (click)="sortTable('engineNumber')">Engine/Serial # <i *ngIf="sortBy === 'engineNumber'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('category')) { <th class="cursor-pointer" (click)="sortTable('category')">Category <i *ngIf="sortBy === 'category'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('brand')) { <th class="cursor-pointer" (click)="sortTable('brand')">Brand <i *ngIf="sortBy === 'brand'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('department')) { <th class="cursor-pointer" (click)="sortTable('department')">Department <i *ngIf="sortBy === 'department'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('quality')) { <th class="cursor-pointer" (click)="sortTable('quality')">Condition <i *ngIf="sortBy === 'quality'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('responsiblePerson')) { <th class="cursor-pointer" (click)="sortTable('responsiblePerson')">Responsible Person <i *ngIf="sortBy === 'responsiblePerson'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('initialQuantity')) { <th class="cursor-pointer" (click)="sortTable('initialQuantity')">Qty <i *ngIf="sortBy === 'initialQuantity'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('voucherNumber')) { <th class="cursor-pointer" (click)="sortTable('voucherNumber')">Voucher # <i *ngIf="sortBy === 'voucherNumber'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('donorName')) { <th class="cursor-pointer" (click)="sortTable('donorName')">Donor <i *ngIf="sortBy === 'donorName'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('supplier')) { <th class="cursor-pointer" (click)="sortTable('supplierName')">Supplier <i *ngIf="sortBy === 'supplierName'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('purchaseType')) { <th class="cursor-pointer" (click)="sortTable('purchaseType')">Acquisition Type <i *ngIf="sortBy === 'purchaseType'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('price')) { <th class="cursor-pointer" (click)="sortTable('price')">Price <i *ngIf="sortBy === 'price'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                @if (visibleColumns.has('description')) { <th class="cursor-pointer" (click)="sortTable('description')">Description <i *ngIf="sortBy === 'description'" class="pi" [ngClass]="isAscending ? 'pi-sort-amount-up-alt' : 'pi-sort-amount-down'"></i></th> }
+                <th class="text-center">Actions</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-product>
+              <tr>
+                <td>
+                  <input type="checkbox" [checked]="selectedProducts.has(product.id!)" (change)="toggleSelection(product.id!)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+                </td>
+                @if (visibleColumns.has('name')) { <td class="font-medium">{{ product.name }}</td> }
+                @if (visibleColumns.has('codeNumber')) { <td>{{ product.codeNumber || '-' }}</td> }
+                @if (visibleColumns.has('year')) { <td>{{ product.year ? (product.year | slice:0:4) : '-' }}</td> }
+                @if (visibleColumns.has('plateNumber')) { <td>{{ product.plateNumber || '-' }}</td> }
+                @if (visibleColumns.has('engineNumber')) { <td>{{ product.engineNumber || '-' }}</td> }
+                @if (visibleColumns.has('category')) { <td>{{ product.categoryName || getLookupName(categories, product.categoryId) || '-' }}</td> }
+                @if (visibleColumns.has('brand')) { <td>{{ product.brandName || getLookupName(brands, product.brandId) || '-' }}</td> }
+                @if (visibleColumns.has('department')) { <td>{{ product.departmentName || getLookupName(departments, product.departmentId) || '-' }}</td> }
+                @if (visibleColumns.has('quality')) { <td><p-badge [value]="product.quality || getLookupName(qualities, product.qualityId) || '-'" severity="info"></p-badge></td> }
+                @if (visibleColumns.has('responsiblePerson')) { <td>{{ product.responsiblePerson || getLookupName(persons, product.responsiblePersonId) || '-' }}</td> }
+                @if (visibleColumns.has('initialQuantity')) { <td class="text-right">{{ product.initialQuantity || '-' }}</td> }
+                @if (visibleColumns.has('voucherNumber')) { <td>{{ product.voucherNumber || '-' }}</td> }
+                @if (visibleColumns.has('donorName')) { <td>{{ product.donorName || '-' }}</td> }
+                @if (visibleColumns.has('supplier')) {
+                  <td>
+                    <div class="flex flex-col">
+                      <span>{{ product.supplierName || '-' }}</span>
+                      @if (product.supplierContact) {
+                        <span class="text-xs text-base-content/60">{{ product.supplierContact }}</span>
+                      }
+                    </div>
+                  </td>
+                }
+                @if (visibleColumns.has('purchaseType')) { <td>{{ product.purchaseType || '-' }}</td> }
+                @if (visibleColumns.has('price')) { <td>{{ product.price ? '$' + (product.price | number:'1.2-2') : '-' }}</td> }
+                @if (visibleColumns.has('description')) { <td class="whitespace-normal max-w-[200px] truncate" [pTooltip]="product.description || ''" tooltipPosition="top">{{ product.description || '-' }}</td> }
+                <td class="text-center whitespace-nowrap">
+                  <p-button icon="pi pi-eye" [rounded]="true" [text]="true" severity="info" (onClick)="openViewModal(product)" pTooltip="View"></p-button>
+                  <p-button icon="pi pi-arrow-right-arrow-left" [rounded]="true" [text]="true" severity="success" (onClick)="openTransferModal(product)" pTooltip="Transfer"></p-button>
+                  <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="warn" (onClick)="openEditModal(product)" pTooltip="Edit"></p-button>
+                  <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" (onClick)="confirmDelete(product)" pTooltip="Delete"></p-button>
+                </td>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="emptymessage">
+              <tr>
+                <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-gray-500">No products match your search.</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        </div>
+
+        <app-pagination [totalItems]="totalItems" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)"></app-pagination>
+      </div>
     </section>
 
-    <!-- Edit/Create Product Modal -->
-    <p-dialog [header]="isEditing ? 'Edit Product' : 'Create New Product'" [(visible)]="isFormModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '800px'}">
-        <form (ngSubmit)="saveProduct()" #productForm="ngForm" class="space-y-4 pt-2">
-          <!-- Top Section: Image on Right, Name/Code on Left -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <!-- Left: Product Name & Code Number -->
-            <div class="md:col-span-2 space-y-4">
-              <div class="flex flex-col w-full">
-                <label class="py-2">
-                  <span class="font-semibold text-gray-700 text-sm">Product Name <span class="text-red-500">*</span></span>
-                </label>
-                <input
-                  type="text"
-                  [(ngModel)]="selectedProduct.name"
-                  name="name"
-                  required
-                  placeholder="e.g. Laptop Dell XPS 15"
-                  class="p-inputtext p-component w-full"
-                />
-              </div>
-
-              <div class="flex flex-col w-full mt-4">
-                <label class="py-2">
-                  <span class="font-semibold text-gray-700 text-sm">Code Number</span>
-                </label>
-                <input
-                  type="text"
-                  [(ngModel)]="selectedProduct.codeNumber"
-                  name="codeNumber"
-                  placeholder="e.g. PROD-001"
-                  class="p-inputtext p-component w-full"
-                />
-              </div>
+    <!-- Create/Edit Modal -->
+    <p-dialog [header]="isEditing ? 'Edit Product' : 'Create New Product'" [(visible)]="isFormModalVisible" [modal]="true" [dismissableMask]="true" [style]="{width: '100%', maxWidth: '800px'}">
+      <form id="product-form-modal" (ngSubmit)="saveProduct()" #productForm="ngForm" class="space-y-4 pt-2">
+        <!-- Top Section: Image on Right, Name/Code on Left -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- Left: Product Name & Code Number -->
+          <div class="md:col-span-2 space-y-4">
+            <div class="flex flex-col w-full">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Product Name <span class="text-red-500">*</span></span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.name" name="name" required placeholder="e.g. Laptop Dell XPS 15" class="w-full" />
             </div>
-
-            <!-- Right: Image Upload Area -->
-            <div class="flex flex-col items-center gap-3">
-              <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-500 transition-colors cursor-pointer"
-                   (click)="triggerImageUpload()">
-                @if (imagePreview) {
-                  <img [src]="imagePreview" alt="Product preview" class="w-full h-full object-cover" />
-                  <!-- Overlay actions -->
-                  <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <button
-                      type="button"
-                      class="p-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition"
-                      (click)="$event.stopPropagation(); triggerImageUpload()"
-                      title="Change image"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      class="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition"
-                      (click)="$event.stopPropagation(); removeImage()"
-                      title="Remove image"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </div>
-                } @else {
-                  <div class="w-full h-full flex flex-col items-center justify-center text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-sm font-medium">Click to upload</span>
-                    <span class="text-xs mt-1">Image</span>
-                  </div>
-                }
-                
-                <!-- Loading overlay -->
-                @if (imageLoading) {
-                  <div class="absolute inset-0 bg-gray-200/80 flex items-center justify-center">
-                    <i class="pi pi-spin pi-spinner" style="font-size: 2rem"></i>
-                  </div>
-                }
-              </div>
-              
-              <!-- Upload button below image -->
-              <label class="px-3 py-1.5 border border-gray-300 text-gray-700 text-sm rounded hover:bg-gray-50 transition flex items-center justify-center gap-2 cursor-pointer w-full">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-                {{ imagePreview ? 'Change' : 'Upload' }}
-                <input
-                  id="product-image-input"
-                  type="file"
-                  accept="image/*"
-                  class="hidden"
-                  (change)="onImageSelected($event)"
-                />
-              </label>
+            <div class="flex flex-col w-full mt-4">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Code Number</span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.codeNumber" name="codeNumber" placeholder="e.g. PROD-001" class="w-full" />
             </div>
           </div>
 
-          <!-- Divider -->
-          <div class="border-t border-gray-200 my-4"></div>
-
-          <!-- Rest of Form Fields -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="flex flex-col w-full">
-              <label class="py-2">
-                <span class="font-semibold text-gray-700 text-sm">Category</span>
-              </label>
-              <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="p-inputtext p-component w-full pr-14" placeholder="Select or type new category..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  @if (lookupsLoading) {
-                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
-                  }
-                  @if (selectedProduct.categoryName) {
-                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')">✕</button>
-                  }
+          <!-- Right: Image Upload Area -->
+          <div class="flex flex-col items-center gap-3">
+            <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-500 transition-colors cursor-pointer flex items-center justify-center" (click)="triggerImageUpload()">
+              @if (imagePreview) {
+                <img [src]="imagePreview" alt="Product preview" loading="lazy" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <p-button icon="pi pi-camera" [rounded]="true" severity="info" (onClick)="$event.stopPropagation(); triggerImageUpload()" pTooltip="Change Image"></p-button>
+                  <p-button icon="pi pi-trash" [rounded]="true" severity="danger" (onClick)="$event.stopPropagation(); removeImage()" pTooltip="Remove Image"></p-button>
                 </div>
-                @if (showSuggestions['category'] && (filteredSuggestions['category']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                    @for (suggestion of filteredSuggestions['category']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('category', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
-                      </li>
-                    }
-                  </ul>
-                }
-              </div>
-            </div>
-
-            <div class="flex flex-col w-full">
-              <label class="py-2">
-                <span class="font-semibold text-gray-700 text-sm">Brand</span>
-              </label>
-              <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="p-inputtext p-component w-full pr-14" placeholder="e.g. Dell" (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  @if (lookupsLoading) {
-                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
-                  }
-                  @if (selectedProduct.brandName) {
-                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')">✕</button>
-                  }
+              } @else {
+                <div class="flex flex-col items-center text-gray-400">
+                  <i class="pi pi-image text-3xl mb-2"></i>
+                  <span class="text-sm font-medium">Upload Image</span>
                 </div>
-                @if (showSuggestions['brand'] && (filteredSuggestions['brand']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                    @for (suggestion of filteredSuggestions['brand']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('brand', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
-                      </li>
-                    }
-                  </ul>
-                }
-              </div>
+              }
+              @if (imageLoading) {
+                <div class="absolute inset-0 bg-white/80 flex items-center justify-center">
+                  <i class="pi pi-spin pi-spinner text-2xl text-blue-600"></i>
+                </div>
+              }
             </div>
+            <input type="file" class="hidden" accept="image/*" (change)="onImageSelected($event)" />
           </div>
+        </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="flex flex-col w-full">
-              <label class="py-2">
-                <span class="font-semibold text-gray-700 text-sm">Department</span>
-              </label>
-              <div class="relative">
-                <input type="text" [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="p-inputtext p-component w-full pr-14" placeholder="Select or type new department..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
-                <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  @if (lookupsLoading) {
-                    <i class="pi pi-spin pi-spinner text-gray-400"></i>
+        <div class="border-t border-gray-200 my-4"></div>
+
+        <!-- Classification Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="flex flex-col w-full">
+            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Category</span></label>
+            <div class="relative">
+              <input pInputText [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
+              <i *ngIf="selectedProduct.categoryName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')"></i>
+              @if (showSuggestions['category'] && (filteredSuggestions['category']?.length ?? 0) > 0) {
+                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                  @for (s of filteredSuggestions['category']; track s.name) {
+                    <li (mousedown)="selectSuggestion('category', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
                   }
-                  @if (selectedProduct.departmentName) {
-                    <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')">✕</button>
-                  }
-                </div>
-                @if (showSuggestions['department'] && (filteredSuggestions['department']?.length ?? 0) > 0) {
-                  <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                    @for (suggestion of filteredSuggestions['department']; track suggestion) {
-                      <li (mousedown)="selectSuggestion('department', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
-                        {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
-                      </li>
-                    }
-                  </ul>
-                }
-              </div>
+                </ul>
+              }
             </div>
           </div>
 
           <div class="flex flex-col w-full">
-            <label class="py-2">
-              <span class="font-semibold text-gray-700 text-sm">Price <span class="text-red-500">*</span></span>
-            </label>
-            <input
-              type="number"
-              [(ngModel)]="selectedProduct.price"
-              name="price"
-              required
-              placeholder="e.g. 1200.00"
-              class="p-inputtext p-component w-full"
-              step="0.01"
-              min="0"
-            />
+            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Brand</span></label>
+            <div class="relative">
+              <input pInputText [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
+              <i *ngIf="selectedProduct.brandName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')"></i>
+              @if (showSuggestions['brand'] && (filteredSuggestions['brand']?.length ?? 0) > 0) {
+                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                  @for (s of filteredSuggestions['brand']; track s.name) {
+                    <li (mousedown)="selectSuggestion('brand', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                  }
+                </ul>
+              }
+            </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="flex flex-col w-full">
-              <label class="py-2">
-                <span class="font-semibold text-gray-700 text-sm">Quality</span>
-              </label>
-              <select
-                [(ngModel)]="selectedProduct.qualityId"
-                (ngModelChange)="onQualityChange($event)"
-                name="quality"
-                class="p-inputtext p-component w-full py-2"
-              >
-                <option value="">Select quality...</option>
+          <div class="flex flex-col w-full">
+            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Department</span></label>
+            <div class="relative">
+              <input pInputText [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
+              <i *ngIf="selectedProduct.departmentName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')"></i>
+              @if (showSuggestions['department'] && (filteredSuggestions['department']?.length ?? 0) > 0) {
+                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                  @for (s of filteredSuggestions['department']; track s.name) {
+                    <li (mousedown)="selectSuggestion('department', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                  }
+                </ul>
+              }
+            </div>
+          </div>
+
+          <div class="flex flex-col w-full">
+            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Quality/Condition</span></label>
+            <select [(ngModel)]="selectedProduct.qualityId" (ngModelChange)="onQualityChange($event)" name="quality" class="p-inputtext p-component w-full py-2 appearance-none">
+              <option [ngValue]="null">Select condition...</option>
               @for (q of qualities; track q.id) {
                 <option [value]="q.id">{{ q.name }}</option>
               }
-              </select>
-            </div>
+            </select>
           </div>
-
-          <!-- Vehicle Specific Fields (Only shows if Motorbike or Car) -->
-          @if (isVehicleCategory) {
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
-              <div class="flex flex-col w-full">
-                <label class="py-2">
-                  <span class="font-semibold text-gray-700 text-sm">Year</span>
-                </label>
-                <input
-                  type="date"
-                  [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'"
-                  (ngModelChange)="onYearChange($event)"
-                  name="year"
-                  class="p-inputtext p-component w-full bg-white"
-                  [max]="todayString"
-                />
-              </div>
-              <div class="flex flex-col w-full">
-                <label class="py-2">
-                  <span class="font-semibold text-gray-700 text-sm">Plate Number</span>
-                </label>
-                <input
-                  type="text"
-                  [(ngModel)]="selectedProduct.plateNumber"
-                  name="plateNumber"
-                  placeholder="e.g. 1A-1234"
-                  class="p-inputtext p-component w-full bg-white"
-                />
-              </div>
-              <div class="flex flex-col w-full">
-                <label class="py-2">
-                  <span class="font-semibold text-gray-700 text-sm">Engine / Serial Number</span>
-                </label>
-                <input
-                  type="text"
-                  [(ngModel)]="selectedProduct.engineNumber"
-                  name="engineNumber"
-                  placeholder="e.g. ENG-123456"
-                  class="p-inputtext p-component w-full bg-white"
-                />
-              </div>
-            </div>
-          }
 
           <div class="flex flex-col w-full">
-            <label class="py-2">
-              <span class="font-semibold text-gray-700 text-sm">Description</span>
-            </label>
-            <textarea
-              [(ngModel)]="selectedProduct.description"
-              name="description"
-              placeholder="Product description..."
-              class="p-inputtext p-component w-full"
-              rows="3"
-            ></textarea>
+            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Price <span class="text-red-500">*</span></span></label>
+            <input pInputText type="number" [(ngModel)]="selectedProduct.price" name="price" required class="w-full" step="0.01" min="0" placeholder="0.00" />
           </div>
+        </div>
 
-          <!-- Stock Acquisition -->
-          @if (!isEditing || (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None')) {
-            <div class="flex items-center text-sm font-semibold text-gray-400 my-4 before:flex-1 before:border-t before:border-gray-200 before:mr-4 after:flex-1 after:border-t after:border-gray-200 after:ml-4">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/30 p-4 rounded-xl border border-gray-200">
-                <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Acquisition Type</span></label>
-                  <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="p-inputtext p-component w-full bg-white py-2" [disabled]="disablePurchaseFields">
-                    <option [ngValue]="null">None (Just setup product catalog)</option>
-                    <option value="Purchased">Purchased</option>
-                    <option value="Donated">Donated</option>
-                  </select>
-                </div>
-                
-                @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
-                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Initial Quantity <span class="text-red-500">*</span></span></label>
-                    <input type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="p-inputtext p-component w-full bg-white" [disabled]="disablePurchaseFields" />
-                  </div>
-                  <div class="flex flex-col w-full">
-                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Responsible Person</span></label>
-                    <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="p-inputtext p-component w-full bg-white pr-14" placeholder="Select or type new person..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
-                      <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        @if (lookupsLoading) {
-                          <i class="pi pi-spin pi-spinner text-gray-400"></i>
-                        }
-                        @if (selectedProduct.responsiblePerson) {
-                          <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')">✕</button>
-                        }
-                      </div>
-                      @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
-                        <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                          @for (suggestion of filteredSuggestions['person']; track suggestion) {
-                            <li (mousedown)="selectSuggestion('person', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
-                              {{ suggestion.fullName }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
-                            </li>
-                          }
-                        </ul>
-                      }
-                    </div>
-                  </div>
-                }
-                
-                @if (selectedProduct.purchaseType === 'Purchased') {
-                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Supplier Name</span></label>
-                    <div class="relative">
-                      <input type="text" [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="p-inputtext p-component w-full bg-white pr-14" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
-                      <div class="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        @if (lookupsLoading) {
-                          <i class="pi pi-spin pi-spinner text-gray-400"></i>
-                        }
-                        @if (selectedProduct.supplierName) {
-                          <button type="button" class="p-1 text-gray-400 hover:text-gray-600 rounded-full transition" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [disabled]="disablePurchaseFields">✕</button>
-                        }
-                      </div>
-                      @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
-                        <ul class="absolute z-50 w-full bg-gray-50 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto" (mousedown)="cancelHideSuggestions()">
-                          @for (suggestion of filteredSuggestions['supplier']; track suggestion) {
-                            <li (mousedown)="selectSuggestion('supplier', suggestion)" class="p-2 hover:bg-gray-200 cursor-pointer">
-                              {{ suggestion.name }} @if (suggestion.isNew) { <span class="text-xs text-green-600">(Add new)</span> }
-                            </li>
-                          }
-                        </ul>
-                      }
-                    </div>
-                  </div>
-                    <div class="flex flex-col w-full">
-                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Voucher Number</span></label>
-                      <input type="text" [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="p-inputtext p-component w-full bg-white" placeholder="e.g. INV-12345" />
-                  </div>
-                }
-                
-                @if (selectedProduct.purchaseType === 'Donated') {
-                  <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                    <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Donor Name</span></label>
-                    <input type="text" [(ngModel)]="selectedProduct.donorName" name="donorName" class="p-inputtext p-component w-full bg-white" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
-                  </div>
-                }
+        <!-- Vehicle Specific Fields (Only shows if Motorbike or Car) -->
+        @if (isVehicleCategory) {
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-200 mt-4">
+            <div class="flex flex-col w-full">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Year</span></label>
+              <input pInputText type="date" [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'" (ngModelChange)="onYearChange($event)" name="year" class="w-full bg-white" [max]="todayString" />
+            </div>
+            <div class="flex flex-col w-full">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Plate Number</span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.plateNumber" name="plateNumber" class="w-full bg-white" placeholder="e.g. 1A-1234" />
+            </div>
+            <div class="flex flex-col w-full">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Engine/Serial #</span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.engineNumber" name="engineNumber" class="w-full bg-white" />
+            </div>
+          </div>
+        }
+
+        <div class="flex flex-col w-full mt-4">
+          <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Description & Attributes</span></label>
+          <textarea pInputText [(ngModel)]="selectedProduct.description" name="description" rows="3" class="w-full" placeholder="Product details, specs, etc."></textarea>
+        </div>
+
+        <!-- Stock Acquisition -->
+        <div class="flex items-center text-sm font-semibold text-gray-400 my-4 before:flex-1 before:border-t before:border-gray-200 before:mr-4 after:flex-1 after:border-t after:border-gray-200 after:ml-4">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/30 p-4 rounded-xl border border-gray-200">
+            <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Acquisition Type</span></label>
+              <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="p-inputtext p-component w-full py-2 appearance-none" [disabled]="disablePurchaseFields">
+                <option [ngValue]="null">None (Just setup product catalog)</option>
+                <option value="Purchased">Purchased</option>
+                <option value="Donated">Donated</option>
+              </select>
+            </div>
+
+            @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
+              <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Initial Quantity <span class="text-red-500">*</span></span></label>
+                <input pInputText type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="w-full bg-white" [disabled]="disablePurchaseFields" />
               </div>
-          }
+              <div class="flex flex-col w-full">
+                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Responsible Person</span></label>
+                <div class="relative">
+                  <input pInputText [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="w-full bg-white pr-8" placeholder="Select or type..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                  <i *ngIf="selectedProduct.responsiblePerson" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')"></i>
+                  @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
+                    <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                      @for (s of filteredSuggestions['person']; track s.fullName) {
+                        <li (mousedown)="selectSuggestion('person', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.fullName }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                      }
+                    </ul>
+                  }
+                </div>
+              </div>
+            }
+            
+            @if (selectedProduct.purchaseType === 'Purchased') {
+              <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Supplier Name</span></label>
+                <div class="relative">
+                  <input pInputText [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="w-full bg-white pr-8" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
+                  <i *ngIf="selectedProduct.supplierName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [class.pointer-events-none]="disablePurchaseFields"></i>
+                  @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
+                    <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                      @for (s of filteredSuggestions['supplier']; track s.name) {
+                        <li (mousedown)="selectSuggestion('supplier', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                      }
+                    </ul>
+                  }
+                </div>
+              </div>
+              <div class="flex flex-col w-full">
+                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Voucher Number</span></label>
+                <input pInputText [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="w-full bg-white" placeholder="e.g. INV-12345" />
+              </div>
+              
+              <div class="col-span-1 sm:col-span-2 mt-2">
+                <div class="flex flex-col gap-2">
+                  <div class="flex justify-between items-center">
+                    <span class="font-semibold text-gray-700 text-sm">Contact Info</span>
+                    <p-button size="small" label="+ Add Contact" severity="secondary" [outlined]="true" (onClick)="addContact()" [disabled]="disablePurchaseFields"></p-button>
+                  </div>
+                  @for (contact of contacts; track $index; let i = $index) {
+                    <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                      <select [ngModel]="getContactSelectValue(contact.type)" (ngModelChange)="onContactTypeChange(contact, $event)" [name]="'contactTypeSelect_' + i" class="p-inputtext p-component w-full sm:w-32 py-2 appearance-none bg-white" [disabled]="disablePurchaseFields">
+                        <option value="Phone">Phone</option>
+                        <option value="Email">Email</option>
+                        <option value="Other">Other...</option>
+                      </select>
+                      @if (!isPredefinedContactType(contact.type) && getContactSelectValue(contact.type) === 'Other') {
+                        <input pInputText [(ngModel)]="contact.type" (ngModelChange)="updateSupplierContact()" [name]="'customContactType_' + i" placeholder="Custom Label" class="w-full sm:w-40 bg-white" [disabled]="disablePurchaseFields" />
+                      }
+                      <input pInputText [(ngModel)]="contact.value" (ngModelChange)="updateSupplierContact()" [name]="'contactValue_' + i" [placeholder]="contact.type === 'Email' ? 'e.g. mail@example.com' : 'e.g. 012 345 678'" class="w-full flex-1 bg-white" [disabled]="disablePurchaseFields" />
+                      @if (contacts.length > 1) {
+                        <p-button icon="pi pi-times" severity="danger" [text]="true" [rounded]="true" (onClick)="removeContact(i)" [disabled]="disablePurchaseFields"></p-button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+            
+            @if (selectedProduct.purchaseType === 'Donated') {
+              <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
+                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Donor Name</span></label>
+                <input pInputText [(ngModel)]="selectedProduct.donorName" name="donorName" class="w-full bg-white" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
+              </div>
+            }
+        </div>
 
-          <div class="flex justify-end gap-2 mt-6">
-            <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeModal()">{{ isEditing ? 'Close' : 'Cancel' }}</button>
-            <button
-              type="submit"
-              class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              [disabled]="!isProductFormValid || !productForm.form.valid || imageLoading"
-            >
-              @if (imageLoading) {
-                <i class="pi pi-spin pi-spinner text-sm"></i>
-              } @else {
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-              }
-              {{ isEditing ? 'Save Changes' : 'Create Product' }}
-            </button>
-          </div>
-        </form>
+        <div class="flex justify-end gap-2 mt-6 border-t border-gray-200 pt-4 w-full">
+          <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeModal()"></p-button>
+          <p-button [label]="isEditing ? 'Save Changes' : 'Create Product'" icon="pi pi-check" type="submit" [disabled]="!isProductFormValid || isUploading || imageLoading" [loading]="isUploading || imageLoading"></p-button>
+        </div>
+      </form>
     </p-dialog>
 
-    <!-- View Product Modal -->
-    <p-dialog header="Product Details" [(visible)]="isViewModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '800px'}">
+    <p-dialog header="Product Details" [(visible)]="isViewModalVisible" [modal]="true" [dismissableMask]="true" [style]="{width: '100%', maxWidth: '800px'}">
         @if (viewProduct) {
           <div class="space-y-6 pt-2">
             <!-- Header -->
             <div class="flex items-start gap-6">
               @if (viewProduct.imageUrl) {
-                <div class="w-32 h-32 rounded-xl overflow-hidden border-2 border-gray-200 flex-shrink-0">
-                  <img [src]="viewProduct.imageUrl" [alt]="viewProduct.name" class="w-full h-full object-cover" />
+                <div class="w-32 h-32 rounded-xl overflow-hidden border-2 border-base-300 flex-shrink-0">
+                  <img [src]="viewProduct.imageUrl" [alt]="viewProduct.name" loading="lazy" class="w-full h-full object-cover" />
                 </div>
               } @else {
-                <div class="w-32 h-32 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
+                <div class="w-32 h-32 rounded-xl bg-base-200 flex items-center justify-center flex-shrink-0">
+                  <i class="pi pi-image text-5xl text-base-content/30"></i>
                 </div>
               }
               <div class="flex-1">
                 <h3 class="font-bold text-3xl mb-2">{{ viewProduct.name }}</h3>
                 <div class="flex flex-wrap gap-2">
                   @if (viewProduct.categoryName) {
-                    <p-badge [value]="viewProduct.categoryName" severity="primary"></p-badge>
+                    <p-badge [value]="viewProduct.categoryName" severity="success"></p-badge>
                   }
                   @if (viewProduct.brandName) {
                     <p-badge [value]="viewProduct.brandName" severity="secondary"></p-badge>
@@ -975,79 +487,72 @@ export interface ExtendedProductDto extends ProductDto {
             </div>
 
             <!-- Divider -->
-            <div class="border-t border-gray-200 my-4"></div>
+            <div class="border-t border-base-300 my-4"></div>
 
             <!-- Product Details Grid -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <!-- Item Name -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Item Name</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                  <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Item Name</p>
                 <p class="text-lg font-medium">{{ viewProduct.name || '-' }}</p>
               </div>
 
               <!-- Code Number -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Code Number</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Code Number</p>
                 <p class="text-lg font-medium">{{ viewProduct.codeNumber || '-' }}</p>
               </div>
 
               <!-- Brand -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Brand</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Brand</p>
                 <p class="text-lg font-medium">{{ viewProduct.brandName || getLookupName(brands, viewProduct.brandId) || '-' }}</p>
               </div>
 
               <!-- Department -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Department</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Department</p>
                 <p class="text-lg font-medium">{{ viewProduct.departmentName || getLookupName(departments, viewProduct.departmentId) || '-' }}</p>
               </div>
 
               <!-- Price -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Price</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Price</p>
                 <p class="text-lg font-medium text-blue-600">{{ viewProduct.price ? '$' + (viewProduct.price | number:'1.2-2') : '-' }}</p>
               </div>
 
               <!-- Voucher Number -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Voucher Number</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Voucher Number</p>
                 <p class="text-lg font-medium">{{ viewProduct.voucherNumber || '-' }}</p>
               </div>
 
               <!-- Purchase Date -->
-              <div class="bg-gray-50/50 rounded-lg p-4">
-                <p class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">Purchase Date</p>
+              <div class="bg-base-200/50 rounded-lg p-4">
+                <p class="text-sm font-semibold text-base-content/70 uppercase tracking-wider mb-1">Purchase Date</p>
                 <p class="text-lg font-medium">{{ viewProduct.invoiceDate ? (viewProduct.invoiceDate | date:'shortDate') : (viewProduct.createdDate ? (viewProduct.createdDate | date:'shortDate') : '-') }}</p>
               </div>
             </div>
           </div>
           
-          <ng-template pTemplate="footer">
-            <div class="flex justify-end gap-2 w-full mt-4">
-              <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeViewModal()">Close</button>
-              <button type="button" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition flex items-center gap-2" (click)="closeViewAndEdit()">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                Edit Product
-              </button>
-            </div>
-          </ng-template>
+          <div class="flex justify-end gap-2 w-full mt-4 border-t border-base-300 pt-4">
+            <p-button label="Close" severity="secondary" [text]="true" (onClick)="closeViewModal()"></p-button>
+            <p-button label="Edit Product" icon="pi pi-pencil" severity="warn" (onClick)="closeViewAndEdit()"></p-button>
+          </div>
         }
     </p-dialog>
 
     <!-- Stock Transfer Modal -->
-    <p-dialog header="Transfer Stock" [(visible)]="isTransferModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '500px'}">
+    <p-dialog header="Transfer Stock" [(visible)]="isTransferModalVisible" [modal]="true" [dismissableMask]="true" [style]="{width: '100%', maxWidth: '500px'}">
         @if (productToTransfer) {
           <div class="space-y-4 pt-2">
-                <div class="bg-gray-100 p-3 rounded-lg text-sm">
+                <div class="bg-base-300 p-3 rounded-lg text-sm">
               <p><strong>Product:</strong> {{ productToTransfer.name }}</p>
               <p><strong>Current Dept:</strong> {{ productToTransfer.departmentName || getLookupName(departments, productToTransfer.departmentId) || 'None' }}</p>
             </div>
 
                 <div class="flex flex-col w-full">
-                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Target Department <span class="text-red-500">*</span></span></label>
+                  <label class="py-2"><span class="font-semibold text-base-content text-sm">Target Department <span class="text-red-500">*</span></span></label>
                   <select [(ngModel)]="transferTargetDepartmentId" class="p-inputtext p-component w-full py-2">
                 <option value="" disabled>Select destination department...</option>
                 @for (dept of departments; track dept.id) {
@@ -1059,146 +564,28 @@ export interface ExtendedProductDto extends ProductDto {
             </div>
 
                 <div class="flex flex-col w-full">
-                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Quantity to Transfer <span class="text-red-500">*</span></span></label>
+                  <label class="py-2"><span class="font-semibold text-base-content text-sm">Quantity to Transfer <span class="text-red-500">*</span></span></label>
                   <input type="number" [(ngModel)]="transferQuantity" min="1" class="p-inputtext p-component w-full" />
             </div>
 
                 <div class="flex flex-col w-full">
-                  <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Transfer Notes</span></label>
+                  <label class="py-2"><span class="font-semibold text-base-content text-sm">Transfer Notes</span></label>
                   <textarea [(ngModel)]="transferNotes" class="p-inputtext p-component w-full" placeholder="Reason for transfer..."></textarea>
             </div>
 
-            <ng-template pTemplate="footer">
-              <div class="flex justify-end gap-2 w-full mt-4">
-                  <button type="button" class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition" (click)="closeTransferModal()">Cancel</button>
-              <button 
-                type="button" 
-                    class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition disabled:opacity-50 flex items-center gap-2" 
-                [disabled]="!transferTargetDepartmentId || transferQuantity < 1 || isTransferring"
-                (click)="executeTransfer()"
-              >
-                    @if (isTransferring) { <i class="pi pi-spin pi-spinner text-sm"></i> }
-                Confirm Transfer
-              </button>
-              </div>
-            </ng-template>
+            <div class="flex justify-end gap-2 w-full mt-4 border-t border-base-300 pt-4">
+              <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeTransferModal()"></p-button>
+              <p-button label="Confirm Transfer" icon="pi pi-check" severity="success" [disabled]="!transferTargetDepartmentId || transferQuantity < 1 || isTransferring" [loading]="isTransferring" (onClick)="executeTransfer()"></p-button>
+            </div>
           </div>
         }
     </p-dialog>
 
-    <!-- Delete Confirmation Modal -->
-    <p-dialog header="Confirm Deletion" [(visible)]="isDeleteModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
-        @if (productToDelete) {
-          <div class="flex flex-col items-center text-center pt-2">
-            <div class="mb-4">
-                  <div class="rounded-full p-4 bg-red-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
-            </div>
-
-                <p class="text-gray-500 mb-4">
-                  Are you sure you want to <strong class="text-red-600">delete</strong> the product
-              <span class="font-bold">{{ productToDelete.name }}</span>?
-            </p>
-
-                <div class="bg-yellow-50 text-yellow-800 p-4 mb-4 rounded-lg flex items-center gap-3 w-full text-left">
-              <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span class="text-sm">This action cannot be undone!</span>
-            </div>
-
-            <ng-template pTemplate="footer">
-              <div class="flex w-full gap-3 mt-4">
-                    <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition flex-1" type="button" (click)="closeDeleteModal()">
-                  Cancel
-                </button>
-                <button
-                      class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition flex-1 flex items-center justify-center gap-2"
-                  type="button"
-                  (click)="executeDelete()"
-                >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                  Delete Product
-                </button>
-              </div>
-            </ng-template>
-          </div>
-        }
-    </p-dialog>
-
-    <!-- Bulk Delete Confirmation Modal -->
-    <p-dialog header="Confirm Bulk Deletion" [(visible)]="isBulkDeleteModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
-        <div class="flex flex-col items-center text-center pt-2">
-          <div class="mb-4">
-                <div class="rounded-full p-4 bg-red-100">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </div>
-          </div>
-              <p class="text-gray-500 mb-4">
-                Are you sure you want to <strong class="text-red-600">delete {{ selectedProducts.size }} selected products</strong>?
-          </p>
-              <div class="bg-yellow-50 text-yellow-800 p-4 mb-4 rounded-lg flex items-center gap-3 w-full text-left">
-            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-            <span class="text-sm">This action cannot be undone!</span>
-          </div>
-          <ng-template pTemplate="footer">
-            <div class="flex w-full gap-3 mt-4">
-                  <button class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded transition flex-1" type="button" (click)="closeBulkDeleteModal()">Cancel</button>
-              <button
-                    class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition flex-1 flex items-center justify-center gap-2"
-                type="button"
-                (click)="executeBulkDelete()"
-              >
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                Delete Selected
-              </button>
-            </div>
-          </ng-template>
-        </div>
-    </p-dialog>
-
-    <!-- Success/Error/Warning Message Modal -->
-    <p-dialog [header]="messageTitle" [(visible)]="isMessageModalVisible" [modal]="true" [style]="{width: '100%', maxWidth: '400px'}">
-        <div class="flex flex-col items-center text-center pt-2">
-          <div class="mb-4">
-                <div class="rounded-full p-4" [class]="messageType === 'success' ? 'bg-green-100' : messageType === 'warning' ? 'bg-yellow-100' : 'bg-red-100'">
-              @if (messageType === 'success') {
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              }
-              @if (messageType === 'warning') {
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              }
-              @if (messageType === 'error') {
-                    <svg xmlns="http://www.w3
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-              }
-            </div>
-          </div>
-
-          <p class="text-base-content/70 mb-4">{{ messageContent }}</p>
-
-          <ng-template pTemplate="footer">
-            <div class="flex w-full mt-4">
-              <button class="btn btn-ghost flex-1" type="button" (click)="closeMessageModal()">OK</button>
-            </div>
-          </ng-template>
-        </div>
-    </p-dialog>
+    <!-- Toast Notifications -->
+    <p-toast position="bottom-right"></p-toast>
 
     <!-- Import Errors Modal -->
-    <p-dialog header="Import Completed with Errors" [visible]="importErrors.length > 0" (visibleChange)="importErrors = $event ? importErrors : []" [modal]="true" [style]="{width: '100%', maxWidth: '500px'}">
+    <p-dialog header="Import Completed with Errors" [visible]="importErrors.length > 0" (visibleChange)="importErrors = $event ? importErrors : []" [modal]="true" [dismissableMask]="true" [style]="{width: '100%', maxWidth: '500px'}">
         <p class="text-base-content/70 mb-4 pt-2">Some rows failed validation. Please review the specific errors below:</p>
         <div class="overflow-y-auto max-h-60 bg-base-200 rounded-lg p-3">
           <ul class="list-disc list-inside px-4">
@@ -1207,11 +594,9 @@ export interface ExtendedProductDto extends ProductDto {
             }
           </ul>
         </div>
-        <ng-template pTemplate="footer">
-          <div class="flex justify-end w-full mt-4">
-            <button type="button" class="btn btn-primary" (click)="importErrors = []">Dismiss</button>
-          </div>
-        </ng-template>
+        <div class="flex justify-end w-full mt-4 border-t border-base-300 pt-4">
+          <button type="button" class="btn btn-primary" (click)="importErrors = []">Dismiss</button>
+        </div>
     </p-dialog>
   `
 })
@@ -1220,6 +605,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   private readonly categoryApi = inject(CategoryApiService);
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly http = inject(HttpClient);
+  private readonly messageService = inject(MessageService);
+  private readonly confirmationService = inject(ConfirmationService);
   private readonly apiUrl = 'http://localhost:5001/api/inventory/products';
 
   protected products: ExtendedProductDto[] = [];
@@ -1356,13 +743,18 @@ export class ProductsComponent implements OnInit, OnDestroy {
     return list.find(item => item.id === id)?.name || null;
   }
 
-  protected toggleColumnVisibility(colId: string, event: Event): void {
-    event.stopPropagation();
-    if (this.visibleColumns.has(colId)) {
-      this.visibleColumns.delete(colId);
-    } else {
-      this.visibleColumns.add(colId);
+  protected toggleColumnVisibility(colId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
     }
+    const newColumns = new Set(this.visibleColumns);
+    if (newColumns.has(colId)) {
+      newColumns.delete(colId);
+    } else {
+      newColumns.add(colId);
+    }
+    this.visibleColumns = newColumns;
+
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(this.COLUMNS_STORAGE_KEY, JSON.stringify(Array.from(this.visibleColumns)));
     }
@@ -1377,15 +769,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected selectedProduct: ExtendedProductDto = this.getEmptyProduct();
   protected productToDelete: ExtendedProductDto | null = null;
   protected viewProduct: ExtendedProductDto | null = null;
-  protected messageType: 'success' | 'error' | 'warning' = 'success';
-  protected messageTitle = '';
 
   protected isFormModalVisible = false;
   protected isViewModalVisible = false;
   protected isTransferModalVisible = false;
-  protected isDeleteModalVisible = false;
-  protected isBulkDeleteModalVisible = false;
-  protected isMessageModalVisible = false;
 
   // Transfer states
   protected productToTransfer: ExtendedProductDto | null = null;
@@ -1394,7 +781,6 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected transferNotes = '';
   protected isTransferring = false;
   protected parsedContacts: { type: string, value: string }[] = [];
-  protected messageContent = '';
   protected contacts: { type: string, value: string }[] = [{ type: 'Phone', value: '' }];
 
   // Image states
@@ -2043,12 +1429,18 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected confirmDelete(product: ExtendedProductDto): void {
-    this.productToDelete = product;
-    this.isDeleteModalVisible = true;
-  }
-
-  protected closeDeleteModal(): void {
-    this.isDeleteModalVisible = false;
+    this.confirmationService.confirm({
+      message: `Are you sure you want to delete the product <strong>${product.name}</strong>?`,
+      header: 'Confirm Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      accept: () => {
+        this.productToDelete = product;
+        this.executeDelete();
+      },
+      reject: () => {
+        this.productToDelete = null;
+      }
+    });
   }
 
   protected executeDelete(): void {
@@ -2057,22 +1449,26 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.http.delete(`${this.apiUrl}/${this.productToDelete.id}`).subscribe({
       next: () => {
         this.loadProducts();
-        this.closeDeleteModal();
         this.showMessage('success', 'Product Deleted', `${this.productToDelete!.name} has been deleted.`);
+        this.productToDelete = null; // Clear after use
       },
       error: (err) => {
         this.showMessage('error', 'Delete Failed', 'Could not delete the product. Please try again.');
         console.error('Error deleting product:', err);
+        this.productToDelete = null; // Clear after use
       }
     });
   }
 
   protected confirmBulkDelete(): void {
-    this.isBulkDeleteModalVisible = true;
-  }
-
-  protected closeBulkDeleteModal(): void {
-    this.isBulkDeleteModalVisible = false;
+    this.confirmationService.confirm({
+        message: `Are you sure you want to delete ${this.selectedProducts.size} selected products? This action cannot be undone.`,
+        header: 'Confirm Bulk Deletion',
+        icon: 'pi pi-exclamation-triangle',
+        accept: () => {
+            this.executeBulkDelete();
+        }
+    });
   }
 
   protected executeBulkDelete(): void {
@@ -2084,25 +1480,18 @@ export class ProductsComponent implements OnInit, OnDestroy {
       next: () => {
         this.showMessage('success', 'Bulk Delete Successful', `${this.selectedProducts.size} products have been deleted.`);
         this.loadProducts(); // This will also clear selections
-        this.closeBulkDeleteModal();
       },
       error: (err) => {
         this.showMessage('error', 'Bulk Delete Failed', 'Some products could not be deleted. Please try again.');
         console.error('Error during bulk delete:', err);
-        this.closeBulkDeleteModal();
       }
     });
   }
 
   protected showMessage(type: 'success' | 'error' | 'warning', title: string, content: string): void {
-    this.messageType = type;
-    this.messageTitle = title;
-    this.messageContent = content;
-    this.isMessageModalVisible = true;
-  }
-
-  protected closeMessageModal(): void {
-    this.isMessageModalVisible = false;
+    // Map 'warning' to PrimeNG's 'warn' severity
+    const severity = type === 'warning' ? 'warn' : type;
+    this.messageService.add({ severity, summary: title, detail: content, life: 4000 });
   }
 
   protected onImageSelected(event: Event): void {

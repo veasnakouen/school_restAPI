@@ -4,35 +4,11 @@ const DAISYUI_THEME_ORDER = [
   'light',
   'dark',
   'cupcake',
-  'bumblebee',
   'emerald',
-  'corporate',
   'synthwave',
-  'retro',
-  'cyberpunk',
-  'valentine',
   'halloween',
-  'garden',
   'forest',
-  'aqua',
-  'lofi',
-  'pastel',
-  'fantasy',
-  'wireframe',
-  'black',
-  'luxury',
-  'dracula',
-  'cmyk',
-  'autumn',
-  'business',
-  'acid',
-  'lemonade',
-  'night',
-  'coffee',
-  'winter',
-  'dim',
-  'nord',
-  'sunset'
+  'night'
 ] as const;
 
 export type ThemeName = (typeof DAISYUI_THEME_ORDER)[number];
@@ -42,28 +18,19 @@ export interface ThemeOption {
   name: string;
 }
 
-const THEME_LABEL_OVERRIDES: Partial<Record<ThemeName, string>> = {
-  cmyk: 'CMYK',
-  lofi: 'Lo-Fi'
-};
+const THEME_LABEL_OVERRIDES: Partial<Record<ThemeName, string>> = {};
 
 const DARK_THEME_NAMES: ThemeName[] = [
   'dark',
   'synthwave',
   'halloween',
   'forest',
-  'aqua',
-  'black',
-  'luxury',
-  'dracula',
-  'business',
-  'night',
-  'coffee',
-  'dim',
-  'sunset'
+  'night'
 ];
 
 const DARK_THEME_SET = new Set<ThemeName>(DARK_THEME_NAMES);
+
+export const DARK_THEME_IDS = DARK_THEME_NAMES;
 
 const THEME_OPTIONS: ThemeOption[] = DAISYUI_THEME_ORDER.map((id) => ({
   id,

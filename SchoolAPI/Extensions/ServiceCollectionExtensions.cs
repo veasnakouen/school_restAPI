@@ -163,10 +163,7 @@ namespace SchoolAPI.Extensions
 
             services.AddAuthorization(options =>
             {
-                options.FallbackPolicy = new AuthorizationPolicyBuilder()
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-                    .RequireAuthenticatedUser()
-                    .Build();
+                options.FallbackPolicy = null;
             });
 
             services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -297,34 +294,18 @@ namespace SchoolAPI.Extensions
         // 🔧 Add Swagger
         public static IServiceCollection AddSwagger(this IServiceCollection services)
         {
-            services.AddSwaggerGen(c =>
+            try
             {
-                c.CustomSchemaIds(type => type.FullName);
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
-                c.AddSecurityDefinition(BearerScheme, new OpenApiSecurityScheme
+                services.AddSwaggerGen(c =>
                 {
-                    In = ParameterLocation.Header,
-                    Description = "Please enter your valid JWT. (Swagger will automatically add the 'Bearer ' prefix).",
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    BearerFormat = "JWT",
-                    Scheme = "Bearer"
+                    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
                 });
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme {
-                            Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = BearerScheme }
-                        },
-                        Array.Empty<string>()
-                    }
-                });
-                c.AddServer(new OpenApiServer
-                {
-                    Url = "http://localhost:5001",
-                    Description = "Development Server"
-                });
-            });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SWAGGER ERROR] {ex.Message}");
+                throw;
+            }
 
             return services;
         }

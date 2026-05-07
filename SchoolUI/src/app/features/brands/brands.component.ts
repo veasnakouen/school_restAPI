@@ -1,16 +1,27 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, ChangeDetectionStrategy, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BrandApiService } from '../../core/services/brand-api.service';
 import { BrandDto } from '../../models/inventory.model';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { finalize } from 'rxjs/operators';
+import { TableModule } from 'primeng/table';
+import { InputTextModule } from 'primeng/inputtext';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
+import { ToastModule } from 'primeng/toast';
+import { ConfirmationService, MessageService } from 'primeng/api';
 
 @Component({
   selector: 'app-brands',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, TableModule, InputTextModule, ButtonModule, DialogModule, ConfirmDialogModule, ToastModule],
+  providers: [ConfirmationService],
   template: `
+    <p-toast></p-toast>
+    <p-confirmDialog></p-confirmDialog>
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="space-y-2">
@@ -19,75 +30,62 @@ import { finalize } from 'rxjs/operators';
         </div>
       </div>
 
-      <!-- Add Form -->
-      <form class="rounded-[20px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" (ngSubmit)="addBrand()">
-        <div class="flex gap-3">
-          <input [(ngModel)]="newBrandName" name="name" placeholder="New Brand Name" class="app-input flex-1" required />
-          <button type="submit" class="btn btn-primary" [disabled]="!newBrandName">Add</button>
-        </div>
-      </form>
+      <!-- Add/Edit Form -->
+      @if (editingBrand) {
+        <form class="rounded-[20px] border border-primary/50 bg-primary/5 p-4 shadow-lg" (ngSubmit)="saveBrand()">
+          <div class="flex gap-3 items-center">
+            <input pInputText [(ngModel)]="editingBrand.name" name="name" placeholder="Brand Name" class="flex-1 p-inputtext-sm" required />
+            <button pButton type="button" label="Cancel" severity="secondary" (click)="cancelEdit()"></button>
+            <button pButton type="submit" label="Save" [disabled]="!editingBrand.name"></button>
+          </div>
+        </form>
+      } @else {
+        <form class="rounded-[20px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" (ngSubmit)="addBrand()">
+          <div class="flex gap-3">
+            <input pInputText [(ngModel)]="newBrandName" name="name" placeholder="New Brand Name" class="flex-1 p-inputtext-sm" required />
+            <button pButton type="submit" label="Add" [disabled]="!newBrandName"></button>
+          </div>
+        </form>
+      }
 
       <!-- List -->
-      <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6 px-4">
-        <table class="table table-zebra table-pin-rows">
-          <thead><tr><th>Name</th><th>ID</th><th class="text-right">Actions</th></tr></thead>
-          <tbody>
-            @for (item of brands; track item.id) {
-              <tr>
-                <td class="font-medium">{{ item.name }}</td>
-                <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
-                <td class="text-right">
-                  <button class="btn btn-ghost btn-xs text-error" (click)="openDeleteModal(item.id!, item.name)">Delete</button>
-                </td>
-              </tr>
-            } @empty {
-              <tr><td colspan="3" class="py-6 text-center text-base-content/60">No brands found.</td></tr>
-            }
-          </tbody>
-        </table>
+      <div class="my-6 shadow-sm rounded-[24px] overflow-hidden border border-base-300/70 bg-base-100/70">
+        <p-table [value]="brands" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3" [tableStyle]="{'min-width': '50rem'}">
+          <ng-template pTemplate="header">
+            <tr>
+              <th>Name</th>
+              <th>ID</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="body" let-item>
+            <tr>
+              <td class="font-medium">{{ item.name }}</td>
+              <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
+              <td class="text-right">
+                <p-button icon="pi pi-pencil" [text]="true" severity="secondary" (onClick)="editBrand(item)"></p-button>
+                <p-button icon="pi pi-trash" [text]="true" severity="danger" (onClick)="confirmDelete(item.id!, item.name)"></p-button>
+              </td>
+            </tr>
+          </ng-template>
+          <ng-template pTemplate="emptymessage">
+            <tr>
+              <td colspan="3" class="py-6 text-center text-base-content/60">No brands found.</td>
+            </tr>
+          </ng-template>
+        </p-table>
       </div>
     </section>
-
-    <!-- Delete Confirmation Modal -->
-    <dialog id="brand-delete-modal" class="modal modal-bottom sm:modal-middle">
-      <div class="modal-box max-w-md py-6">
-        <div class="flex flex-col items-center text-center">
-          <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-error/10">
-            <span class="pi pi-exclamation-triangle text-2xl text-error"></span>
-          </div>
-          <h3 class="mb-2 text-xl font-bold text-base-content">Confirm Deletion</h3>
-          <p class="mb-5 text-base text-base-content/70">
-            Are you sure you want to delete <strong class="text-base-content">{{ deleteItemName }}</strong>?
-          </p>
-          <div class="flex w-full gap-3">
-            <button class="btn btn-ghost flex-1" type="button" (click)="closeDeleteModal()">Cancel</button>
-            <button class="btn btn-error flex-1" type="button" [class.loading]="deletingInProgress" (click)="confirmDelete()">
-              @if (deletingInProgress) {
-                <span class="loading loading-spinner loading-sm"></span>
-                Deleting...
-              } @else {
-                Yes, Delete
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-      <form method="dialog" class="modal-backdrop">
-        <button type="button" (click)="closeDeleteModal()">close</button>
-      </form>
-    </dialog>
   `
 })
 export class BrandsComponent implements OnInit {
   private readonly api = inject(BrandApiService);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly confirmationService = inject(ConfirmationService);
+
   brands: BrandDto[] = [];
   newBrandName = '';
-  
-  // Delete modal properties
-  deleteItemId: string | null = null;
-  deleteItemName = '';
-  deletingInProgress = false;
+  editingBrand: BrandDto | null = null;
 
   ngOnInit(): void { this.load(); }
 
@@ -108,38 +106,35 @@ export class BrandsComponent implements OnInit {
     });
   }
 
-  openDeleteModal(id: string, name: string) {
-    this.deleteItemId = id;
-    this.deleteItemName = name;
-    const modal = document.getElementById('brand-delete-modal') as HTMLDialogElement;
-    if (modal) modal.showModal();
+  editBrand(brand: BrandDto) {
+    this.editingBrand = { ...brand };
   }
 
-  closeDeleteModal() {
-    const modal = document.getElementById('brand-delete-modal') as HTMLDialogElement;
-    if (modal) modal.close();
-    this.deleteItemId = null;
-    this.deleteItemName = '';
-    this.deletingInProgress = false;
-    this.cdr.detectChanges();
+  cancelEdit() {
+    this.editingBrand = null;
   }
 
-  confirmDelete() {
-    if (!this.deleteItemId) return;
-    this.deletingInProgress = true;
-    this.cdr.detectChanges();
-    
-    this.api.delete(this.deleteItemId).pipe(
-      finalize(() => {
-        this.closeDeleteModal();
-        this.cdr.detectChanges();
-      })
+  saveBrand() {
+    if (!this.editingBrand || !this.editingBrand.id) return;
+    this.api.update(this.editingBrand.id, this.editingBrand).pipe(
+      finalize(() => this.cdr.detectChanges())
     ).subscribe({
-      next: () => this.load(),
-      error: (error) => {
-        console.error('Failed to delete brand:', error);
-        this.deletingInProgress = false;
-        this.cdr.detectChanges();
+      next: () => { this.editingBrand = null; this.load(); }
+    });
+  }
+
+  confirmDelete(id: string, name: string) {
+    this.confirmationService.confirm({
+      message: 'Are you sure you want to delete "' + name + '"?',
+      header: 'Confirm Deletion',
+      icon: 'pi pi-exclamation-triangle',
+      rejectButtonProps: { label: 'Cancel', severity: 'secondary' },
+      acceptButtonProps: { label: 'Delete', severity: 'danger' },
+      accept: () => {
+        this.api.delete(id).subscribe({
+          next: () => this.load(),
+          error: () => this.cdr.detectChanges()
+        });
       }
     });
   }

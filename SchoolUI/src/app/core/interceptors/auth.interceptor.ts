@@ -41,7 +41,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         return throwError(() => new Error('Request timed out. Please check your connection and try again.'));
       }
 
-      if (error?.status === 401 && ! req.url.includes('/auth/refresh')) {
+      if (error?.status === 401 && !req.url.includes('/auth/refresh')) {
         // Token expired, try to refresh
         if (!isRefreshing) {
           isRefreshing = true;

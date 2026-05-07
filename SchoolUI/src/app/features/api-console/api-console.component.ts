@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { ApplicationRef, ChangeDetectorRef, Component, NgZone, OnInit, inject } from '@angular/core';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { catchError, finalize, forkJoin, map, of, Observable } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ClassApiService } from '../../core/services/class-api.service';
@@ -15,6 +14,10 @@ import { StudentApiService } from '../../core/services/student-api.service';
 import { ClassDto, CreateClassRequest, CreateStudentRequest, Gender, StudentDto } from '../../models/academic.model';
 import { LookupOption } from '../../models/lookup.model';
 import { BrandDto, CategoryDto, CreateProductRequest, ProductDto } from '../../models/inventory.model';
+import { TableModule } from 'primeng/table';
+import { DialogModule } from 'primeng/dialog';
+import { ButtonModule } from 'primeng/button';
+import { BadgeModule } from 'primeng/badge';
 
 interface ActivityEntry {
   tone: 'success' | 'error' | 'info';
@@ -25,341 +28,261 @@ interface ActivityEntry {
 @Component({
   selector: 'app-api-console',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, RouterLink, ScrollAnimateDirective],
+  imports: [CommonModule, ReactiveFormsModule, ScrollAnimateDirective, TableModule, DialogModule, ButtonModule, BadgeModule],
   template: `
     <div class="space-y-6">
-      <section scrollAnimate animateVariant="fade-up" animateDelay="0ms" class="overflow-hidden rounded-[32px] border border-primary/20 bg-gradient-to-br from-primary via-secondary to-accent text-primary-content shadow-2xl">
-        <div class="grid gap-6 p-6 lg:grid-cols-[1.4fr_0.9fr] lg:p-8">
-          <div class="space-y-5">
-            <div class="flex flex-wrap items-center gap-2">
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content">API Console</span>
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/80">SchoolAPI</span>
-              <span class="badge border-primary-content/20 bg-primary-content/10 text-primary-content/80">Live forms</span>
-            </div>
-
-            <div class="space-y-3">
-              <p class="text-xs uppercase tracking-[0.45em] text-primary-content/70">Interact with the backend</p>
-              <h1 class="max-w-4xl text-4xl font-black tracking-tight sm:text-5xl">
-                Create, search, delete, and export data from one polished workspace.
-              </h1>
-              <p class="max-w-3xl text-sm text-primary-content/80 sm:text-base">
-                This page connects directly to the SchoolAPI controllers for classes, students, products, and reports.
-              </p>
-            </div>
-
-            <div class="flex flex-wrap gap-3">
-              <a routerLink="/dashboard" class="btn border-0 bg-white text-base-content shadow-lg hover:bg-white/95">Dashboard</a>
-              <a routerLink="/classes" class="btn btn-ghost border border-primary-content/20 text-primary-content hover:bg-primary-content/10">Classes</a>
-              <a routerLink="/students" class="btn btn-ghost border border-primary-content/20 text-primary-content hover:bg-primary-content/10">Students</a>
-              <a routerLink="/products" class="btn btn-ghost border border-primary-content/20 text-primary-content hover:bg-primary-content/10">Products</a>
-            </div>
+      <!-- Top Navigation Tabs -->
+      <div scrollAnimate animateVariant="fade-up" animateDelay="60ms" class="flex justify-start w-full mt-2">
+        <div role="tablist" class="tabs tabs-boxed bg-base-100/60 border border-base-300/70 p-1.5 shadow-sm rounded-3xl inline-flex w-full sm:w-auto overflow-x-auto">
+          <a role="tab" class="tab sm:min-w-32 rounded-2xl transition-all font-medium flex items-center justify-center gap-2" [class.tab-active]="activeTab === 'classes'" [class.bg-primary]="activeTab === 'classes'" [class.text-primary-content]="activeTab === 'classes'" (click)="activeTab = 'classes'">
+    <div class="space-y-6 lg:space-y-8">
+      
+      <!-- Page Header -->
+      <div scrollAnimate animateVariant="fade-up" class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mt-2">
+        <div>
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold tracking-wide uppercase mb-3">
+            <i class="pi pi-bolt"></i> System Administration
           </div>
-
-          <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <div class="rounded-[28px] bg-primary-content/10 p-5 backdrop-blur">
-              <div class="text-xs uppercase tracking-[0.35em] text-primary-content/65">Session</div>
-              <div class="mt-2 text-2xl font-black text-primary-content">{{ auth.session()?.fullName || 'Guest' }}</div>
-              <div class="mt-1 text-sm text-primary-content/75">{{ auth.session()?.email || 'Not signed in' }}</div>
-            </div>
-            <div class="rounded-[28px] bg-primary-content/10 p-5 backdrop-blur">
-              <div class="text-xs uppercase tracking-[0.35em] text-primary-content/65">Loaded records</div>
-              <div class="mt-2 text-2xl font-black text-primary-content">
-                {{ classes.length + students.length + products.length }}
-              </div>
-              <div class="mt-1 text-sm text-primary-content/75">Across the active console</div>
-            </div>
-          </div>
+          <h1 class="text-3xl lg:text-4xl font-extrabold tracking-tight text-base-content">API Console</h1>
+          <p class="text-base-content/60 text-sm mt-2 max-w-2xl">Centralized management and live data operations for your school's entities.</p>
         </div>
-      </section>
+      </div>
 
-      <section scrollAnimate animateVariant="fade-up" animateDelay="80ms" class="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-        <article class="app-shell-panel space-y-5 p-5 lg:p-6">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="badge badge-primary badge-outline">Academics</span>
-                <span class="badge badge-ghost">{{ classes.length }} classes</span>
-                <span class="badge badge-ghost">{{ students.length }} students</span>
-              </div>
-              <h2 class="section-title mt-3 text-base-content">Classes and students</h2>
-              <p class="mt-2 max-w-2xl text-sm text-base-content/65">Create school classes and students, then manage them from the tables below.</p>
-            </div>
+      <!-- Modern Underline Tabs -->
+      <div scrollAnimate animateVariant="fade-up" animateDelay="50ms" class="w-full border-b border-base-300/60">
+        <div class="flex overflow-x-auto hide-scrollbar gap-8 pb-px">
+          <button (click)="activeTab = 'classes'" [class.border-primary]="activeTab === 'classes'" [class.text-primary]="activeTab === 'classes'" [class.border-transparent]="activeTab !== 'classes'" [class.text-base-content/60]="activeTab !== 'classes'" class="flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all hover:text-primary whitespace-nowrap">
+            <i class="pi pi-book"></i> Classes
+          </a>
+          <a role="tab" class="tab sm:min-w-32 rounded-2xl transition-all font-medium flex items-center justify-center gap-2" [class.tab-active]="activeTab === 'students'" [class.bg-primary]="activeTab === 'students'" [class.text-primary-content]="activeTab === 'students'" (click)="activeTab = 'students'">
+          </button>
+          <button (click)="activeTab = 'students'" [class.border-primary]="activeTab === 'students'" [class.text-primary]="activeTab === 'students'" [class.border-transparent]="activeTab !== 'students'" [class.text-base-content/60]="activeTab !== 'students'" class="flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all hover:text-primary whitespace-nowrap">
+            <i class="pi pi-users"></i> Students
+          </a>
+          <a role="tab" class="tab sm:min-w-32 rounded-2xl transition-all font-medium flex items-center justify-center gap-2" [class.tab-active]="activeTab === 'products'" [class.bg-primary]="activeTab === 'products'" [class.text-primary-content]="activeTab === 'products'" (click)="activeTab = 'products'">
+            <i class="pi pi-box"></i> Products
+          </a>
+          <a role="tab" class="tab sm:min-w-32 rounded-2xl transition-all font-medium flex items-center justify-center gap-2" [class.tab-active]="activeTab === 'reports'" [class.bg-primary]="activeTab === 'reports'" [class.text-primary-content]="activeTab === 'reports'" (click)="activeTab = 'reports'">
+          </button>
+          <button (click)="activeTab = 'products'" [class.border-primary]="activeTab === 'products'" [class.text-primary]="activeTab === 'products'" [class.border-transparent]="activeTab !== 'products'" [class.text-base-content/60]="activeTab !== 'products'" class="flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all hover:text-primary whitespace-nowrap">
+            <i class="pi pi-box"></i> Inventory
+          </button>
+          <button (click)="activeTab = 'reports'" [class.border-primary]="activeTab === 'reports'" [class.text-primary]="activeTab === 'reports'" [class.border-transparent]="activeTab !== 'reports'" [class.text-base-content/60]="activeTab !== 'reports'" class="flex items-center gap-2 pb-4 text-sm font-semibold border-b-2 transition-all hover:text-primary whitespace-nowrap">
+            <i class="pi pi-chart-bar"></i> Reports
+          </a>
+          </button>
+        </div>
+      </div>
 
-            <button class="btn btn-outline btn-sm rounded-full" type="button" (click)="refreshAcademic()">Refresh data</button>
-          </div>
-
-          <div class="grid gap-4 lg:grid-cols-2">
-            <form class="space-y-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="classForm" (ngSubmit)="createClass()">
-              <div>
-                <h3 class="text-xl font-bold text-base-content">Create class</h3>
-                <p class="text-sm text-base-content/60">POST /api/Class/classes</p>
-              </div>
-
-              <label class="form-control w-full">
-                <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Class name</span></div>
-                <input class="app-input" formControlName="className" placeholder="Class 7A" />
-              </label>
-
-              <button class="btn btn-primary w-full rounded-full" type="submit" [disabled]="classForm.invalid || busyClass">
-                @if (busyClass) {
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Saving class...
-                } @else {
-                  Save class
-                }
-              </button>
-            </form>
-
-            <form class="space-y-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="studentForm" (ngSubmit)="createStudent()">
-              <div>
-                <h3 class="text-xl font-bold text-base-content">Create student</h3>
-                <p class="text-sm text-base-content/60">POST /api/Student/students</p>
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-2">
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Kh first name</span></div>
-                  <input class="app-input" formControlName="khFirstName" placeholder="ឈ្មោះ" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Kh last name</span></div>
-                  <input class="app-input" formControlName="khLastName" placeholder="ត្រកូល" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Eng first name</span></div>
-                  <input class="app-input" formControlName="engFirstName" placeholder="First name" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Eng last name</span></div>
-                  <input class="app-input" formControlName="engLastName" placeholder="Last name" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Gender</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="gender">
-                    @for (gender of genderOptions; track gender) {
-                      <option [value]="gender">{{ gender }}</option>
-                    }
-                  </select>
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Date of birth</span></div>
-                  <input class="app-input" type="date" formControlName="dateOfBirth" />
-                </label>
-              </div>
-
-              <div class="grid gap-3 sm:grid-cols-2">
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Class</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="classId">
-                    <option value="">Select class</option>
-                    @for (item of classOptions; track item.value) {
-                      <option [value]="item.value">{{ item.label }}</option>
-                    }
-                  </select>
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Outreach</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="outReachId">
-                    <option value="">Select outreach</option>
-                    @for (item of outreachOptions; track item.value) {
-                      <option [value]="item.value">{{ item.label }}</option>
-                    }
-                  </select>
-                </label>
-              </div>
-
-              <button class="btn btn-secondary w-full rounded-full" type="submit" [disabled]="studentForm.invalid || busyStudent">
-                @if (busyStudent) {
-                  <span class="loading loading-spinner loading-sm"></span>
-                  Saving student...
-                } @else {
-                  Save student
-                }
-              </button>
-            </form>
-          </div>
-
-          <div class="grid gap-4 xl:grid-cols-2">
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
-              <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
-                <div>
-                  <div class="font-bold text-base-content">Classes</div>
-                  <div class="text-xs text-base-content/60">GET /api/Class/classes</div>
+      <!-- Content Area -->
+      <section scrollAnimate animateVariant="fade-up" animateDelay="100ms">
+            @if (activeTab === 'classes') {
+              <article class="app-shell-panel space-y-5 p-5 lg:p-6 animate-in fade-in duration-300">
+                <div class="flex items-center justify-between border-b border-base-300/50 pb-4">
+                  <div>
+                    <h2 class="section-title text-base-content m-0">Classes</h2>
+                    <p class="text-sm text-base-content/65">Manage school classes.</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-outline btn-sm rounded-full" (click)="loadClasses()">Refresh</button>
+                    <button class="btn btn-primary btn-sm rounded-full" (click)="openClassModal()">Add Class</button>
+                  </div>
                 </div>
-                <button class="btn btn-ghost btn-xs" type="button" (click)="loadClasses()">Reload</button>
-              </div>
-              <div class="overflow-x-auto px-4">
-                <table class="table table-zebra">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>ID</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (item of classes; track item.id) {
+                
+                <div class="overflow-x-auto rounded-xl border border-base-300/70 bg-base-100 shadow-sm">
+                  <p-table [value]="classes" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                    <ng-template pTemplate="header">
+                      <tr>
+                        <th>Name</th>
+                        <th>ID</th>
+                        <th class="text-right">Actions</th>
+                      </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-item>
                       <tr>
                         <td class="font-medium">{{ item.className }}</td>
                         <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
-                        <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteClass(item.id, item.className)">Delete</button>
+                        <td class="text-right whitespace-nowrap">
+                          <button class="btn btn-ghost btn-xs text-info" (click)="editClass(item)">Edit</button>
+                          <button class="btn btn-ghost btn-xs text-error" (click)="deleteClass(item.id, item.className)">Delete</button>
                         </td>
                       </tr>
-                    } @empty {
+                    </ng-template>
+                    <ng-template pTemplate="emptymessage">
                       <tr><td colspan="3" class="py-8 text-center text-base-content/60">No classes loaded.</td></tr>
-                    }
-                  </tbody>
-                </table>
+                    </ng-template>
+                  </p-table>
+                </div>
+              </article>
+            }
+        @if (activeTab === 'classes') {
+          <article class="bg-base-100 rounded-3xl border border-base-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 class="text-xl font-bold text-base-content">Classes Directory</h2>
+                <p class="text-sm text-base-content/60">Create, edit, and manage school classes.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:bg-base-200" (click)="loadClasses()"><i class="pi pi-refresh"></i> Refresh</button>
+                <button class="btn btn-primary btn-sm rounded-xl shadow-sm" (click)="openClassModal()"><i class="pi pi-plus"></i> Add Class</button>
+              </div>
+            </div>
+            
+            <div class="overflow-x-auto rounded-2xl border border-base-200">
+              <p-table [value]="classes" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Name</th>
+                    <th>ID</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-item>
+                  <tr>
+                    <td class="font-medium text-base-content">{{ item.className }}</td>
+                    <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
+                    <td class="text-right whitespace-nowrap">
+                      <button class="btn btn-ghost btn-xs text-info hover:bg-info/10" (click)="editClass(item)">Edit</button>
+                      <button class="btn btn-ghost btn-xs text-error hover:bg-error/10" (click)="deleteClass(item.id, item.className)">Delete</button>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="3" class="py-12 text-center text-base-content/50">No classes loaded. Add one to get started.</td></tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </article>
+        }
+
+            @if (activeTab === 'students') {
+              <article class="app-shell-panel space-y-5 p-5 lg:p-6 animate-in fade-in duration-300">
+                <div class="flex items-center justify-between border-b border-base-300/50 pb-4">
+                  <div>
+                    <h2 class="section-title text-base-content m-0">Students</h2>
+                    <p class="text-sm text-base-content/65">Manage students.</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-outline btn-sm rounded-full" (click)="loadStudents()">Refresh</button>
+                    <button class="btn btn-primary btn-sm rounded-full" (click)="openStudentModal()">Add Student</button>
+                  </div>
+                </div>
+        @if (activeTab === 'students') {
+          <article class="bg-base-100 rounded-3xl border border-base-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 class="text-xl font-bold text-base-content">Student Roster</h2>
+                <p class="text-sm text-base-content/60">Manage student records and enrollments.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:bg-base-200" (click)="loadStudents()"><i class="pi pi-refresh"></i> Refresh</button>
+                <button class="btn btn-primary btn-sm rounded-xl shadow-sm" (click)="openStudentModal()"><i class="pi pi-plus"></i> Add Student</button>
               </div>
             </div>
 
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
-              <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
-                <div>
-                  <div class="font-bold text-base-content">Students</div>
-                  <div class="text-xs text-base-content/60">GET /api/Student/students</div>
-                </div>
-                <button class="btn btn-ghost btn-xs" type="button" (click)="loadStudents()">Reload</button>
-              </div>
-              <div class="overflow-x-auto px-4">
-                <table class="table table-zebra">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Class</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (item of students; track item.id) {
+                <div class="overflow-x-auto rounded-xl border border-base-300/70 bg-base-100 shadow-sm">
+                  <p-table [value]="students" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                    <ng-template pTemplate="header">
+                      <tr>
+                        <th>Name (EN)</th>
+                        <th>Name (KH)</th>
+                        <th>Gender</th>
+                        <th>Class</th>
+                        <th class="text-right">Actions</th>
+                      </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-item>
                       <tr>
                         <td>
                           <div class="font-medium">{{ item.engFirstName }} {{ item.engLastName }}</div>
-                          <div class="text-xs text-base-content/60">{{ item.gender }} • {{ item.dateOfBirth | date:'mediumDate' }}</div>
+                          <div class="text-xs text-base-content/60">{{ item.dateOfBirth | date:'shortDate' }}</div>
                         </td>
+                        <td>{{ item.khFirstName }} {{ item.khLastName }}</td>
+                        <td><p-badge [value]="item.gender" severity="info"></p-badge></td>
                         <td class="font-mono text-xs text-base-content/60">{{ item.classId || '-' }}</td>
-                        <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteStudent(item.id, item.engFirstName, item.engLastName)">Delete</button>
+                        <td class="text-right whitespace-nowrap">
+                          <button class="btn btn-ghost btn-xs text-info" (click)="editStudent(item)">Edit</button>
+                          <button class="btn btn-ghost btn-xs text-error" (click)="deleteStudent(item.id, item.engFirstName, item.engLastName)">Delete</button>
                         </td>
                       </tr>
-                    } @empty {
-                      <tr><td colspan="3" class="py-8 text-center text-base-content/60">No students loaded.</td></tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+                    </ng-template>
+                    <ng-template pTemplate="emptymessage">
+                      <tr><td colspan="5" class="py-8 text-center text-base-content/60">No students loaded.</td></tr>
+                    </ng-template>
+                  </p-table>
+                </div>
+              </article>
+            }
+            <div class="overflow-x-auto rounded-2xl border border-base-200">
+              <p-table [value]="students" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Name (EN)</th>
+                    <th>Name (KH)</th>
+                    <th>Gender</th>
+                    <th>Class</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-item>
+                  <tr>
+                    <td>
+                      <div class="font-medium text-base-content">{{ item.engFirstName }} {{ item.engLastName }}</div>
+                      <div class="text-xs text-base-content/50">{{ item.dateOfBirth | date:'mediumDate' }}</div>
+                    </td>
+                    <td class="text-base-content/80">{{ item.khFirstName }} {{ item.khLastName }}</td>
+                    <td><span class="badge badge-ghost badge-sm text-xs">{{ item.gender }}</span></td>
+                    <td class="font-mono text-xs text-base-content/60">{{ item.classId || '-' }}</td>
+                    <td class="text-right whitespace-nowrap">
+                      <button class="btn btn-ghost btn-xs text-info hover:bg-info/10" (click)="editStudent(item)">Edit</button>
+                      <button class="btn btn-ghost btn-xs text-error hover:bg-error/10" (click)="deleteStudent(item.id, item.engFirstName, item.engLastName)">Delete</button>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="5" class="py-12 text-center text-base-content/50">No students loaded. Add one to get started.</td></tr>
+                </ng-template>
+              </p-table>
             </div>
-          </div>
-        </article>
+          </article>
+        }
 
-        <article class="space-y-6">
-          <section class="app-shell-panel space-y-5 p-5 lg:p-6">
-            <div class="flex flex-wrap items-start justify-between gap-3">
+            @if (activeTab === 'products') {
+              <article class="app-shell-panel space-y-5 p-5 lg:p-6 animate-in fade-in duration-300">
+                <div class="flex items-center justify-between border-b border-base-300/50 pb-4">
+                  <div>
+                    <h2 class="section-title text-base-content m-0">Inventory</h2>
+                    <p class="text-sm text-base-content/65">Manage products.</p>
+                  </div>
+                  <div class="flex gap-2">
+                    <button class="btn btn-outline btn-sm rounded-full" (click)="loadProducts()">Refresh</button>
+                    <button class="btn btn-primary btn-sm rounded-full" (click)="openProductModal()">Add Product</button>
+                  </div>
+                </div>
+        @if (activeTab === 'products') {
+          <article class="bg-base-100 rounded-3xl border border-base-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
               <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="badge badge-primary badge-outline">Inventory</span>
-                  <span class="badge badge-ghost">{{ products.length }} products</span>
-                </div>
-                <h2 class="section-title mt-3 text-base-content">Products</h2>
-                <p class="mt-2 max-w-2xl text-sm text-base-content/65">Create inventory items and refresh them from the API.
-                </p>
+                <h2 class="text-xl font-bold text-base-content">Inventory Catalog</h2>
+                <p class="text-sm text-base-content/60">Manage products, equipment, and assets.</p>
               </div>
-              <button class="btn btn-outline btn-sm rounded-full" type="button" (click)="refreshProducts()">Refresh data</button>
+              <div class="flex items-center gap-2">
+                <button class="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:bg-base-200" (click)="loadProducts()"><i class="pi pi-refresh"></i> Refresh</button>
+                <button class="btn btn-primary btn-sm rounded-xl shadow-sm" (click)="openProductModal()"><i class="pi pi-plus"></i> Add Product</button>
+              </div>
             </div>
 
-            <form class="grid gap-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="productForm" (ngSubmit)="createProduct()">
-              <div class="grid gap-3 md:grid-cols-2">
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Name <span class="text-error">*</span></span></div>
-                  <input class="app-input" formControlName="name" placeholder="Projector" />
-                  @if (productForm.get('name')?.invalid && productForm.get('name')?.touched) {
-                    <div class="label"><span class="label-text-alt text-error">Name is required</span></div>
-                  }
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Code number</span></div>
-                  <input class="app-input" formControlName="codeNumber" placeholder="PRD-001" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Category</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="categoryId">
-                    <option value="">Select Category</option>
-                    @for (cat of categoryOptions; track cat.value) {
-                      <option [value]="cat.value">{{ cat.label }}</option>
-                    }
-                  </select>
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Brand</span></div>
-                  <select class="select select-bordered rounded-2xl" formControlName="brandId">
-                    <option value="">Select Brand</option>
-                    @for (brand of brandOptions; track brand.value) {
-                      <option [value]="brand.value">{{ brand.label }}</option>
-                    }
-                  </select>
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Price</span></div>
-                  <input class="app-input" type="number" formControlName="price" placeholder="1200" />
-                </label>
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Quality</span></div>
-                  <input class="app-input" formControlName="quality" placeholder="New / Used" />
-                </label>
-              </div>
-
-              <label class="form-control w-full">
-                <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Description</span></div>
-                <textarea class="textarea textarea-bordered min-h-28 rounded-2xl" formControlName="description" placeholder="Optional product description"></textarea>
-              </label>
-
-              <label class="form-control w-full">
-                <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Product Image</span></div>
-                <input type="file" class="file-input file-input-bordered w-full" (change)="onFileSelected($event)" accept="image/*" />
-                @if (selectedImage) {
-                  <div class="label"><span class="label-text-alt text-success">Selected: {{ selectedImage.name }}</span></div>
-                }
-              </label>
-
-              <div class="grid gap-3 md:grid-cols-[1fr_auto]">
-                <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Voucher number</span></div>
-                  <input class="app-input" formControlName="voucherNumber" placeholder="VCH-1001" />
-                </label>
-                <div class="flex items-end">
-                  <button class="btn btn-primary rounded-full px-6" type="submit" [disabled]="productForm.invalid || busyProduct">
-                    @if (busyProduct) {
-                      <span class="loading loading-spinner loading-sm"></span>
-                      Saving product...
-                    } @else {
-                      Save product
-                    }
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            <div class="overflow-hidden rounded-[24px] border border-base-300/70 bg-base-100/70 shadow-lg my-6">
-              <div class="flex items-center justify-between border-b border-base-300/70 px-4 py-3">
-                <div>
-                  <div class="font-bold text-base-content">Products</div>
-                  <div class="text-xs text-base-content/60">GET /api/products</div>
-                </div>
-                <button class="btn btn-ghost btn-xs" type="button" (click)="loadProducts()">Reload</button>
-              </div>
-              <div class="overflow-x-auto px-4">
-                <table class="table table-zebra">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Brand</th>
-                      <th>Category</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (item of products; track item.id ?? item.name) {
+                <div class="overflow-x-auto rounded-xl border border-base-300/70 bg-base-100 shadow-sm">
+                  <p-table [value]="products" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                    <ng-template pTemplate="header">
+                      <tr>
+                        <th>Name</th>
+                        <th>Brand</th>
+                        <th>Category</th>
+                        <th class="text-right">Actions</th>
+                      </tr>
+                    </ng-template>
+                    <ng-template pTemplate="body" let-item>
                       <tr>
                         <td>
                           <div class="font-medium">{{ item.name }}</div>
@@ -367,80 +290,307 @@ interface ActivityEntry {
                         </td>
                         <td>{{ item.brandName || '-' }}</td>
                         <td>{{ item.categoryName || '-' }}</td>
-                        <td class="text-right">
-                          <button class="btn btn-ghost btn-xs text-error" type="button" (click)="deleteProduct(item.id || '', item.name)">Delete</button>
+                        <td class="text-right whitespace-nowrap">
+                          <button class="btn btn-ghost btn-xs text-info" (click)="editProduct(item)">Edit</button>
+                          <button class="btn btn-ghost btn-xs text-error" (click)="deleteProduct(item.id || '', item.name)">Delete</button>
                         </td>
                       </tr>
-                    } @empty {
+                    </ng-template>
+                    <ng-template pTemplate="emptymessage">
                       <tr><td colspan="4" class="py-8 text-center text-base-content/60">No products loaded.</td></tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </section>
-
-          <section class="app-shell-panel space-y-5 p-5 lg:p-6">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="badge badge-secondary badge-outline">Reports</span>
-                  <span class="badge badge-ghost">Exports</span>
+                    </ng-template>
+                  </p-table>
                 </div>
-                <h2 class="section-title mt-3 text-base-content">Monthly reports</h2>
-                <p class="mt-2 max-w-2xl text-sm text-base-content/65">Generate PDF, Excel, or queue the monthly transaction report.</p>
+              </article>
+            }
+            <div class="overflow-x-auto rounded-2xl border border-base-200">
+              <p-table [value]="products" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+                <ng-template pTemplate="header">
+                  <tr>
+                    <th>Name</th>
+                    <th>Brand</th>
+                    <th>Category</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="body" let-item>
+                  <tr>
+                    <td>
+                      <div class="font-medium text-base-content">{{ item.name }}</div>
+                      <div class="text-xs text-base-content/50">{{ item.codeNumber || '-' }}</div>
+                    </td>
+                    <td class="text-base-content/80">{{ item.brandName || '-' }}</td>
+                    <td class="text-base-content/80">{{ item.categoryName || '-' }}</td>
+                    <td class="text-right whitespace-nowrap">
+                      <button class="btn btn-ghost btn-xs text-info hover:bg-info/10" (click)="editProduct(item)">Edit</button>
+                      <button class="btn btn-ghost btn-xs text-error hover:bg-error/10" (click)="deleteProduct(item.id || '', item.name)">Delete</button>
+                    </td>
+                  </tr>
+                </ng-template>
+                <ng-template pTemplate="emptymessage">
+                  <tr><td colspan="4" class="py-12 text-center text-base-content/50">No products loaded. Add one to get started.</td></tr>
+                </ng-template>
+              </p-table>
+            </div>
+          </article>
+        }
+
+            @if (activeTab === 'reports') {
+              <article class="app-shell-panel space-y-5 p-5 lg:p-6 animate-in fade-in duration-300 max-w-4xl mx-auto">
+                <div>
+                  <h2 class="section-title mt-3 text-base-content">Monthly reports</h2>
+                  <p class="mt-2 max-w-2xl text-sm text-base-content/65">Generate PDF, Excel, or queue the monthly transaction report.</p>
+                </div>
+        @if (activeTab === 'reports') {
+          <article class="bg-base-100 rounded-3xl border border-base-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-2 duration-500 max-w-4xl mx-auto">
+            <div class="mb-8 text-center">
+              <div class="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <i class="pi pi-file-export text-3xl"></i>
               </div>
+              <h2 class="text-2xl font-bold text-base-content">Data Exporter</h2>
+              <p class="text-base-content/60 mt-2 max-w-md mx-auto">Generate comprehensive monthly transaction reports in PDF or Excel formats.</p>
             </div>
 
-            <form class="grid gap-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="reportForm" (ngSubmit)="downloadMonthlyPdf()">
-              <div class="grid gap-3 sm:grid-cols-2">
+                <form class="grid gap-4 rounded-[26px] border border-base-300/70 bg-base-100/70 p-4 shadow-lg" [formGroup]="reportForm" (ngSubmit)="downloadMonthlyPdf()">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="form-control w-full">
+                      <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Year</span></div>
+                      <input class="app-input" type="number" formControlName="year" />
+                    </label>
+                    <label class="form-control w-full">
+                      <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Month</span></div>
+                      <input class="app-input" type="number" formControlName="month" />
+                    </label>
+                  </div>
+            <form class="bg-base-200/30 rounded-2xl border border-base-200 p-6 shadow-sm" [formGroup]="reportForm" (ngSubmit)="downloadMonthlyPdf()">
+              <div class="grid gap-6 sm:grid-cols-2 mb-8">
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Year</span></div>
-                  <input class="app-input" type="number" formControlName="year" />
+                  <div class="label pb-1.5"><span class="label-text text-sm font-semibold text-base-content/80">Report Year</span></div>
+                  <input class="app-input py-2.5 rounded-xl bg-base-100" type="number" formControlName="year" placeholder="e.g. 2024" />
                 </label>
                 <label class="form-control w-full">
-                  <div class="label pb-2"><span class="label-text text-sm font-semibold text-base-content/80">Month</span></div>
-                  <input class="app-input" type="number" formControlName="month" />
+                  <div class="label pb-1.5"><span class="label-text text-sm font-semibold text-base-content/80">Report Month</span></div>
+                  <input class="app-input py-2.5 rounded-xl bg-base-100" type="number" formControlName="month" placeholder="1-12" />
                 </label>
               </div>
 
-              <div class="flex flex-wrap gap-3">
-                <button class="btn btn-primary rounded-full" type="button" (click)="downloadMonthlyPdf()">PDF</button>
-                <button class="btn btn-outline rounded-full" type="button" (click)="downloadMonthlyExcel()">Excel</button>
-                <button class="btn btn-secondary rounded-full" type="button" (click)="queueMonthly()">Queue job</button>
+                  <div class="flex flex-wrap gap-3">
+                    <button class="btn btn-primary rounded-full" type="button" (click)="downloadMonthlyPdf()">PDF</button>
+                    <button class="btn btn-outline rounded-full" type="button" (click)="downloadMonthlyExcel()">Excel</button>
+                    <button class="btn btn-secondary rounded-full" type="button" (click)="queueMonthly()">Queue job</button>
+                  </div>
+                </form>
+              </article>
+            }
+          </section>
+              <div class="flex flex-wrap items-center justify-center gap-4">
+                <button class="btn btn-primary rounded-xl px-8 shadow-sm" type="button" (click)="downloadMonthlyPdf()"><i class="pi pi-file-pdf"></i> Download PDF</button>
+                <button class="btn btn-outline rounded-xl px-8 bg-base-100 hover:bg-base-200" type="button" (click)="downloadMonthlyExcel()"><i class="pi pi-file-excel"></i> Download Excel</button>
               </div>
             </form>
-          </section>
-        </article>
+          </article>
+        }
       </section>
 
       <section scrollAnimate animateVariant="fade-up" animateDelay="160ms" class="app-shell-panel space-y-4 p-5 lg:p-6">
         <div class="flex items-center justify-between gap-4">
+      <!-- Activity Log -->
+      <section scrollAnimate animateVariant="fade-up" animateDelay="160ms" class="bg-base-100 rounded-3xl border border-base-200 shadow-sm p-6 mb-8">
+        <div class="flex items-center justify-between gap-4 mb-6">
           <div>
             <div class="flex flex-wrap items-center gap-2">
               <span class="badge badge-accent badge-outline">Activity</span>
               <span class="badge badge-ghost">Live feedback</span>
             </div>
             <h2 class="section-title mt-3 text-base-content">Recent actions</h2>
+            <h2 class="text-xl font-bold text-base-content flex items-center gap-2">
+              <i class="pi pi-history text-primary"></i>
+              Activity Log
+            </h2>
+            <p class="text-sm text-base-content/60 mt-1">Live monitoring of system operations.</p>
           </div>
           <div class="text-sm text-base-content/60">{{ statusMessage }}</div>
+          <div class="flex items-center gap-2 px-3 py-1.5 bg-base-200 rounded-full">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span>
+            </span>
+            <span class="text-xs font-medium text-base-content/70">{{ statusMessage }}</span>
+          </div>
         </div>
 
         <div class="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+        <div class="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
           @for (entry of activityLog; track entry.time + entry.message) {
             <div class="rounded-[22px] border border-base-300/70 bg-base-100/70 p-4 shadow-sm" [class.border-success/40]="entry.tone === 'success'" [class.border-error/40]="entry.tone === 'error'" [class.border-info/40]="entry.tone === 'info'">
               <div class="flex items-center justify-between gap-3">
                 <span class="badge" [class.badge-success]="entry.tone === 'success'" [class.badge-error]="entry.tone === 'error'" [class.badge-info]="entry.tone === 'info'">{{ entry.tone }}</span>
                 <span class="text-[11px] text-base-content/50">{{ entry.time }}</span>
+            <div class="relative overflow-hidden rounded-2xl border border-base-200 bg-base-50 p-4 transition-all hover:shadow-md" 
+                 [ngClass]="{
+                   'border-l-4 border-l-success': entry.tone === 'success',
+                   'border-l-4 border-l-error': entry.tone === 'error',
+                   'border-l-4 border-l-info': entry.tone === 'info'
+                 }">
+              <div class="flex items-start justify-between gap-3 mb-2">
+                <div class="flex items-center gap-2">
+                  <i class="pi" 
+                     [ngClass]="{
+                       'pi-check-circle text-success': entry.tone === 'success',
+                       'pi-times-circle text-error': entry.tone === 'error',
+                       'pi-info-circle text-info': entry.tone === 'info'
+                     }"></i>
+                  <span class="font-semibold text-sm capitalize"
+                        [ngClass]="{
+                          'text-success': entry.tone === 'success',
+                          'text-error': entry.tone === 'error',
+                          'text-info': entry.tone === 'info'
+                        }">{{ entry.tone }}</span>
+                </div>
+                <span class="text-[11px] font-medium text-base-content/40 bg-base-200 px-2 py-0.5 rounded-md">{{ entry.time }}</span>
               </div>
               <p class="mt-3 text-sm text-base-content/75">{{ entry.message }}</p>
+              <p class="text-sm text-base-content/70 leading-relaxed">{{ entry.message }}</p>
             </div>
           } @empty {
             <div class="rounded-[22px] border border-dashed border-base-300/70 bg-base-100/60 p-6 text-sm text-base-content/60">No actions yet. Create a class, student, or product to see live API feedback here.</div>
+            <div class="col-span-full rounded-2xl border border-dashed border-base-300 bg-base-50/50 py-12 flex flex-col items-center justify-center text-center">
+              <i class="pi pi-inbox text-4xl text-base-content/20 mb-3"></i>
+              <h3 class="text-base font-semibold text-base-content/60">No recent activity</h3>
+              <p class="text-sm text-base-content/40 max-w-sm mt-1">Actions performed during this session will appear here in real-time.</p>
+            </div>
           }
         </div>
       </section>
     </div>
+
+    <!-- Form Modals -->
+    <p-dialog [(visible)]="isClassModalVisible" [header]="editingClassId ? 'Edit Class' : 'Create Class'" [modal]="true" [dismissableMask]="true" [style]="{width: '450px'}">
+      <form [formGroup]="classForm" (ngSubmit)="saveClass()" class="space-y-4 pt-2">
+        <label class="form-control w-full">
+          <div class="label pb-1"><span class="label-text text-sm font-semibold">Class name <span class="text-error">*</span></span></div>
+          <input class="app-input py-2" formControlName="className" placeholder="Class 7A" />
+        </label>
+        <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-base-200">
+          <button class="btn btn-ghost" type="button" (click)="cancelEditClass()">Cancel</button>
+          <button class="btn btn-primary px-6" type="submit" [disabled]="classForm.invalid || busyClass">
+            @if (busyClass) { <span class="loading loading-spinner loading-sm"></span> }
+            {{ editingClassId ? 'Update' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </p-dialog>
+
+    <p-dialog [(visible)]="isStudentModalVisible" [header]="editingStudentId ? 'Edit Student' : 'Create Student'" [modal]="true" [dismissableMask]="true" [style]="{width: '600px'}">
+      <form [formGroup]="studentForm" (ngSubmit)="saveStudent()" class="space-y-4 pt-2">
+        <div class="grid grid-cols-2 gap-3">
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">First Name (KH) <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="khFirstName" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Last Name (KH) <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="khLastName" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">First Name (EN) <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="engFirstName" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Last Name (EN) <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="engLastName" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Gender <span class="text-error">*</span></span></div>
+            <select class="select select-bordered select-sm rounded-xl" formControlName="gender">
+              @for (g of genderOptions; track g) { <option [value]="g">{{ g }}</option> }
+            </select>
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Date of birth <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" type="date" formControlName="dateOfBirth" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Class</span></div>
+            <select class="select select-bordered select-sm rounded-xl" formControlName="classId">
+              <option value="">Select class</option>
+              @for (c of classOptions; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+            </select>
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Outreach</span></div>
+            <select class="select select-bordered select-sm rounded-xl" formControlName="outReachId">
+              <option value="">Select outreach</option>
+              @for (o of outreachOptions; track o.value) { <option [value]="o.value">{{ o.label }}</option> }
+            </select>
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-base-200">
+          <button class="btn btn-ghost" type="button" (click)="cancelEditStudent()">Cancel</button>
+          <button class="btn btn-primary px-6" type="submit" [disabled]="studentForm.invalid || busyStudent">
+            @if (busyStudent) { <span class="loading loading-spinner loading-sm"></span> }
+            {{ editingStudentId ? 'Update' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </p-dialog>
+
+    <p-dialog [header]="editingProductId ? 'Edit Product' : 'Create Product'" [(visible)]="isProductModalVisible" [modal]="true" [dismissableMask]="true" [style]="{width: '600px'}">
+      <form [formGroup]="productForm" (ngSubmit)="saveProduct()" class="space-y-4 pt-2">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Name <span class="text-error">*</span></span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="name" placeholder="Projector" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Code number</span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="codeNumber" placeholder="PRD-001" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Category</span></div>
+            <select class="select select-bordered select-sm rounded-xl" formControlName="categoryId">
+              <option value="">Select Category</option>
+              @for (c of categoryOptions; track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+            </select>
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Brand</span></div>
+            <select class="select select-bordered select-sm rounded-xl" formControlName="brandId">
+              <option value="">Select Brand</option>
+              @for (b of brandOptions; track b.value) { <option [value]="b.value">{{ b.label }}</option> }
+            </select>
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Price</span></div>
+            <input class="app-input py-1.5 px-3 text-sm" type="number" formControlName="price" placeholder="1200" />
+          </label>
+          <label class="form-control w-full">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Quality</span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="quality" placeholder="New / Used" />
+          </label>
+          <label class="form-control w-full sm:col-span-2">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Voucher number</span></div>
+            <input class="app-input py-1.5 px-3 text-sm" formControlName="voucherNumber" placeholder="VCH-1001" />
+          </label>
+          <label class="form-control w-full sm:col-span-2">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Description</span></div>
+            <textarea class="textarea textarea-bordered min-h-16 rounded-xl text-sm" formControlName="description"></textarea>
+          </label>
+          <label class="form-control w-full sm:col-span-2">
+            <div class="label pb-1"><span class="label-text text-xs font-semibold">Product Image</span></div>
+            <input type="file" class="file-input file-input-bordered file-input-sm w-full" (change)="onFileSelected($event)" accept="image/*" />
+            @if (selectedImage) { <div class="label"><span class="label-text-alt text-success">Selected: {{ selectedImage.name }}</span></div> }
+          </label>
+        </div>
+        <div class="flex justify-end gap-2 pt-4 mt-4 border-t border-base-200">
+          <button class="btn btn-ghost" type="button" (click)="cancelEditProduct()">Cancel</button>
+          <button class="btn btn-primary px-6" type="submit" [disabled]="productForm.invalid || busyProduct">
+            @if (busyProduct) { <span class="loading loading-spinner loading-sm"></span> }
+            {{ editingProductId ? 'Update' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </p-dialog>
 
     <!-- Delete Confirmation Modal -->
     <dialog id="delete-modal" class="modal modal-bottom sm:modal-middle">
@@ -541,6 +691,15 @@ export class ApiConsoleComponent implements OnInit {
     month: [(new Date().getMonth() + 1).toString(), [Validators.required]]
   });
 
+  protected activeTab: 'classes' | 'students' | 'products' | 'reports' = 'classes';
+  
+  protected isClassModalVisible = false;
+  protected isStudentModalVisible = false;
+  protected isProductModalVisible = false;
+  protected editingClassId: string | null = null;
+  protected editingStudentId: string | null = null;
+  protected editingProductId: string | null = null;
+
   protected classes: ClassDto[] = [];
   protected students: StudentDto[] = [];
   protected products: ProductDto[] = [];
@@ -567,44 +726,66 @@ export class ApiConsoleComponent implements OnInit {
     this.refreshAll();
   }
 
-  protected refreshAcademic(): void {
-    this.loadLookups();
-    this.loadClasses();
-    this.loadStudents();
+  protected openClassModal() {
+    this.editingClassId = null;
+    this.classForm.reset();
+    this.isClassModalVisible = true;
+  }
+  
+  protected openStudentModal() {
+    this.editingStudentId = null;
+    this.studentForm.reset({ gender: 'Male' });
+    this.isStudentModalVisible = true;
   }
 
-  protected refreshProducts(): void {
-    this.loadLookups();
-    this.loadProducts();
+  protected openProductModal() {
+    this.editingProductId = null;
+    this.productForm.reset();
+    this.selectedImage = null;
+    this.isProductModalVisible = true;
   }
 
-  protected createClass(): void {
+  protected saveClass(): void {
     if (this.classForm.invalid) {
       this.classForm.markAllAsTouched();
       return;
     }
 
     this.busyClass = true;
-    const payload: CreateClassRequest = {
-      className: this.classForm.getRawValue().className.trim()
-    };
+    const payload: any = { className: this.classForm.getRawValue().className.trim() };
+    
+    const obs$ = (this.editingClassId 
+      ? this.classApi.update(this.editingClassId, payload)
+      : this.classApi.create(payload)) as Observable<any>;
 
-    this.classApi.create(payload).pipe(
+    obs$.pipe(
       finalize(() => {
         this.busyClass = false;
         this.cdr.detectChanges();
       })
     ).subscribe({
-      next: (created) => {
-        this.classForm.reset({ className: '' });
+      next: () => {
+        this.cancelEditClass();
         this.loadClasses();
         this.loadLookups();
-        this.announce(`Created class ${created.className}.`, 'success');
+        this.announce(`Successfully saved class.`, 'success');
       },
-      error: (error) => {
-        this.announce(this.extractMessage(error, 'Failed to create class.'), 'error');
+      error: (error: any) => {
+        this.announce(this.extractMessage(error, 'Failed to save class.'), 'error');
       }
     });
+  }
+
+  protected editClass(item: ClassDto): void {
+    this.editingClassId = item.id;
+    this.classForm.patchValue({ className: item.className });
+    this.isClassModalVisible = true;
+  }
+
+  protected cancelEditClass(): void {
+    this.editingClassId = null;
+    this.classForm.reset({ className: '' });
+    this.isClassModalVisible = false;
   }
 
   protected deleteClass(id: string, className: string): void {
@@ -615,7 +796,7 @@ export class ApiConsoleComponent implements OnInit {
     this.openDeleteModal();
   }
 
-  protected createStudent(): void {
+  protected saveStudent(): void {
     if (this.studentForm.invalid) {
       this.studentForm.markAllAsTouched();
       return;
@@ -623,41 +804,56 @@ export class ApiConsoleComponent implements OnInit {
 
     this.busyStudent = true;
     const value = this.studentForm.getRawValue();
-    const payload: CreateStudentRequest = {
-      khFirstName: value.khFirstName.trim(),
-      khLastName: value.khLastName.trim(),
+    const payload: any = {
+      khFirstName: value.khFirstName.trim() || null,
+      khLastName: value.khLastName.trim() || null,
       engFirstName: value.engFirstName.trim(),
       engLastName: value.engLastName.trim(),
       gender: value.gender,
-      dateOfBirth: new Date(value.dateOfBirth).toISOString(),
+      dateOfBirth: value.dateOfBirth ? new Date(value.dateOfBirth).toISOString() : null,
       classId: value.classId || null,
       outReachId: value.outReachId || null
     };
 
-    this.studentApi.create(payload).pipe(
+    const obs$ = (this.editingStudentId 
+      ? this.studentApi.update(this.editingStudentId, payload)
+      : this.studentApi.create(payload)) as Observable<any>;
+
+    obs$.pipe(
       finalize(() => {
         this.busyStudent = false;
         this.cdr.detectChanges();
       })
     ).subscribe({
-      next: (created) => {
-        this.studentForm.reset({
-          khFirstName: '',
-          khLastName: '',
-          engFirstName: '',
-          engLastName: '',
-          gender: 'Male',
-          dateOfBirth: '',
-          classId: '',
-          outReachId: ''
-        });
+      next: () => {
+        this.cancelEditStudent();
         this.loadStudents();
-        this.announce(`Created student ${created.engFirstName} ${created.engLastName}.`, 'success');
+        this.announce(`Successfully saved student.`, 'success');
       },
-      error: (error) => {
-        this.announce(this.extractMessage(error, 'Failed to create student.'), 'error');
+      error: (error: any) => {
+        this.announce(this.extractMessage(error, 'Failed to save student.'), 'error');
       }
     });
+  }
+
+  protected editStudent(item: StudentDto): void {
+    this.editingStudentId = item.id!;
+    this.studentForm.patchValue({
+      khFirstName: item.khFirstName || '',
+      khLastName: item.khLastName || '',
+      engFirstName: item.engFirstName || '',
+      engLastName: item.engLastName || '',
+      gender: item.gender as Gender,
+      dateOfBirth: item.dateOfBirth ? item.dateOfBirth.substring(0, 10) : '',
+      classId: item.classId || '',
+      outReachId: item.outReachId || ''
+    });
+  }
+
+  protected cancelEditStudent(): void {
+    this.editingStudentId = null;
+    this.studentForm.reset({ khFirstName: '', khLastName: '', engFirstName: '', engLastName: '', gender: 'Male', dateOfBirth: '', classId: '', outReachId: '' });
+    this.isStudentModalVisible = false;
   }
 
   protected deleteStudent(id: string, firstName: string, lastName: string): void {
@@ -668,7 +864,7 @@ export class ApiConsoleComponent implements OnInit {
     this.openDeleteModal();
   }
 
-  protected createProduct(): void {
+  protected saveProduct(): void {
     if (this.productForm.invalid) {
       this.productForm.markAllAsTouched();
       return;
@@ -679,10 +875,9 @@ export class ApiConsoleComponent implements OnInit {
 
     // Parse price
     const priceValue = value.price;
-    const parsedPrice = typeof priceValue === 'string' && priceValue.trim() ? Number(priceValue) :
-                        typeof priceValue === 'number' && !isNaN(priceValue) ? priceValue : null;
+    const parsedPrice = typeof priceValue === 'string' && priceValue.trim() ? Number(priceValue) : typeof priceValue === 'number' && !isNaN(priceValue) ? priceValue : null;
 
-    const payload: CreateProductRequest = {
+    const payload: any = {
       name: value.name?.trim() || '',
       codeNumber: value.codeNumber?.trim() || null,
       description: value.description?.trim() || null,
@@ -693,37 +888,52 @@ export class ApiConsoleComponent implements OnInit {
       voucherNumber: value.voucherNumber?.trim() || null
     };
 
-    this.productApi.create(payload).pipe(
+    const obs$ = (this.editingProductId
+      ? this.productApi.update(this.editingProductId, payload)
+      : this.productApi.create(payload)) as Observable<any>;
+
+    obs$.pipe(
       finalize(() => {
         this.busyProduct = false;
         this.cdr.detectChanges();
       })
     ).subscribe({
-      next: (created) => {
-        // Upload image if selected
-        if (this.selectedImage && created.id) {
-          this.productApi.uploadImage(created.id, this.selectedImage).subscribe();
+      next: (saved: any) => {
+        if (this.selectedImage && saved.id) {
+          this.productApi.uploadImage(saved.id, this.selectedImage).subscribe();
         }
-
-        this.productForm.reset({
-          name: '',
-          codeNumber: '',
-          description: '',
-          categoryId: '',
-          brandId: '',
-          price: '',
-          quality: '',
-          voucherNumber: ''
-        });
-        this.selectedImage = null;
+        this.cancelEditProduct();
         this.loadProducts();
-        this.announce(`Created product ${created.name}.`, 'success');
+        this.announce(`Successfully saved product.`, 'success');
       },
-      error: (error) => {
+      error: (error: any) => {
         const errorMsg = error?.error?.message ?? error?.message ?? 'Failed to create product.';
-        this.announce(errorMsg, 'error');
+        this.announce(this.extractMessage(error, errorMsg), 'error');
       }
     });
+  }
+
+  protected editProduct(item: ProductDto): void {
+    this.editingProductId = item.id!;
+    this.productForm.patchValue({
+      name: item.name || '',
+      codeNumber: item.codeNumber || '',
+      description: item.description || '',
+      categoryId: item.categoryId || '',
+      brandId: item.brandId || '',
+      price: item.price?.toString() || '',
+      quality: item.quality || '',
+      voucherNumber: item.voucherNumber || ''
+    });
+  }
+
+  protected cancelEditProduct(): void {
+    this.editingProductId = null;
+    this.productForm.reset({ name: '', codeNumber: '', description: '', categoryId: '', brandId: '', price: '', quality: '', voucherNumber: '' });
+    this.selectedImage = null;
+    const fileInput = document.querySelector('.file-input') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
+    this.isProductModalVisible = false;
   }
 
   protected deleteProduct(id: string, productName: string): void {
@@ -744,7 +954,7 @@ export class ApiConsoleComponent implements OnInit {
 
     this.reportApi.downloadMonthlyPdf(year, month).subscribe({
       next: (blob) => this.saveBlob(blob, `monthly-transactions-${year}-${month}.pdf`),
-      error: (error) => this.announce(this.extractMessage(error, 'PDF generation failed.'), 'error')
+      error: (error: any) => this.announce(this.extractMessage(error, 'PDF generation failed.'), 'error')
     });
   }
 
@@ -754,7 +964,7 @@ export class ApiConsoleComponent implements OnInit {
 
     this.reportApi.downloadMonthlyExcel(year, month).subscribe({
       next: (blob) => this.saveBlob(blob, `monthly-transactions-${year}-${month}.xlsx`),
-      error: (error) => this.announce(this.extractMessage(error, 'Excel generation failed.'), 'error')
+      error: (error: any) => this.announce(this.extractMessage(error, 'Excel generation failed.'), 'error')
     });
   }
 
@@ -764,7 +974,7 @@ export class ApiConsoleComponent implements OnInit {
 
     this.reportApi.enqueueMonthly(year, month).subscribe({
       next: (result) => this.announce(result.message, 'success'),
-      error: (error) => this.announce(this.extractMessage(error, 'Failed to queue report.'), 'error')
+      error: (error: any) => this.announce(this.extractMessage(error, 'Failed to queue report.'), 'error')
     });
   }
 
@@ -958,7 +1168,7 @@ export class ApiConsoleComponent implements OnInit {
           this.loadLookups();
         }, 200);
       },
-      error: (error) => {
+      error: (error: any) => {
         this.announce(this.extractMessage(error, 'Failed to delete class.'), 'error');
         this.closeDeleteModal();
       }
@@ -972,7 +1182,7 @@ export class ApiConsoleComponent implements OnInit {
         this.closeDeleteModal();
         setTimeout(() => this.loadStudents(), 200);
       },
-      error: (error) => {
+      error: (error: any) => {
         this.announce(this.extractMessage(error, 'Failed to delete student.'), 'error');
         this.closeDeleteModal();
       }
@@ -986,7 +1196,7 @@ export class ApiConsoleComponent implements OnInit {
         this.closeDeleteModal();
         setTimeout(() => this.loadProducts(), 200);
       },
-      error: (error) => {
+      error: (error: any) => {
         this.announce(this.extractMessage(error, 'Failed to delete product.'), 'error');
         this.closeDeleteModal();
       }

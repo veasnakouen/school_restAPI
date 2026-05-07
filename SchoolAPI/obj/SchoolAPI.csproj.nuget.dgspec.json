@@ -181,18 +181,6 @@
               "target": "Package",
               "version": "[9.0.3, )"
             },
-            "Swashbuckle.AspNetCore.Swagger": {
-              "target": "Package",
-              "version": "[9.0.3, )"
-            },
-            "Swashbuckle.AspNetCore.SwaggerGen": {
-              "target": "Package",
-              "version": "[9.0.3, )"
-            },
-            "Swashbuckle.AspNetCore.SwaggerUI": {
-              "target": "Package",
-              "version": "[9.0.3, )"
-            },
             "System.Data.SqlClient": {
               "target": "Package",
               "version": "[4.9.1, )"

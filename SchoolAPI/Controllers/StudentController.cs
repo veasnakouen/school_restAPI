@@ -134,5 +134,26 @@ namespace SchoolAPI.Controllers
             return success ? Ok("Student deleted successfully.") : NotFound("Student not found.");
         }
 
+        /// <summary>
+        /// Uploads student image.
+        /// </summary>
+        /// <param name="studentId">The ID of the student.</param>
+        /// <param name="file">Image file.</param>
+        /// <returns>Updated student with image URL.</returns>
+        [HttpPost("students/{studentId}/image")]
+        [Authorize(Policy = Permissions.StudentUpdate)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UploadStudentImage(Guid studentId, IFormFile file)
+        {
+            if (studentId == Guid.Empty)
+                return BadRequest("Invalid student ID.");
+            if (file == null || file.Length == 0)
+                return BadRequest("No file provided.");
+
+            var result = await _service.UploadStudentImageAsync(studentId, file);
+            return result != null ? Ok(result) : NotFound("Student not found.");
+        }
+
     }
 }

@@ -14,6 +14,7 @@ namespace SchoolAPI.DTOs
         public int? Age { get; set; }
         public Guid? ClassId { get; set; }
         public Guid? OutReachId { get; set; }
+        public string? ImageUrl { get; set; }
         public List<AttendanceDto> Attendances { get; set; } = new List<AttendanceDto>();
     }
     public class CreateStudentDto

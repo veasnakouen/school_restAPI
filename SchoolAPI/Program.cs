@@ -1,9 +1,9 @@
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.OpenApi.Models;
 using SchoolAPI.Authorization;
 using SchoolAPI.Data;
-using Scalar.AspNetCore;
 using Hangfire;
 using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
@@ -108,13 +108,45 @@ builder.Services.AddOutputCache();
 
 builder.Services.AddSignalR();
 
+// Configure Swagger FIRST before other services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
+    
+    // Add JWT Bearer authentication
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
 builder.Services.AddDatabase(builder.Configuration)
         .AddIdentityServices(builder.Configuration)
         .AddJwtAuthentication(builder.Configuration)
         .AddApplicationServices()
         .AddMediatR(builder.Configuration)
-        .AddFluentValidation()
-        .AddSwagger();
+        .AddFluentValidation();
+        // .AddSwagger(); // Removed - now using direct registration above
 
 // SignalR sends the JWT token in the query string for WebSockets
 // We need to extract it so the .NET backend can authorize the connection
@@ -142,34 +174,13 @@ builder.Services.PostConfigureAll<JwtBearerOptions>(options =>
 
 var app = builder.Build();
 
-// Ensure database is created and seed all data automatically
 await DbInitializer.InitializeDatabaseAsync(app);
 
-// Security headers — applied first so all responses are covered
-app.Use(async (ctx, next) =>
-{
-    ctx.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    ctx.Response.Headers.Append("X-Frame-Options", "DENY");
-    ctx.Response.Headers.Append("X-Xss-Protection", "1; mode=block");
-    ctx.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000"); // HSTS
-    await next();
-});
-
-// Global exception handling middleware
-app.UseMiddleware<ExceptionMiddleware>();
 app.UseForwardedHeaders();
+app.UseSwagger();
+app.UseSwaggerUI();
 
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    // swagger only in development
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    // scalar UI
-    app.MapScalarApiReference();
-    app.MapOpenApi().AllowAnonymous();
-    app.UseHangfireDashboard("/hangfire");
-}
+app.UseHttpsRedirection();
 
 app.UseHttpsRedirection();
 app.UseRouting();
@@ -183,9 +194,11 @@ app.UseAuthorization();
 app.UseMiddleware<MaintenanceModeMiddleware>();
 
 app.MapControllers();
+
 app.MapHub<SchoolAPI.Hubs.DashboardHub>("/hubs/dashboard");
 app.MapHub<SchoolAPI.Hubs.ChatHub>("/hubs/chat");
 app.UseStaticFiles();
+
 // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
 using (var scope = app.Services.CreateScope())
 {

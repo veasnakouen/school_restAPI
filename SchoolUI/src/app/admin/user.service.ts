@@ -8,15 +8,15 @@ export class UserService {
   private readonly api = inject(ApiClientService);
 
   getUsers(): Observable<User[]> {
-    return this.api.get<User[]>('UserManagement');
+    return this.api.get<User[]>('users');
   }
 
   getUser(id: string): Observable<User> {
-    return this.api.get<User>(`UserManagement/${id}`);
+    return this.api.get<User>(`users/${id}`);
   }
 
   createUser(user: { userName: string, fullName: string, email: string, password: string, roles: string[] }): Observable<any> {
-    return this.api.post<any>('UserManagement', user);
+    return this.api.post<any>('users', user);
   }
 
   updateUser(user: User): Observable<User> {
@@ -27,38 +27,26 @@ export class UserService {
       phoneNumber: user.phoneNumber,
       roles: user.roles
     };
-    return this.api.put<User>(`UserManagement/${user.id}`, payload);
+    return this.api.put<User>(`users/${user.id}`, payload);
   }
 
   deleteUser(id: string): Observable<any> {
-    return this.api.delete<any>(`UserManagement/${id}`);
+    return this.api.delete<any>(`users/${id}`);
   }
 
   toggleUserStatus(id: string): Observable<{ message: string }> {
-    return this.api.post<{ message: string }>(`UserManagement/${id}/toggle-status`, {});
+    return this.api.post<{ message: string }>(`users/${id}/toggle-status`, {});
   }
 
   getUserRolesAndClaims(id: string): Observable<any> {
-    return this.api.get<any>(`UserManagement/${id}/roles-and-claims`);
+    return this.api.get<any>(`users/${id}/roles-and-claims`);
   }
 
   assignRoleToUser(id: string, roleName: string): Observable<any> {
-    // Send proper JSON body object to backend endpoint
-    return this.api.post<any>(`UserManagement/${id}/roles`, { roleName });
+    return this.api.post<any>(`users/${id}/roles`, { roleName });
   }
 
   removeRoleFromUser(id: string, roleName: string): Observable<any> {
-    return this.api.delete<any>(`UserManagement/${id}/roles/${roleName}`);
-  }
-
-  addClaimToUser(id: string, claim: { type: string, value: string }): Observable<any> {
-    return this.api.post<any>(`UserManagement/${id}/claims`, claim);
-  }
-
-  removeClaimFromUser(id: string, claim: { type: string, value: string }): Observable<any> {
-    // Note: The backend uses HttpDelete with [FromBody] which is not standard.
-    // If ApiClient doesn't support body in delete, we might need a workaround.
-    // Assuming standard usage for now or that we adjust the backend later if needed.
-    return this.api.delete<any>(`UserManagement/${id}/claims`); // Needs custom body implementation if truly required
+    return this.api.delete<any>(`users/${id}/roles/${roleName}`);
   }
 }

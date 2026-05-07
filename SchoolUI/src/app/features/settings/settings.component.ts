@@ -3,6 +3,7 @@ import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ThemeService } from '../../core/services/theme.service';
+import { PrimeNGThemeService } from '../../core/services/primeng-theme.service';
 import { LandingRoute, UserPreferencesService } from '../../core/services/user-preferences.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 
@@ -55,9 +56,9 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
             </article>
 
             <article class="rounded-[24px] border border-base-300/70 bg-base-100/85 p-4 shadow-lg backdrop-blur">
-              <div class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">Theme</div>
-              <div class="mt-2 text-lg font-bold text-base-content">{{ theme.themeLabel() }} mode</div>
-              <div class="mt-1 text-xs text-base-content/60">Managed by the shared theme service</div>
+              <div class="text-[11px] uppercase tracking-[0.35em] text-base-content/45">PrimeNG Theme</div>
+              <div class="mt-2 text-lg font-bold text-base-content">{{ primengTheme.currentPreset() | uppercase }}</div>
+              <div class="mt-1 text-xs text-base-content/60">UI component style</div>
             </article>
           </div>
         </div>
@@ -126,9 +127,39 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
                   </button>
                 }
               </div>
+</div>
             </div>
-          </div>
-        </article>
+          </article>
+
+          <article scrollAnimate animateVariant="fade-up" animateDelay="100ms" class="app-shell-panel overflow-hidden">
+            <div class="card-body gap-5 p-6 lg:p-8">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h2 class="text-2xl font-black tracking-tight text-base-content">PrimeNG Theme</h2>
+                  <p class="text-sm text-base-content/60">Choose the UI component style.</p>
+                </div>
+              </div>
+
+              <div class="grid gap-2 sm:grid-cols-3">
+                @for (option of primengTheme.themes; track option.id) {
+                  <button
+                    type="button"
+                    class="rounded-[18px] border border-base-300/70 bg-base-200/70 p-4 text-center transition hover:-translate-y-0.5 hover:bg-base-200"
+                    [class.border-primary]="primengTheme.currentPreset() === option.id"
+                    [class.shadow-lg]="primengTheme.currentPreset() === option.id"
+                    [class.shadow-primary/15]="primengTheme.currentPreset() === option.id"
+                    (click)="primengTheme.setPreset(option.id)"
+                  >
+                    <div class="text-sm font-semibold text-base-content">{{ option.name }}</div>
+                    <div class="text-[10px] uppercase tracking-[0.25em] text-base-content/45 mt-1">{{ option.description }}</div>
+                    @if (primengTheme.currentPreset() === option.id) {
+                      <span class="badge badge-success badge-xs mt-2">Active</span>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          </article>
 
         <article scrollAnimate animateVariant="fade-up" animateDelay="120ms" class="app-shell-panel overflow-hidden">
           <div class="card-body gap-5 p-6 lg:p-8">
@@ -241,6 +272,7 @@ import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.d
 export class SettingsComponent {
   private readonly fb = inject(FormBuilder);
   protected readonly theme = inject(ThemeService);
+  protected readonly primengTheme = inject(PrimeNGThemeService);
   protected readonly preferences = inject(UserPreferencesService);
 
   protected readonly preferencesForm = this.fb.nonNullable.group({
@@ -260,7 +292,7 @@ export class SettingsComponent {
     { value: 'api-console', label: 'API Console', description: 'Begin in the API console' }
   ];
 
-  protected readonly themePreviewOptions = this.theme.themes.filter((option) => ['light', 'dark', 'forest', 'night', 'cupcake', 'emerald'].includes(option.id));
+  protected readonly themePreviewOptions = this.theme.themes;
 
   protected savePreferences(): void {
     this.preferences.update(this.preferencesForm.getRawValue());

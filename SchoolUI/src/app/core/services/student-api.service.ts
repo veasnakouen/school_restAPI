@@ -26,4 +26,10 @@ export class StudentApiService {
   delete(id: string) {
     return this.api.delete<string>(`Student/students/${id}`);
   }
+
+  uploadImage(id: string, file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.api.upload<StudentDto>(`Student/students/${id}/image`, formData);
+  }
 }

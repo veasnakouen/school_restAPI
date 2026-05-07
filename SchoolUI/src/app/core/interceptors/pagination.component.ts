@@ -7,64 +7,44 @@ import { FormsModule } from '@angular/forms';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div class="px-4 py-4 w-full bg-base-100">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <!-- Rows per page selector -->
-        <div class="flex items-center gap-2 flex-1 sm:flex-initial">
-          <span class="text-sm opacity-70">Rows per page:</span>
-          <select
-            [ngModel]="pageSize"
-            (ngModelChange)="onPageSizeChange($event)"
-            class="select select-bordered select-sm"
-          >
-            <option [ngValue]="5">5</option>
-            <option [ngValue]="10">10</option>
-            <option [ngValue]="20">20</option>
-            <option [ngValue]="50">50</option>
-            <option [ngValue]="100">100</option>
-          </select>
-        </div>
+    <div class="flex items-center justify-center gap-1 py-4" *ngIf="totalPages > 1">
+      <!-- First -->
+      <button type="button" class="btn btn-sm btn-ghost" (click)="goToPage(1)" [disabled]="currentPage === 1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
+      </button>
+      
+      <!-- Prev -->
+      <button type="button" class="btn btn-sm btn-ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+      </button>
 
-        <!-- Page Info -->
-        <div class="text-sm opacity-70 text-center">
-          Showing {{ startIndex }}-{{ endIndex }} of {{ totalItems }} items
-        </div>
+      <!-- Page numbers -->
+      @for (page of visiblePages; track page) {
+        @if (page === '...') {
+          <span class="btn btn-sm btn-disabled pointer-events-none">...</span>
+        } @else {
+          <button type="button" class="btn btn-sm" [class.btn-primary]="page === currentPage" [class.btn-ghost]="page !== currentPage" (click)="goToPage(+page)">
+            {{ page }}
+          </button>
+        }
+      }
 
-        <!-- Pagination Controls -->
-        <div class="join bg-base-200 flex-1 sm:flex-initial sm:justify-end" *ngIf="totalPages > 1">
-          <button type="button" class="join-item btn btn-sm btn-ghost" (click)="goToPage(1)" [disabled]="currentPage === 1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" /></svg>
-          </button>
-          
-          <button type="button" class="join-item btn btn-sm btn-ghost" (click)="goToPage(currentPage - 1)" [disabled]="currentPage === 1">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-
-          @for (page of visiblePages; track page) {
-            @if (page === '...') {
-              <span class="join-item btn btn-sm btn-disabled">...</span>
-            } @else {
-              <button type="button" class="join-item btn btn-sm" [class.btn-active]="page === currentPage" (click)="goToPage(+page)">
-                {{ page }}
-              </button>
-            }
-          }
-
-          <button type="button" class="join-item btn btn-sm btn-ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
-          </button>
-          
-          <button type="button" class="join-item btn btn-sm btn-ghost" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-      </div>
+      <!-- Next -->
+      <button type="button" class="btn btn-sm btn-ghost" (click)="goToPage(currentPage + 1)" [disabled]="currentPage === totalPages">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+      </button>
+      
+      <!-- Last -->
+      <button type="button" class="btn btn-sm btn-ghost" (click)="goToPage(totalPages)" [disabled]="currentPage === totalPages">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+      </button>
     </div>
   `
 })
 export class PaginationComponent {
   @Input() totalItems = 0;
   @Input() pageSize = 10;
+  @Input() pageSizeOptions: number[] = [5, 10, 20, 50, 100];
   @Input() currentPage = 1;
 
   @Output() pageChange = new EventEmitter<number>();
@@ -106,6 +86,17 @@ export class PaginationComponent {
     const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
     if (pageNum >= 1 && pageNum <= this.totalPages && pageNum !== this.currentPage) {
       this.pageChange.emit(pageNum);
+    }
+  }
+
+  goToInputPage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const page = parseInt(input.value, 10);
+    if (!isNaN(page) && page >= 1 && page <= this.totalPages && page !== this.currentPage) {
+      this.pageChange.emit(page);
+    } else {
+      // Reset visually if the user typed an out-of-bounds or invalid number
+      input.value = this.currentPage.toString();
     }
   }
 

@@ -526,6 +526,8 @@ public class AuthController : BaseController
 
     [HttpPost("profile/avatar")]
     [Authorize]
+    [ApiExplorerSettings(IgnoreApi = true)]  // Keep this - file upload breaks Swagger
+    [Produces("application/json", Type = typeof(object))]
     public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

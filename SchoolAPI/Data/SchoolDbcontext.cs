@@ -181,6 +181,6 @@ string, IdentityUserClaim<string>, AppUserRole, IdentityUserLogin<string>,
             .HasForeignKey<ProductImage>(pi => pi.ProductId)
             .OnDelete(DeleteBehavior.Cascade);
     }
-
+    
 }
   

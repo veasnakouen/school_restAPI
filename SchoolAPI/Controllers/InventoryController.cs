@@ -14,9 +14,10 @@ using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Controllers;
 
+[Route("api/[controller]")]
 [ApiController]
-[Route("api/inventory")]
-[Authorize]
+[Authorize(Policy = Permissions.ProductRead)]
+[ApiExplorerSettings(IgnoreApi = true)]
 public class InventoryController : BaseController
 {
     private readonly ISender _sender;

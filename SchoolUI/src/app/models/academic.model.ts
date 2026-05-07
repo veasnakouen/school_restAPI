@@ -33,6 +33,7 @@ export interface StudentDto {
   age?: number | null;
   classId?: string | null;
   outReachId?: string | null;
+  imageUrl?: string | null;
   attendances: AttendanceDto[];
 }
 
@@ -48,5 +49,6 @@ export interface OutReachDto {
   lastName: string;
   nickName?: string | null;
   contact?: string | null;
+  imageUrl?: string | null;
   students: StudentDto[];
 }

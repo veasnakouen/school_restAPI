@@ -22,8 +22,12 @@ logs/
 .env
 .env.local
 .env.*
+secrets.json
+*/secrets.json
 **/secrets.json
-
+***/apphost.exe
+**/*.exe
+**/.gitignore
 # IDE
 .vscode/
 .idea/
@@ -36,3 +40,12 @@ Thumbs.db
 
 # Test results
 TestResults/
+SchoolAPI/obj/Debug/net10.0/apphost.exe
+SchoolAPI/obj/Debug/net10.0/apphost.exe
+SchoolAPI/obj/Debug/net10.0/apphost.exe
+***.exe
+.gitignore
+SchoolAPI/Dockerfile
+SchoolAPI/secrets.json
+SchoolAPI/secrets.json
+.gitignore

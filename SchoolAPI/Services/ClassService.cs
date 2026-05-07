@@ -18,13 +18,15 @@ public class ClassService
     private readonly IMapper _mapper;
     private readonly ICacheStore _cacheStore;
     private readonly ICacheVersionService _cacheVersionService;
+    private readonly IPhotoService _photoService;
 
-    public ClassService(SchoolDbContext context, IMapper mapper, ICacheStore cacheStore, ICacheVersionService cacheVersionService)
+    public ClassService(SchoolDbContext context, IMapper mapper, ICacheStore cacheStore, ICacheVersionService cacheVersionService, IPhotoService photoService)
     {
         _context = context;
         _mapper = mapper;
         _cacheStore = cacheStore;
         _cacheVersionService = cacheVersionService;
+        _photoService = photoService;
     }
 
     // --- Class CRUD ---
@@ -395,6 +397,32 @@ public class ClassService
         await _context.SaveChangesAsync();
         InvalidateAcademicsCache();
         return true;
+    }
+
+    public async Task<StudentDto> UploadStudentImageAsync(Guid studentId, IFormFile file)
+    {
+        var student = await _context.Students.FindAsync(studentId);
+        if (student == null)
+            return null;
+
+        var uploadResult = await _photoService.UploadPhotoAsync(file);
+        student.ImageUrl = uploadResult.Url.ToString();
+        await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
+        return _mapper.Map<StudentDto>(student);
+    }
+
+    public async Task<OutReachDto> UploadOutReachImageAsync(Guid outReachId, IFormFile file)
+    {
+        var outReach = await _context.OutReaches.FindAsync(outReachId);
+        if (outReach == null)
+            return null;
+
+        var uploadResult = await _photoService.UploadPhotoAsync(file);
+        outReach.ImageUrl = uploadResult.Url.ToString();
+        await _context.SaveChangesAsync();
+        InvalidateAcademicsCache();
+        return _mapper.Map<OutReachDto>(outReach);
     }
 
     // --- Existing Enrollment and Attendance Methods ---

@@ -115,5 +115,26 @@ namespace SchoolAPI.Controllers
             return success ? Ok("Outreach deleted successfully.") : NotFound("Outreach not found.");
         }
 
+        /// <summary>
+        /// Uploads outreach worker image.
+        /// </summary>
+        /// <param name="outReachId">The ID of the outreach record.</param>
+        /// <param name="file">Image file.</param>
+        /// <returns>Updated outreach with image URL.</returns>
+        [HttpPost("outreach/{outReachId}/image")]
+        [Authorize(Policy = Permissions.OutreachUpdate)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UploadOutReachImage(Guid outReachId, IFormFile file)
+        {
+            if (outReachId == Guid.Empty)
+                return BadRequest("Invalid outreach ID.");
+            if (file == null || file.Length == 0)
+                return BadRequest("No file provided.");
+
+            var result = await _service.UploadOutReachImageAsync(outReachId, file);
+            return result != null ? Ok(result) : NotFound("Outreach not found.");
+        }
+
     }
 }

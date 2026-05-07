@@ -10,10 +10,10 @@ using SchoolAPI.Contracts;
 
 namespace SchoolAPI.Controllers
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    [Authorize]
-    public class DepartmentController : BaseController
+[Route("api/[controller]")]
+[ApiController]
+[Authorize]
+public class DepartmentController : BaseController
     {
         private readonly ISender _sender;
 

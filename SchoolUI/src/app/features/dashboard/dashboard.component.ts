@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, inject, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
+import { ChangeDetectorRef, ChangeDetectionStrategy, Component, inject, OnInit, AfterViewInit, OnDestroy } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { ClassApiService } from '../../core/services/class-api.service';
@@ -7,7 +7,7 @@ import { StudentApiService } from '../../core/services/student-api.service';
 import { ProductApiService } from '../../core/services/product-api.service';
 import { ScrollAnimateDirective } from '../../shared/directives/scroll-animate.directive';
 import { forkJoin, of, timeout } from 'rxjs';
-import { catchError, finalize } from 'rxjs/operators';
+import { catchError } from 'rxjs/operators';
 import * as L from 'leaflet';
 import { Chart, registerables } from 'chart.js';
 
@@ -25,6 +25,7 @@ interface DashboardData {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [CommonModule, RouterLink, ScrollAnimateDirective],
   template: `
     <div class="mx-auto max-w-[1600px] space-y-6">
@@ -60,7 +61,7 @@ interface DashboardData {
               <p class="text-sm text-base-content/60">Your current location</p>
             </div>
 
-            <div class="flex-1 min-h-[20rem] rounded-2xl overflow-hidden relative w-full bg-base-200">
+            <div class="flex-1 min-h-[12rem] md:min-h-[20rem] rounded-2xl overflow-hidden relative w-full bg-base-200">
               <div id="dashboard-map" class="w-full h-full absolute inset-0"></div>
 
               @if (mapLoading) {
@@ -83,7 +84,7 @@ interface DashboardData {
               <p class="text-sm text-base-content/60">Classes, Students & Products</p>
             </div>
 
-            <div class="flex-1 min-h-[20rem] flex items-center justify-center">
+            <div class="flex-1 min-h-[12rem] md:min-h-[20rem] flex items-center justify-center">
               <div class="w-full max-w-md">
                 <canvas id="dashboard-pie-chart"></canvas>
               </div>
@@ -293,42 +294,31 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loading = true;
     this.cdr.detectChanges();
 
-    console.log('Starting to load dashboard data...');
-
     // Fetch all data in parallel with error handling and timeout
     forkJoin({
       classes: this.classApi.list({ pageSize: 5, sortBy: 'ClassName', isAscending: true }).pipe(
         timeout(10000),
         catchError(err => {
-          console.error('Failed to load classes:', err);
           return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
         })
       ),
       students: this.studentApi.list({ pageSize: 5, sortBy: 'EngFirstName', isAscending: true }).pipe(
         timeout(10000),
         catchError(err => {
-          console.error('Failed to load students:', err);
           return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
         })
       ),
       products: this.productApi.list({ pageSize: 5, sortBy: 'Name', isAscending: true }).pipe(
         timeout(10000),
         catchError(err => {
-          console.error('Failed to load products:', err);
           return of({ items: [], totalCount: 0, pageNumber: 1, pageSize: 5, totalPages: 0 });
         })
       )
     }).pipe(
       // Force completion after 15 seconds max
       timeout(15000),
-      finalize(() => {
-        // Ensure loading is stopped after all operations complete
-        this.loading = false;
-        this.cdr.detectChanges();
-      })
     ).subscribe({
       next: (result) => {
-        console.log('Dashboard data loaded successfully:', result);
         this.dashboardData = {
           totalClasses: result.classes.totalCount || 0,
           totalStudents: result.students.totalCount || 0,
@@ -337,13 +327,11 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           recentStudents: result.students.items || [],
           recentProducts: result.products.items || []
         };
-        console.log('Dashboard data:', this.dashboardData);
 
         // Update pie chart with real data
         this.updatePieChart();
-      },
-      error: (error) => {
-        console.error('Failed to load dashboard data (error handler):', error);
+},
+      error: (err) => {
         // Force stop loading even on error
         this.loading = false;
         this.dashboardData = {
@@ -354,11 +342,9 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
           recentStudents: [],
           recentProducts: []
         };
-        console.log('Loading forced to false due to error');
         this.cdr.detectChanges();
       },
       complete: () => {
-        console.log('Dashboard data loading completed');
         this.cdr.detectChanges();
       }
     });
@@ -366,7 +352,6 @@ export class DashboardComponent implements OnInit, AfterViewInit, OnDestroy {
     // Safety timeout: force loading to false after 20 seconds
     setTimeout(() => {
       if (this.loading) {
-        console.warn('Force stopping loading after timeout');
         this.loading = false;
         this.cdr.detectChanges();
       }

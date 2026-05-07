@@ -28,7 +28,7 @@ import { takeUntil, finalize } from 'rxjs/operators';
   <div class="card bg-base-100 shadow-xl">
     <div class="p-0 md:p-2">
       <div *ngIf="roles.length > 0">
-        <div class="hidden md:flex items-center justify-between px-3 py-2 text-sm font-semibold text-gray-600">
+        <div class="hidden md:flex items-center justify-between px-3 py-2 text-sm font-semibold text-base-content600">
           <div class="w-1/3">Name</div>
           <div class="w-1/3">Permissions</div>
           <div class="w-1/6 text-right">Actions</div>
@@ -75,7 +75,7 @@ import { takeUntil, finalize } from 'rxjs/operators';
         </div>
       </div>
 
-      <div class="text-center text-gray-400 py-4" *ngIf="roles.length === 0">No roles found.</div>
+      <div class="text-center text-base-content400 py-4" *ngIf="roles.length === 0">No roles found.</div>
 
       <div class="px-3 py-3 border-t border-base-200" *ngIf="roles.length > 0">
         <div class="flex flex-col sm:flex-row items-center justify-between gap-4">

@@ -6219,9 +6219,6 @@
       "Serilog.Sinks.File >= 8.0.0-dev-02318",
       "SixLabors.ImageSharp >= 3.1.12",
       "Swashbuckle.AspNetCore >= 9.0.3",
-      "Swashbuckle.AspNetCore.Swagger >= 9.0.3",
-      "Swashbuckle.AspNetCore.SwaggerGen >= 9.0.3",
-      "Swashbuckle.AspNetCore.SwaggerUI >= 9.0.3",
       "System.Data.SqlClient >= 4.9.1",
       "System.Drawing.Common >= 10.0.5",
       "Yarp.ReverseProxy >= 2.3.0",
@@ -6407,18 +6404,6 @@
             "version": "[3.1.12, )"
           },
           "Swashbuckle.AspNetCore": {
-            "target": "Package",
-            "version": "[9.0.3, )"
-          },
-          "Swashbuckle.AspNetCore.Swagger": {
-            "target": "Package",
-            "version": "[9.0.3, )"
-          },
-          "Swashbuckle.AspNetCore.SwaggerGen": {
-            "target": "Package",
-            "version": "[9.0.3, )"
-          },
-          "Swashbuckle.AspNetCore.SwaggerUI": {
             "target": "Package",
             "version": "[9.0.3, )"
           },
