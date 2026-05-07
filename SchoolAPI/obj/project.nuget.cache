@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "KbcYpnZtxZI=",
+  "dgSpecHash": "cqMJKbM0eY0=",
   "success": true,
   "projectFilePath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
   "expectedPackageFiles": [
@@ -71,6 +71,8 @@
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\npgsql\\9.0.1\\npgsql.9.0.1.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\npgsql.entityframeworkcore.postgresql\\9.0.1\\npgsql.entityframeworkcore.postgresql.9.0.1.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\pipelines.sockets.unofficial\\2.2.8\\pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
+    "C:\\Users\\K-VeaSna\\.nuget\\packages\\polly\\8.6.6\\polly.8.6.6.nupkg.sha512",
+    "C:\\Users\\K-VeaSna\\.nuget\\packages\\polly.core\\8.6.6\\polly.core.8.6.6.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\qrcoder\\1.7.0\\qrcoder.1.7.0.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\questpdf\\2025.12.0-alpha2\\questpdf.2025.12.0-alpha2.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\rabbitmq.client\\7.1.2\\rabbitmq.client.7.1.2.nupkg.sha512",

@@ -302,3 +302,5 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\refint\SchoolAPI.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\SchoolAPI.pdb
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\SchoolAPI.genruntimeconfig.cache
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\ref\SchoolAPI.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.Core.dll
