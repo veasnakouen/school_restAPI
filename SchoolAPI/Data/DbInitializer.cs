@@ -35,7 +35,10 @@ public static class DbInitializer
             await SeedRolesAndUsersAsync(userManager, roleManager, logger);
             await SeedClassesAsync(context);
             await SeedStudentsAsync(context);
-            await SeedInventoryDataAsync(context);
+            // await SeedInventoryDataAsync(context); // Commented out to prevent fake data
+            
+            logger.LogInformation("Starting Excel data import...");
+            DbInitialize.SeedExcelData(context);
 
             logger.LogInformation("Database initialized and seeded successfully.");
         }

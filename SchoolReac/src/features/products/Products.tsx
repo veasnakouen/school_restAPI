@@ -4,7 +4,7 @@ import * as api from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import {
   Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions,
+  TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
   IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions,
   Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent
 } from '@mui/material';
@@ -629,48 +629,9 @@ export const Products: React.FC = () => {
 
     setIsImporting(true);
     try {
-      // 1. Read and clean the Excel file before sending it to the backend
-      const workbook = new ExcelJS.Workbook();
-      try {
-        await workbook.xlsx.load(await file.arrayBuffer());
-      } catch (parseErr) {
-        showToast('Invalid Excel file format. Please upload a valid .xlsx file.', 'error');
-        setIsImporting(false);
-        return;
-      }
-      const worksheet = workbook.worksheets[0];
-
-      if (worksheet) {
-        // Iterate backwards so we can safely delete ghost rows without shifting indexes
-        for (let i = worksheet.rowCount; i > 1; i--) {
-          const row = worksheet.getRow(i);
-          let isRowEmpty = true;
-
-          row.eachCell({ includeEmpty: false }, (cell) => {
-            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
-              isRowEmpty = false;
-              // Trim any accidental whitespace from string cells
-              if (typeof cell.value === 'string') {
-                cell.value = cell.value.trim();
-              }
-            }
-          });
-
-          // Remove completely empty rows (common cause of import crashes)
-          if (isRowEmpty) {
-            worksheet.spliceRows(i, 1);
-          }
-        }
-      }
-
-      // 2. Generate a new cleaned File to send
-      const cleanedBuffer = await workbook.xlsx.writeBuffer();
-      const cleanedFile = new File([cleanedBuffer], file.name, { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
-
-      // 3. Send the clean file to the API
-      const result = await api.importProducts(cleanedFile);
+      // Send the raw file directly to the API. Let the C# backend handle empty rows and parsing.
+      // This prevents browser memory crashes on large Excel files.
+      const result = await api.importProducts(file);
       if (result.errors && result.errors.length > 0) {
         showToast(`Imported ${result.importedCount} products. Encountered ${result.errors.length} row errors (see console).`, 'warning');
         console.warn("Import errors:", result.errors);
@@ -949,11 +910,12 @@ export const Products: React.FC = () => {
     doc.setTextColor(100); // a gray color
     doc.text(`Product Details - ${product.codeNumber || 'N/A'}`, 14, 30);
 
+    const qName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
     const productData = [
       ['Category', product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'],
       ['Brand', product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'],
       ['Price', product.price ? `$${product.price.toFixed(2)}` : '-'],
-      ['Quality', product.quality || qualities.find(q => q.id === product.qualityId)?.name || '-'],
+      ['Quality', qName || '-'],
       ['Department', product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'],
       ['Responsible Person', product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'],
       ['Created Date', product.createdDate ? new Date(product.createdDate).toLocaleDateString() : '-'],
@@ -1400,7 +1362,7 @@ export const Products: React.FC = () => {
                       {visibleColumns.includes('engineNumber') && <TableCell>{product.engineNumber || '-'}</TableCell>}
                       {visibleColumns.includes('categoryName') && <TableCell>{product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}</TableCell>}
                       {visibleColumns.includes('brandName') && <TableCell>{product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'}</TableCell>}
-                      {visibleColumns.includes('quality') && <TableCell>{product.quality || qualities.find(q => q.id === product.qualityId)?.name || '-'}</TableCell>}
+                      {visibleColumns.includes('quality') && <TableCell>{qualityName || '-'}</TableCell>}
                       {visibleColumns.includes('departmentName') && <TableCell>{product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'}</TableCell>}
                       {visibleColumns.includes('responsiblePerson') && <TableCell>{product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'}</TableCell>}
                       {visibleColumns.includes('initialQuantity') && <TableCell align="right">{product.initialQuantity || '-'}</TableCell>}
@@ -1536,15 +1498,42 @@ export const Products: React.FC = () => {
         )}
 
         {/* Pagination */}
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={totalItems}
-          rowsPerPage={pageSize}
-          page={currentPage}
-          onPageChange={(e, newPage) => setCurrentPage(newPage)}
-          onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setCurrentPage(0); }}
-        />
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', borderTop: '1px solid', borderColor: 'divider' }}>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+            component="div"
+            count={totalItems}
+            rowsPerPage={pageSize}
+            page={currentPage}
+            onPageChange={(e, newPage) => setCurrentPage(newPage)}
+            onRowsPerPageChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setCurrentPage(0); }}
+            sx={{ borderBottom: 'none' }}
+          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 2, pb: { xs: 2, sm: 0 } }}>
+            <Typography variant="body2" color="text.secondary">Go to page:</Typography>
+            <TextField
+              size="small"
+              type="number"
+              inputProps={{ min: 1, max: Math.max(1, Math.ceil(totalItems / pageSize)) }}
+              defaultValue={currentPage + 1}
+              key={currentPage} // Resets value when external buttons change the page
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const val = parseInt((e.target as HTMLInputElement).value, 10);
+                  const maxPage = Math.max(1, Math.ceil(totalItems / pageSize));
+                  if (!isNaN(val) && val >= 1 && val <= maxPage) setCurrentPage(val - 1);
+                }
+              }}
+              onBlur={(e) => {
+                const val = parseInt((e.target as HTMLInputElement).value, 10);
+                const maxPage = Math.max(1, Math.ceil(totalItems / pageSize));
+                if (!isNaN(val) && val >= 1 && val <= maxPage) setCurrentPage(val - 1);
+                else (e.target as HTMLInputElement).value = (currentPage + 1).toString();
+              }}
+              sx={{ width: 70, '& .MuiInputBase-input': { p: '6px', textAlign: 'center' } }}
+            />
+          </Box>
+        </Box>
       </Paper>
 
       {/* Create/Edit Modal */}
@@ -2025,9 +2014,13 @@ export const Products: React.FC = () => {
                   <Grid item xs={6}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
                   <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}</Grid>
                   <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Quality / Condition', selectedProduct.quality || qualities.find(q => q.id === selectedProduct.qualityId)?.name)}</Grid>
                   <Grid item xs={6}>{renderProductField('Price', selectedProduct.price != null ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
                   <Grid item xs={6}>{renderProductField('Voucher Number', selectedProduct.voucherNumber)}</Grid>
                   <Grid item xs={6}>{renderProductField('Purchase Date', selectedProduct.invoiceDate ? new Date(selectedProduct.invoiceDate).toLocaleDateString() : (selectedProduct.createdDate ? new Date(selectedProduct.createdDate).toLocaleDateString() : '-'))}</Grid>
+                  <Grid item xs={6}>{renderProductField('Responsible Person', selectedProduct.responsiblePerson || persons.find(per => per.id === selectedProduct.responsiblePersonId)?.fullName)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Supplier', selectedProduct.supplierName)}</Grid>
+                  <Grid item xs={6}>{renderProductField('Donor', selectedProduct.donorName)}</Grid>
                 </Grid>
               </Grid>
             </DialogContent>

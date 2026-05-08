@@ -1548,48 +1548,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     try {
-      // 1. Read and clean the Excel file before sending it to the backend
-      const workbook = new ExcelJS.Workbook();
-      try {
-        await workbook.xlsx.load(await file.arrayBuffer());
-      } catch (parseErr) {
-        this.showMessage('error', 'Invalid Format', 'Please upload a valid .xlsx file.');
-        this.isImporting = false;
-        this.cdr.detectChanges();
-        return;
-      }
-      const worksheet = workbook.worksheets[0];
-
-      if (worksheet) {
-        // Iterate backwards so we can safely delete ghost rows without shifting indexes
-        for (let i = worksheet.rowCount; i > 1; i--) {
-          const row = worksheet.getRow(i);
-          let isRowEmpty = true;
-
-          row.eachCell({ includeEmpty: false }, (cell) => {
-            if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
-              isRowEmpty = false;
-              if (typeof cell.value === 'string') {
-                cell.value = cell.value.trim();
-              }
-            }
-          });
-
-          if (isRowEmpty) {
-            worksheet.spliceRows(i, 1);
-          }
-        }
-      }
-
-      // 2. Generate a new cleaned File to send
-      const cleanedBuffer = await workbook.xlsx.writeBuffer();
-      const cleanedFile = new File([cleanedBuffer], file.name, { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
-      });
-
-      // 3. Send the clean file to the API via HttpClient directly (bypassing native fetch)
+      // Send the raw file directly to the API. Let the C# backend handle empty rows and parsing.
+      // This prevents browser memory crashes on large Excel files.
       const formData = new FormData();
-      formData.append('file', cleanedFile);
+      formData.append('file', file);
 
       this.http.post<any>(`${this.apiUrl}/import`, formData).subscribe({
         next: (result) => {

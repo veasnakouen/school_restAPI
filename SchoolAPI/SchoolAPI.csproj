@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="AspNetCore.Reporting" Version="2.1.0" />
     <PackageReference Include="AutoMapper" Version="16.1.1" />
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="CloudinaryDotNet" Version="1.28.0" />
     <PackageReference Include="CsvHelper" Version="33.1.0" />
     <PackageReference Include="EPPlus" Version="8.2.1" />

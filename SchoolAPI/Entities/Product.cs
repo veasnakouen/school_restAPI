@@ -31,6 +31,10 @@ public class Product : BaseAuditableEntity
     public string? DepartmentId { get; set; }
     public Department? Department { get; set; }
     
+    // The person currently responsible for this product
+    public Guid? ResponsiblePersonId { get; set; }
+    public Person? ResponsiblePerson { get; set; }
+    
     // Vehicle-specific fields
 
     // A product can be purchased multiple times across different purchase orders

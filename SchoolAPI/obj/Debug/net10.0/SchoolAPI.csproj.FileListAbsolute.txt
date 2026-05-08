@@ -59,12 +59,17 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\AspNetCore.ReportingSer
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\AutoMapper.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Azure.Core.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Azure.Identity.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\ClosedXML.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\ClosedXML.Parser.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\CloudinaryDotNet.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\CsvHelper.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Dapper.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Dapper.AOT.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\DocumentFormat.OpenXml.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\DocumentFormat.OpenXml.Framework.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\EPPlus.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\EPPlus.Interfaces.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\ExcelNumberFormat.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\FluentValidation.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\FluentValidation.DependencyInjectionExtensions.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Hangfire.AspNetCore.dll
@@ -115,9 +120,12 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Newtonsoft.Json.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Npgsql.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Npgsql.EntityFrameworkCore.PostgreSQL.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Pipelines.Sockets.Unofficial.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.Core.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\QRCoder.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\QuestPDF.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\RabbitMQ.Client.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\RBush.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Scalar.AspNetCore.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.AspNetCore.dll
@@ -128,6 +136,7 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Settings.Config
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.Console.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.Debug.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Serilog.Sinks.File.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\SixLabors.Fonts.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\SixLabors.ImageSharp.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\StackExchange.Redis.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
@@ -147,6 +156,7 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.Private.Windows.
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.Private.Windows.GdiPlus.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.IdentityModel.Tokens.Jwt.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.IO.Hashing.dll
+E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.IO.Packaging.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.Memory.Data.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.Runtime.Caching.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\System.Security.Cryptography.ProtectedData.dll
@@ -302,5 +312,3 @@ E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\refint\SchoolAPI.dll
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\SchoolAPI.pdb
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\SchoolAPI.genruntimeconfig.cache
 E:\NexjsAndDotnet\School\src\SchoolAPI\obj\Debug\net10.0\ref\SchoolAPI.dll
-E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.dll
-E:\NexjsAndDotnet\School\src\SchoolAPI\bin\Debug\net10.0\Polly.Core.dll
