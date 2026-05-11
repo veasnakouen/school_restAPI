@@ -6,7 +6,8 @@ import {
   Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
   IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions,
-  Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent
+  Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent,
+  FormControlLabel
 } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
@@ -22,7 +23,6 @@ import 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import * as ExcelJS from 'exceljs';
 
 
 const ALL_COLUMNS = [
@@ -82,6 +82,9 @@ export const Products: React.FC = () => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     return (localStorage.getItem('products_view_mode') as 'list' | 'grid') || 'list';
   });
+  const [gridColumns, setGridColumns] = useState<number>(() => {
+    return parseInt(localStorage.getItem('products_grid_cols') || '4', 10);
+  });
 
   // Modal & Form State
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
@@ -118,6 +121,7 @@ export const Products: React.FC = () => {
   // Menu State
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [exportAllData, setExportAllData] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     const localStorageKey = 'products_table_hidden_cols_v7';
     const savedHidden = localStorage.getItem(localStorageKey);
@@ -132,8 +136,6 @@ export const Products: React.FC = () => {
         // If parsing fails, fall back to showing all columns (initialVisible already has this)
       }
     }
-    // Ensure 'description' is always in the initialVisible list by default, even if it was previously hidden
-    if (!initialVisible.includes('description')) initialVisible.push('description');
     return initialVisible;
   });
   const viewModalContentRef = useRef<HTMLDivElement>(null);
@@ -157,7 +159,8 @@ export const Products: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('products_view_mode', viewMode);
     localStorage.setItem('products_page_size', pageSize.toString());
-  }, [viewMode, pageSize]);
+    localStorage.setItem('products_grid_cols', gridColumns.toString());
+  }, [viewMode, pageSize, gridColumns]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -399,11 +402,11 @@ export const Products: React.FC = () => {
   };
 
   const updateSupplierContact = (currentContacts: { type: string, value: string }[]) => {
-    const contactObj: Record<string, string> = {};
-    currentContacts.filter(c => c.value.trim() !== '').forEach(c => {
-      contactObj[c.type || 'Other'] = c.value;
-    });
-    setSelectedProduct(p => p ? { ...p, supplierContact: contactObj as any } : null);
+    const combined = currentContacts
+      .filter(c => c.value.trim() !== '')
+      .map(c => `${c.type || 'Other'}: ${c.value}`)
+      .join(' | ');
+    setSelectedProduct(p => p ? { ...p, supplierContact: combined } : null);
   };
 
   const handleOpenModal = (mode: 'create' | 'edit' | 'view', product?: api.ProductDto | null) => {
@@ -532,7 +535,7 @@ export const Products: React.FC = () => {
     setIsSaving(true);
 
     // Clean up empty strings to null to ensure the backend validates optional/Date fields properly
-    const payloadToSave: any = { ...selectedProduct }; // supplierContact is an object, not a string, so it's handled separately.
+    const payloadToSave: any = { ...selectedProduct }; 
     const optionalFields = ['description', 'codeNumber', 'attributes', 'plateNumber', 'engineNumber', 'donorName', 'voucherNumber', 'supplierName', 'responsiblePerson', 'invoiceDate', 'year', 'quality', 'categoryName', 'brandName', 'departmentName'];
     
     optionalFields.forEach(field => {
@@ -551,6 +554,33 @@ export const Products: React.FC = () => {
         } catch (e) {
           console.warn("Could not auto-create person", e);
         }
+      }
+      
+      // Auto-create Category if it's new
+      if (payloadToSave.categoryName && !payloadToSave.categoryId) {
+        try {
+          const newCat = await api.createCategory({ name: payloadToSave.categoryName });
+          payloadToSave.categoryId = newCat.id;
+          setCategories(prev => [...prev, newCat]);
+        } catch (e) { console.warn("Could not auto-create category", e); }
+      }
+
+      // Auto-create Department if it's new
+      if (payloadToSave.departmentName && !payloadToSave.departmentId) {
+        try {
+          const newDept = await api.createDepartment({ name: payloadToSave.departmentName });
+          payloadToSave.departmentId = newDept.id;
+          setDepartments(prev => [...prev, newDept]);
+        } catch (e) { console.warn("Could not auto-create department", e); }
+      }
+
+      // Auto-create Brand if it's new
+      if (payloadToSave.brandName && !payloadToSave.brandId) {
+        try {
+          const newBrand = await api.createBrand({ name: payloadToSave.brandName });
+          payloadToSave.brandId = newBrand.id;
+          setBrands(prev => [...prev, newBrand]);
+        } catch (e) { console.warn("Could not auto-create brand", e); }
       }
 
       let savedProduct: api.ProductDto;
@@ -694,7 +724,6 @@ export const Products: React.FC = () => {
     setAnchorEl(null);
     showToast(`Preparing ${format.toUpperCase()} export, please wait...`, 'info');
 
-    let exportData: api.ProductDto[] = [];
     try {
       const selectedCats = categories.filter(c => filterCategory.includes(c.name));
       const categoryIds = selectedCats.map(c => c.id).join(',');
@@ -728,167 +757,52 @@ export const Products: React.FC = () => {
 
       const params: any = {
         pageNumber: 1,
-        pageSize: totalItems > 0 ? totalItems : 10000,
-        sortBy,
-        isAscending,
-        name: debouncedSearchQuery || undefined,
-        categoryId: categoryIds || undefined,
-        departmentId: departmentIds || undefined,
-        qualityId: qualityIds || undefined,
-        purchaseType: filterPurchaseType || undefined,
-        invoiceStartDate: filterStartDate ? new Date(filterStartDate).toISOString() : undefined,
-        invoiceEndDate: filterEndDate ? new Date(filterEndDate).toISOString() : undefined,
-        minPrice,
-        maxPrice,
-        filterOn,
-        filterQuery
+        pageSize: exportAllData ? 100000 : (totalItems > 0 ? totalItems : 10000),
+        sortBy: exportAllData ? 'name' : sortBy,
+        isAscending: exportAllData ? true : isAscending,
+        name: exportAllData ? undefined : debouncedSearchQuery || undefined,
+        categoryId: exportAllData ? undefined : categoryIds || undefined,
+        departmentId: exportAllData ? undefined : departmentIds || undefined,
+        qualityId: exportAllData ? undefined : qualityIds || undefined,
+        purchaseType: exportAllData ? undefined : filterPurchaseType || undefined,
+        invoiceStartDate: exportAllData ? undefined : (filterStartDate ? new Date(filterStartDate).toISOString() : undefined),
+        invoiceEndDate: exportAllData ? undefined : (filterEndDate ? new Date(filterEndDate).toISOString() : undefined),
+        minPrice: exportAllData ? undefined : minPrice,
+        maxPrice: exportAllData ? undefined : maxPrice,
+        filterOn: exportAllData ? undefined : filterOn,
+        filterQuery: exportAllData ? undefined : filterQuery
       };
-      const result = await api.getProducts(params);
-      exportData = result.items ?? [];
-    } catch (err) {
-      console.warn("Failed to fetch full list for export, falling back to current page.", err);
-      exportData = products;
-    }
 
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const activeColumns = ALL_COLUMNS.filter(col => visibleColumns.includes(col.id));
-    const headers = activeColumns.map(col => col.label);
+      let fetchBlob: Promise<Blob>;
+      let mimeType: string;
+      let extension: string;
 
-    const getColumnValue = (p: api.ProductDto, colId: string, isCsv: boolean = false): string => {
-      const fallback = isCsv ? '' : '-';
-      switch (colId) {
-        case 'name': return p.name || fallback;
-        case 'codeNumber': return p.codeNumber || fallback;
-        case 'year': return p.year ? p.year.substring(0, 4) : fallback;
-        case 'plateNumber': return p.plateNumber || fallback;
-        case 'engineNumber': return p.engineNumber || fallback;
-        case 'categoryName': return p.categoryName || categories.find(c => c.id === p.categoryId)?.name || fallback;
-        case 'brandName': return p.brandName || brands.find(b => b.id === p.brandId)?.name || fallback;
-        case 'quality': return p.quality || qualities.find(q => q.id === p.qualityId)?.name || fallback;
-        case 'departmentName': return p.departmentName || departments.find(d => d.id === p.departmentId)?.name || fallback;
-        case 'responsiblePerson': return p.responsiblePerson || persons.find(per => per.id === p.responsiblePersonId)?.fullName || fallback;
-        case 'initialQuantity': return p.initialQuantity?.toString() || fallback;
-        case 'voucherNumber': return p.voucherNumber || fallback;
-        case 'donorName': return p.donorName || fallback;
-        case 'supplier': 
-          const contactStr = p.supplierContact 
-            ? (typeof p.supplierContact === 'string' ? p.supplierContact : Object.entries(p.supplierContact).map(([k, v]) => `${k}: ${v}`).join(' | '))
-            : ((p as any).supplierContactList && (p as any).supplierContactList.length > 0 ? (p as any).supplierContactList.join(' | ') : '');
-          return p.supplierName ? `${p.supplierName}${contactStr ? ` (${contactStr})` : ''}` : fallback;
-        case 'purchaseType': return p.purchaseType || fallback;
-        case 'price': return p.price != null ? `$${p.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : fallback;
-        case 'description': return p.description || fallback;
-        default: return fallback;
-      }
-    };
-
-    const hasPrice = activeColumns.some(c => c.id === 'price');
-    const priceIndex = activeColumns.findIndex(c => c.id === 'price');
-    let exportTotalValue = 0;
-    if (hasPrice) {
-      exportTotalValue = exportData.reduce((sum, p) => sum + (p.price || 0), 0);
-    }
-
-    if (format === 'excel') {
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('Products');
-
-      worksheet.columns = activeColumns.map(col => ({
-        header: col.label,
-        key: col.id,
-        width: 20
-      }));
-
-      exportData.forEach(p => {
-        const rowData: any = {};
-        activeColumns.forEach(col => {
-          rowData[col.id] = col.id === 'price' ? (p.price || 0) : getColumnValue(p, col.id, false);
-        });
-        worksheet.addRow(rowData);
-      });
-
-      worksheet.getRow(1).font = { bold: true };
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `products_${timestamp}.xlsx`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-    } else if (format === 'csv') {
-      const rows = exportData.map(p => activeColumns.map(col => escapeCsvValue(getColumnValue(p, col.id, true))).join(','));
-      
-      const summaryRow = activeColumns.map((col, index) => {
-        if (index === 0) return escapeCsvValue(`Total Items: ${exportData.length}`);
-        if (col.id === 'price') return escapeCsvValue(exportTotalValue.toString());
-        return '';
-      }).join(',');
-      rows.push(summaryRow);
-
-      const csvContent = [headers.join(','), ...rows].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `products_${timestamp}.csv`;
-      link.click();
-      URL.revokeObjectURL(link.href);
-    } else {
-      const doc = new jsPDF();
-      
-      // Add a company logo (Replace the empty string with your actual Base64 image data)
-      const companyLogoBase64 = "";
-      
-      if (companyLogoBase64) {
-        // Parameters: image, format, X, Y, Width, Height
-        doc.addImage(companyLogoBase64, 'PNG', 14, 8, 12, 12);
-        doc.text("Products Report", 30, 16); // Shift title to the right
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 30, 22);
+      if (format === 'excel') {
+        fetchBlob = api.exportProductsExcel(params);
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        extension = 'xlsx';
+      } else if (format === 'csv') {
+        fetchBlob = api.exportProductsCsv(params);
+        mimeType = 'text/csv;charset=utf-8;';
+        extension = 'csv';
       } else {
-        doc.text("Products Report", 14, 15);
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
+        fetchBlob = api.exportProductsPdf(params);
+        mimeType = 'application/pdf';
+        extension = 'pdf';
       }
 
-      const customColumnStyles: any = {};
-      if (priceIndex !== -1) {
-        customColumnStyles[priceIndex] = { halign: 'right' };
-      }
-
-      const formattedTotal = `$${exportTotalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      const footRow = activeColumns.map((col, index) => {
-        if (index === 0) return `Total Items: ${exportData.length}`;
-        if (col.id === 'price') return formattedTotal;
-        return '';
-      });
-
-      (doc as any).autoTable({
-        startY: 28,
-        head: [headers],
-        body: exportData.map(p => activeColumns.map(col => getColumnValue(p, col.id, false))),
-        foot: [footRow],
-        theme: 'striped',
-        columnStyles: customColumnStyles,
-        footStyles: {
-          fillColor: [245, 247, 250],
-          textColor: [15, 23, 42],
-          fontStyle: 'bold'
-        }
-      });
-      doc.save(`products_${timestamp}.pdf`);
+      const blobData = await fetchBlob;
+      const blob = new Blob([blobData], { type: mimeType });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `products_${new Date().toISOString().slice(0, 10)}.${extension}`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast(`${format.toUpperCase()} export completed successfully!`, 'success');
+    } catch (err) {
+      showToast(`Failed to generate ${format.toUpperCase()} file on the server.`, 'error');
+      console.error("Export error:", err);
     }
-  };
-
-  const escapeCsvValue = (value: any): string => {
-    if (value === null || value === undefined) return '';
-    const str = String(value);
-    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
   };
 
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
@@ -997,6 +911,21 @@ export const Products: React.FC = () => {
               <GridViewIcon fontSize="small" />
             </ToggleButton>
           </ToggleButtonGroup>
+          {viewMode === 'grid' && (
+            <FormControl size="small" sx={{ width: 110 }}>
+              <Select
+                value={gridColumns}
+                onChange={(e) => setGridColumns(e.target.value as number)}
+                displayEmpty
+              >
+                <MenuItem value={2}>2 Columns</MenuItem>
+                <MenuItem value={3}>3 Columns</MenuItem>
+                <MenuItem value={4}>4 Columns</MenuItem>
+                <MenuItem value={5}>5 Columns</MenuItem>
+                <MenuItem value={6}>6 Columns</MenuItem>
+              </Select>
+            </FormControl>
+          )}
           <Button variant="outlined" startIcon={<ViewColumnIcon />} onClick={(e) => setColumnMenuAnchorEl(e.currentTarget)} disabled={viewMode === 'grid'}>
             Columns
           </Button>
@@ -1023,11 +952,17 @@ export const Products: React.FC = () => {
             variant="outlined"
             startIcon={<FileDownloadIcon />}
             onClick={(e) => setAnchorEl(e.currentTarget)}
-            disabled={products.length === 0}
           >
             Export
           </Button>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+            <Box sx={{ px: 2, py: 1 }}>
+              <FormControlLabel
+                control={<Checkbox checked={exportAllData} onChange={(e) => setExportAllData(e.target.checked)} size="small" />}
+                label={<Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>Export all data & columns</Typography>}
+              />
+            </Box>
+            <Divider />
             <MenuItem onClick={() => handleExport('excel')}>Export as Excel</MenuItem>
             <MenuItem onClick={() => handleExport('csv')}>Export as CSV</MenuItem>
             <MenuItem onClick={() => handleExport('pdf')}>Export as PDF</MenuItem>
@@ -1039,7 +974,8 @@ export const Products: React.FC = () => {
       </Box>
 
       {/* Table Card */}
-      <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
+      <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3, position: 'relative' }}>
+        {loading && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} />}
         {/* Filter Bar */}
         <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'flex-start', alignItems: { sm: 'center' }, flexWrap: 'wrap' }}>
           <TextField
@@ -1187,10 +1123,10 @@ export const Products: React.FC = () => {
 
         {/* Table */}
         {viewMode === 'list' && (
-        <TableContainer>
-          <Table sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
+        <TableContainer sx={{ minHeight: 580, maxHeight: 'calc(100vh - 220px)' }}>
+          <Table stickyHeader sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
             <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold' } }}>
+              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', bgcolor: 'background.paper' } }}>
                 <TableCell padding="checkbox">
                   <Checkbox
                     color="primary"
@@ -1321,8 +1257,8 @@ export const Products: React.FC = () => {
                 <TableCell align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
-            <TableBody>
-              {loading ? (
+        <TableBody sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
+          {loading && products.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell></TableRow>
               ) : error ? (
                 <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><Alert severity="error">{error}</Alert></TableCell></TableRow>
@@ -1371,9 +1307,9 @@ export const Products: React.FC = () => {
                       {visibleColumns.includes('supplier') && (
                         <TableCell>
                           <Typography variant="body2">{product.supplierName || '-'}</Typography>
-                          {(product as any).supplierContactList && (product as any).supplierContactList.length > 0 && (
+                          {product.supplierContact && (
                             <Typography variant="caption" color="text.secondary" display="block">
-                              {(product as any).supplierContactList.join(' | ')}
+                              {product.supplierContact}
                             </Typography>
                           )}
                         </TableCell>
@@ -1403,39 +1339,41 @@ export const Products: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                       </TableCell>
-                    </TableRow>
-                  );
-                })
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+              
+              {!loading && !error && products.length > 0 && visibleColumns.includes('price') && (
+                <TableFooter>
+                  <TableRow sx={{ '& .MuiTableCell-root': { fontWeight: 'bold', border: 0, fontSize: '0.9rem', bgcolor: 'background.paper' } }}>
+                    <TableCell colSpan={visibleColumns.length} align="right" sx={{ pr: 4 }}>
+                      Current Page Value
+                    </TableCell>
+                    <TableCell align="right">
+                      ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableFooter>
               )}
-            </TableBody>
-            {!loading && !error && products.length > 0 && visibleColumns.includes('price') && (
-              <TableFooter>
-                <TableRow sx={{ '& .MuiTableCell-root': { fontWeight: 'bold', border: 0, fontSize: '0.9rem' } }}>
-                  <TableCell colSpan={visibleColumns.length} align="right" sx={{ pr: 4 }}>
-                    Total Value
-                  </TableCell>
-                  <TableCell align="right">
-                    ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </TableCell>
-                  <TableCell />
-                </TableRow>
-              </TableFooter>
-            )}
-          </Table>
-        </TableContainer>
+            </Table>
+          </TableContainer>
         )}
 
         {/* Grid View */}
         {viewMode === 'grid' && (
-          <Box sx={{ p: 2, bgcolor: 'background.default', minHeight: 400 }}>
-            {loading ? (
+          <Box sx={{ p: 2, bgcolor: 'background.default', minHeight: 580, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+            {loading && products.length === 0 ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
             ) : error ? (
               <Alert severity="error">{error}</Alert>
             ) : products.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>No products match your filters.</Box>
             ) : (
-              <Grid container spacing={3}>
+              <Box sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
+              <Grid container spacing={3} columns={60}>
                 {products.map((product) => {
                   const isItemSelected = isSelected(product.id!);
                   const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
@@ -1447,7 +1385,7 @@ export const Products: React.FC = () => {
                     else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
                   }
                   return (
-                    <Grid item xs={12} sm={6} md={4} lg={3} key={product.id}>
+                    <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={product.id}>
                       <Card 
                         sx={{ 
                           height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
@@ -1493,6 +1431,7 @@ export const Products: React.FC = () => {
                   );
                 })}
               </Grid>
+              </Box>
             )}
           </Box>
         )}
@@ -1605,6 +1544,20 @@ export const Products: React.FC = () => {
                   if (reason === 'input') {
                     setSelectedProduct(p => p ? { ...p, categoryId: null, categoryName: newInputValue } : null);
                   }
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...restProps } = props as any;
+                  const isString = typeof option === 'string';
+                  const label = isString ? option : (option.inputValue || option.name);
+                  const desc = !isString ? option.description : null;
+                  return (
+                    <li key={key} {...restProps}>
+                      <Box>
+                        <Typography variant="body2">{label}</Typography>
+                        {desc && <Typography variant="caption" color="text.secondary" display="block">{desc}</Typography>}
+                      </Box>
+                    </li>
+                  );
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label="Category" placeholder="Select or type to create" />
@@ -1879,6 +1832,21 @@ export const Products: React.FC = () => {
                                 setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: newInputValue } : null);
                               }
                             }}
+                renderOption={(props, option) => {
+                  const { key, ...restProps } = props as any;
+                  const isString = typeof option === 'string';
+                  const label = isString ? option : (option.inputValue || option.fullName);
+                  const email = !isString ? option.email : null;
+                  const dept = !isString ? option.department : null;
+                  return (
+                    <li key={key} {...restProps}>
+                      <Box>
+                        <Typography variant="body2">{label}</Typography>
+                        {(email || dept) && <Typography variant="caption" color="text.secondary" display="block">{[dept, email].filter(Boolean).join(' • ')}</Typography>}
+                      </Box>
+                    </li>
+                  );
+                }}
                             renderInput={(params) => <TextField {...params} label="Responsible Person" placeholder="Select or type to assign" />}
                           />
                         </Grid>
@@ -2144,5 +2112,5 @@ export const Products: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Box>
-  );
+  )
 };

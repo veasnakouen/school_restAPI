@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Box, Tabs, Tab, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Group as GroupIcon, Security as SecurityIcon, Lock as LockIcon, Settings as SettingsIcon, Category as CategoryIcon } from '@mui/icons-material';
+import { Receipt as ReceiptIcon } from '@mui/icons-material';
 
 export const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -14,16 +15,19 @@ export const AdminDashboard: React.FC = () => {
       ? '/admin/permissions' 
       : location.pathname.includes('/admin/settings')
         ? '/admin/settings'
-        : location.pathname.includes('/admin/lookups')
-          ? '/admin/lookups'
-          : '/admin/users';
+        : location.pathname.includes('/admin/transactions')
+          ? '/admin/transactions'
+          : location.pathname.includes('/admin/lookups')
+            ? '/admin/lookups'
+            : '/admin/users';
 
   const tabLabels: Record<string, string> = {
     '/admin/users': 'Users',
     '/admin/roles': 'Roles',
     '/admin/permissions': 'Permissions',
     '/admin/settings': 'System Settings',
-    '/admin/lookups': 'Product Data'
+    '/admin/lookups': 'Product Data',
+    '/admin/transactions': 'Transactions'
   };
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
@@ -64,7 +68,8 @@ export const AdminDashboard: React.FC = () => {
             { label: 'Roles', value: '/admin/roles', icon: <SecurityIcon /> },
             { label: 'Permissions', value: '/admin/permissions', icon: <LockIcon /> },
           { label: 'System Settings', value: '/admin/settings', icon: <SettingsIcon /> },
-          { label: 'Product Data', value: '/admin/lookups', icon: <CategoryIcon /> }
+          { label: 'Product Data', value: '/admin/lookups', icon: <CategoryIcon /> },
+          { label: 'Transactions', value: '/admin/transactions', icon: <ReceiptIcon /> }
           ].map((tab) => (
             <Tab
               key={tab.value}

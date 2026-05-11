@@ -61,7 +61,6 @@ namespace SchoolAPI.Extensions
             });
         }
 
-
         public static IServiceCollection AddIdentityCore(this IServiceCollection service, IConfiguration configuration)
         {
             service.AddIdentityCore<AppUser>(

@@ -106,6 +106,11 @@ builder.Services.AddStackExchangeRedisOutputCache(options =>
 });
 builder.Services.AddOutputCache();
 
+// Enable response compression to significantly reduce JSON payload sizes over the network
+builder.Services.AddResponseCompression(options => {
+    options.EnableForHttps = true;
+});
+
 builder.Services.AddSignalR();
 
 // Configure Swagger FIRST before other services
@@ -180,11 +185,9 @@ app.UseForwardedHeaders();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseHttpsRedirection();
-
-app.UseHttpsRedirection();
 app.UseRouting();
 app.UseCors("CorePolicy");
+app.UseResponseCompression();
 app.UseOutputCache();
 app.UseRateLimiter();
 app.UseAuthentication();

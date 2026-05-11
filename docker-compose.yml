@@ -1,64 +1,68 @@
+version: '3.8'
+
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: school-postgres
-    restart: unless-stopped
+  # 1. PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: school_db
     environment:
-      POSTGRES_DB: schooldb
-      POSTGRES_USER: schooluser
-      POSTGRES_PASSWORD: schoolpass123
+      POSTGRES_DB: ${POSTGRES_DB:-schooldb}
+      POSTGRES_USER: ${POSTGRES_USER:-schooluser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-schoolpass123}
     ports:
       - "5432:5432"
     volumes:
-      - school_postgres_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U schooluser -d schooldb"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # 2. Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: school-redis
-    restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    container_name: school_redis
     ports:
       - "6379:6379"
     volumes:
-      - school_redis_data:/data
+      - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  # 3. .NET API Backend
   api:
     build:
-      context: ./SchoolAPI
-      dockerfile: Dockerfile
-    container_name: school-api
-    restart: unless-stopped
+      context: .
+      dockerfile: SchoolAPI/Dockerfile
+    container_name: school_api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB:-schooldb};Username=${POSTGRES_USER:-schooluser};Password=${POSTGRES_PASSWORD:-schoolpass123}
+      - Redis__Configuration=redis:6379
+      - JwtSettings__Secret=${JWT_SECRET:-YOUR_VERY_SECURE_SECRET_KEY_12345!}
+    ports:
+      - "5001:8080" # Maps host 5001 to container's internal 8080 port
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__DefaultConnectionString: Host=postgres;Port=5432;Database=schooldb;Username=schooluser;Password=schoolpass123
-      Redis__Configuration: redis:6379,abortConnect=false
-      JwtSettings__Secret: replace-with-a-long-development-secret-value
-      JwtSettings__Issuer: schoolAPI
-      JwtSettings__Audience: schoolClient
-      JwtSettings__ExpiryInMinutes: "120"
-      JwtSettings__RefreshTokenExpiryInDays: "7"
-      CloudinarySettings__CloudName: replace-with-cloudinary-cloud-name
-      CloudinarySettings__ApiKey: replace-with-cloudinary-api-key
-      CloudinarySettings__ApiSecret: replace-with-cloudinary-api-secret
+
+  # 4. Angular Frontend
+  frontend:
+    build:
+      context: ./SchoolUI
+      dockerfile: Dockerfile
+    container_name: school_ui
     ports:
-      - "5000:8080"
+      - "4200:80"
+    depends_on:
+      - api
 
 volumes:
-  school_postgres_data:
-  school_redis_data:
+  pgdata:
+  redisdata:

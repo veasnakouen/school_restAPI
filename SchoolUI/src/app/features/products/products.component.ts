@@ -154,8 +154,8 @@ export interface ExtendedProductDto extends ProductDto {
         </div>
 
         <!-- Table -->
-        <div class="my-6 overflow-x-auto rounded-lg border border-base-300 bg-base-100">
-          <p-table [value]="products" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
+        <div class="my-6 rounded-lg border border-base-300 bg-base-100 overflow-hidden">
+          <p-table [value]="products" dataKey="id" [loading]="loading" [scrollable]="true" [virtualScroll]="true" [virtualScrollItemSize]="46" scrollHeight="calc(100vh - 220px)" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
             <ng-template pTemplate="header">
               <tr>
                 <th style="width: 3rem">
@@ -607,7 +607,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
-  private readonly apiUrl = 'http://localhost:5001/api/inventory/products';
+  private readonly baseUrl = `http://${window.location.hostname}:5001`;
+  private readonly apiUrl = `${this.baseUrl}/api/inventory/products`;
 
   protected products: ExtendedProductDto[] = [];
   protected categories: CategoryDto[] = [];
@@ -692,6 +693,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected filterPurchaseType = '';
   protected filterPrice = '';
 
+  private lookupCache = new Map<string, string>();
+
   // Column visibility
   protected availableColumns = [
     { id: 'name', label: 'Name' },
@@ -739,8 +742,14 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected getLookupName(list: any[], id: string | null | undefined): string | null {
-    if (!id) return null;
-    return list.find(item => item.id === id)?.name || null;
+    if (!id || !list || list.length === 0) return null;
+    if (this.lookupCache.has(id)) return this.lookupCache.get(id)!;
+
+    const item = list.find(item => item.id === id);
+    const name = item ? (item.name || item.fullName || null) : null;
+    
+    if (name) this.lookupCache.set(id, name);
+    return name;
   }
 
   protected toggleColumnVisibility(colId: string, event?: Event): void {
@@ -828,7 +837,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
   private initSignalR(): void {
     this.hubConnection = new signalR.HubConnectionBuilder()
-      .withUrl('http://localhost:5001/hubs/import', {
+      .withUrl(`${this.baseUrl}/hubs/import`, {
         accessTokenFactory: () => {
           return localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || '';
         }
@@ -873,13 +882,14 @@ export class ProductsComponent implements OnInit, OnDestroy {
     // Fetch lookups directly via HttpClient to bypass missing methods in ProductApiService
     forkJoin({
       categories: this.categoryApi.list().pipe(catchError(() => of([]))),
-      brands: this.http.get<BrandDto[]>('http://localhost:5001/api/Brand').pipe(catchError(() => of([]))),
-      departments: this.http.get<DepartmentDto[]>('http://localhost:5001/api/Department').pipe(catchError(() => of([]))),
-      persons: this.http.get<PersonDto[]>('http://localhost:5001/api/Person').pipe(catchError(() => of([]))),
-      suppliers: this.http.get<SupplierDto[]>('http://localhost:5001/api/Supplier').pipe(catchError(() => of([]))),
-      qualities: this.http.get<any[]>('http://localhost:5001/api/Quality').pipe(catchError(() => of([])))
+      brands: this.http.get<BrandDto[]>(`${this.baseUrl}/api/Brand`).pipe(catchError(() => of([]))),
+      departments: this.http.get<DepartmentDto[]>(`${this.baseUrl}/api/Department`).pipe(catchError(() => of([]))),
+      persons: this.http.get<PersonDto[]>(`${this.baseUrl}/api/Person`).pipe(catchError(() => of([]))),
+      suppliers: this.http.get<SupplierDto[]>(`${this.baseUrl}/api/Supplier`).pipe(catchError(() => of([]))),
+      qualities: this.http.get<any[]>(`${this.baseUrl}/api/Quality`).pipe(catchError(() => of([])))
     }).subscribe({
       next: (results: any) => {
+        this.lookupCache.clear();
         const getUnique = (arr: any[] | null | undefined, key: string) => {
           const map = new Map();
           for (const item of arr ?? []) {
@@ -1102,6 +1112,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
       if (valA > valB) return this.isAscending ? 1 : -1;
       return 0;
     });
+    
+    this.products = [...this.products]; // Force instant UI re-render
   }
 
   private filterTimeout: any;
@@ -1350,7 +1362,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
     // Auto-create Responsible Person first if they are new
     if (this.selectedProduct.purchaseType && this.selectedProduct.purchaseType !== 'None' && this.selectedProduct.responsiblePerson && !this.selectedProduct.responsiblePersonId) {
-      this.http.post<PersonDto>('http://localhost:5001/api/Person', { fullName: this.selectedProduct.responsiblePerson }).subscribe({
+      this.http.post<PersonDto>(`${this.baseUrl}/api/Person`, { fullName: this.selectedProduct.responsiblePerson }).subscribe({
         next: (newPerson) => {
           this.selectedProduct.responsiblePersonId = newPerson.id;
           this.persons.push(newPerson);
@@ -1413,7 +1425,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
       notes: this.transferNotes
     };
 
-    this.http.post(`http://localhost:5001/api/inventory/products/${this.productToTransfer.id}/transfer`, payload).subscribe({
+    this.http.post(`${this.apiUrl}/${this.productToTransfer.id}/transfer`, payload).subscribe({
       next: () => {
         this.isTransferring = false;
         this.closeTransferModal();
@@ -1529,7 +1541,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
 
     // If editing, delete existing image from server
     if (this.isEditing && this.selectedProduct.id) {
-      this.http.delete(`http://localhost:5001/api/inventory/products/${this.selectedProduct.id}/image`).subscribe({
+      this.http.delete(`${this.apiUrl}/${this.selectedProduct.id}/image`).subscribe({
         next: () => {
           this.selectedProduct.imageUrl = null;
           this.cdr.detectChanges();
@@ -1595,7 +1607,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
       const formData = new FormData();
       formData.append('file', fileToUpload);
 
-      this.http.post<{ imageUrl: string }>(`http://localhost:5001/api/inventory/products/${productId}/image`, formData).subscribe({
+      this.http.post<{ imageUrl: string }>(`${this.apiUrl}/${productId}/image`, formData).subscribe({
         next: (result) => {
           if (result?.imageUrl) {
             this.selectedProduct.imageUrl = result.imageUrl;
@@ -1627,7 +1639,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected async deleteProductImage(productId: string): Promise<void> {
-    this.http.delete(`http://localhost:5001/api/inventory/products/${productId}/image`).subscribe({
+    this.http.delete(`${this.apiUrl}/${productId}/image`).subscribe({
       next: () => {
         this.selectedProduct.imageUrl = null;
         this.selectedImageUrl = null;

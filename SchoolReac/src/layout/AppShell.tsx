@@ -370,7 +370,7 @@ const AppShellComponent: React.FC = () => {
                     <Outlet />
                 </Box>
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
-                    @By : IT Mloptapang (React Version - MUI)
+                    @By : IT Mloptapang (React - MUI)
                 </Typography>
             </Box>
         </Box>

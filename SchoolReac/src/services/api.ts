@@ -79,6 +79,7 @@ export interface BrandDto {
 export interface DepartmentDto {
   id: string;
   name: string;
+  location?: string;
 }
 
 export interface QualityDto {
@@ -89,6 +90,8 @@ export interface QualityDto {
 export interface SupplierDto {
   id: string;
   name: string;
+  contactInfo?: string[];
+  address?: string;
 }
 
 export interface PersonDto {
@@ -171,8 +174,10 @@ export interface QueryOptions {
   invoiceEndDate?: string;
 }
 
-// Load the URL from environment variables (using 'any' to bypass strict TS checks), falling back to localhost
-let envUrl = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5001';
+// Use environment variable in production, fallback to localhost:5001 in development
+// Assuming Vite setup; use process.env.REACT_APP_API_URL for CRA
+let envUrl = import.meta.env?.VITE_API_URL || `http://${window.location.hostname}:5001`;
+
 // Ensure we don't accidentally double up on '/api' or trailing slashes from the .env file
 envUrl = envUrl.replace(/\/+$/, '').replace(/\/api$/i, '');
 
@@ -348,77 +353,125 @@ apiClient.interceptors.response.use(
 export const getProducts = (params: QueryOptions): Promise<PagedResult<ProductDto>> => 
   apiClient.get('/inventory/products', { params }).then(res => res.data);
 
+export const exportProductsExcel = (params: QueryOptions): Promise<Blob> => 
+  apiClient.get('/inventory/products/export', { params, responseType: 'blob' }).then(res => res.data);
+
+export const exportProductsCsv = (params: QueryOptions): Promise<Blob> => 
+  apiClient.get('/inventory/products/export/csv', { params, responseType: 'blob' }).then(res => res.data);
+
+export const exportProductsPdf = (params: QueryOptions): Promise<Blob> => 
+  apiClient.get('/inventory/products/export/pdf', { params, responseType: 'blob' }).then(res => res.data);
+
+// Simple memory cache for relatively static lookup data to speed up component mounting
+const cache: Record<string, any> = {};
+
 export const getCategories = (): Promise<CategoryDto[]> => 
-  apiClient.get('/Category').then(res => res.data);
+  cache['categories'] ? Promise.resolve(cache['categories']) : apiClient.get('/Category').then(res => { cache['categories'] = res.data; return res.data; });
 
-export const createCategory = (category: { name: string; description?: string | null }): Promise<CategoryDto> =>
-  apiClient.post('/Category', category).then(res => res.data);
+export const createCategory = (category: { name: string; description?: string | null }): Promise<CategoryDto> => {
+  delete cache['categories'];
+  return apiClient.post('/Category', category).then(res => res.data);
+};
 
-export const updateCategory = (id: string, category: Partial<CategoryDto>): Promise<CategoryDto> =>
-  apiClient.put(`/Category/${id}`, category).then(res => res.data);
+export const updateCategory = (id: string, category: Partial<CategoryDto>): Promise<CategoryDto> => {
+  delete cache['categories'];
+  return apiClient.put(`/Category/${id}`, category).then(res => res.data);
+}
 
-export const deleteCategory = (id: string): Promise<any> =>
-  apiClient.delete(`/Category/${id}`).then(res => res.data);
+export const deleteCategory = (id: string): Promise<any> => {
+  delete cache['categories'];
+  return apiClient.delete(`/Category/${id}`).then(res => res.data);
+}
 
 export const getBrands = (): Promise<BrandDto[]> => 
-  apiClient.get('/Brand').then(res => res.data);
+  cache['brands'] ? Promise.resolve(cache['brands']) : apiClient.get('/Brand').then(res => { cache['brands'] = res.data; return res.data; });
 
-export const createBrand = (brand: { name: string }): Promise<BrandDto> =>
-  apiClient.post('/Brand', brand).then(res => res.data);
+export const createBrand = (brand: { name: string }): Promise<BrandDto> => {
+  delete cache['brands'];
+  return apiClient.post('/Brand', brand).then(res => res.data);
+};
 
-export const updateBrand = (id: string, brand: Partial<BrandDto>): Promise<BrandDto> =>
-  apiClient.put(`/Brand/${id}`, brand).then(res => res.data);
+export const updateBrand = (id: string, brand: Partial<BrandDto>): Promise<BrandDto> => {
+  delete cache['brands'];
+  return apiClient.put(`/Brand/${id}`, brand).then(res => res.data);
+}
 
-export const deleteBrand = (id: string): Promise<any> =>
-  apiClient.delete(`/Brand/${id}`).then(res => res.data);
+export const deleteBrand = (id: string): Promise<any> => {
+  delete cache['brands'];
+  return apiClient.delete(`/Brand/${id}`).then(res => res.data);
+}
 
 export const getDepartments = (): Promise<DepartmentDto[]> =>
-  apiClient.get('/Department').then(res => res.data);
+  cache['departments'] ? Promise.resolve(cache['departments']) : apiClient.get('/Department').then(res => { cache['departments'] = res.data; return res.data; });
 
-export const createDepartment = (department: { name: string, location?: string }): Promise<DepartmentDto> =>
-  apiClient.post('/Department', department).then(res => res.data);
+export const createDepartment = (department: { name: string, location?: string }): Promise<DepartmentDto> => {
+  delete cache['departments'];
+  return apiClient.post('/Department', department).then(res => res.data);
+};
 
-export const updateDepartment = (id: string, department: Partial<DepartmentDto>): Promise<DepartmentDto> =>
-  apiClient.put(`/Department/${id}`, department).then(res => res.data);
+export const updateDepartment = (id: string, department: Partial<DepartmentDto>): Promise<DepartmentDto> => {
+  delete cache['departments'];
+  return apiClient.put(`/Department/${id}`, department).then(res => res.data);
+}
 
-export const deleteDepartment = (id: string): Promise<any> =>
-  apiClient.delete(`/Department/${id}`).then(res => res.data);
+export const deleteDepartment = (id: string): Promise<any> => {
+  delete cache['departments'];
+  return apiClient.delete(`/Department/${id}`).then(res => res.data);
+}
 
 export const getQualities = (): Promise<QualityDto[]> =>
-  apiClient.get('/Quality').then(res => res.data);
+  cache['qualities'] ? Promise.resolve(cache['qualities']) : apiClient.get('/Quality').then(res => { cache['qualities'] = res.data; return res.data; });
 
-export const createQuality = (quality: { name: string }): Promise<QualityDto> =>
-  apiClient.post('/Quality', quality).then(res => res.data);
+export const createQuality = (quality: { name: string }): Promise<QualityDto> => {
+  delete cache['qualities'];
+  return apiClient.post('/Quality', quality).then(res => res.data);
+};
 
-export const updateQuality = (id: string, quality: Partial<QualityDto>): Promise<QualityDto> =>
-  apiClient.put(`/Quality/${id}`, quality).then(res => res.data);
+export const updateQuality = (id: string, quality: Partial<QualityDto>): Promise<QualityDto> => {
+  delete cache['qualities'];
+  return apiClient.put(`/Quality/${id}`, quality).then(res => res.data);
+}
 
-export const deleteQuality = (id: string): Promise<any> =>
-  apiClient.delete(`/Quality/${id}`).then(res => res.data);
+export const deleteQuality = (id: string): Promise<any> => {
+  delete cache['qualities'];
+  return apiClient.delete(`/Quality/${id}`).then(res => res.data);
+}
 
 export const getSuppliers = (): Promise<SupplierDto[]> =>
-  apiClient.get('/Supplier').then(res => res.data);
+  cache['suppliers'] ? Promise.resolve(cache['suppliers']) : apiClient.get('/Supplier').then(res => { cache['suppliers'] = res.data; return res.data; });
 
-export const createSupplier = (supplier: { name: string }): Promise<SupplierDto> =>
-  apiClient.post('/Supplier', supplier).then(res => res.data);
+export const createSupplier = (supplier: { name: string; contactInfo?: string[]; address?: string }): Promise<SupplierDto> => {
+  delete cache['suppliers'];
+  return apiClient.post('/Supplier', supplier).then(res => res.data);
+};
 
-export const updateSupplier = (id: string, supplier: Partial<SupplierDto>): Promise<SupplierDto> =>
-  apiClient.put(`/Supplier/${id}`, supplier).then(res => res.data);
+export const updateSupplier = (id: string, supplier: Partial<SupplierDto>): Promise<SupplierDto> => {
+  delete cache['suppliers'];
+  return apiClient.put(`/Supplier/${id}`, supplier).then(res => res.data);
+}
 
-export const deleteSupplier = (id: string): Promise<any> =>
-  apiClient.delete(`/Supplier/${id}`).then(res => res.data);
+export const deleteSupplier = (id: string): Promise<any> => {
+  delete cache['suppliers'];
+  return apiClient.delete(`/Supplier/${id}`).then(res => res.data);
+}
 
 export const getPersons = (): Promise<PersonDto[]> =>
-  apiClient.get('/Person').then(res => res.data);
+  cache['persons'] ? Promise.resolve(cache['persons']) : apiClient.get('/Person').then(res => { cache['persons'] = res.data; return res.data; });
 
-export const createPerson = (person: { fullName: string; department?: string; email?: string }): Promise<PersonDto> =>
-  apiClient.post('/Person', person).then(res => res.data);
+export const createPerson = (person: { fullName: string; department?: string; email?: string }): Promise<PersonDto> => {
+  delete cache['persons'];
+  return apiClient.post('/Person', person).then(res => res.data);
+};
 
-export const updatePerson = (id: string, person: Partial<PersonDto>): Promise<PersonDto> =>
-  apiClient.put(`/Person/${id}`, person).then(res => res.data);
+export const updatePerson = (id: string, person: Partial<PersonDto>): Promise<PersonDto> => {
+  delete cache['persons'];
+  return apiClient.put(`/Person/${id}`, person).then(res => res.data);
+}
 
-export const deletePerson = (id: string): Promise<any> =>
-  apiClient.delete(`/Person/${id}`).then(res => res.data);
+export const deletePerson = (id: string): Promise<any> => {
+  delete cache['persons'];
+  return apiClient.delete(`/Person/${id}`).then(res => res.data);
+}
 
 export const createProduct = (product: CreateProductRequest): Promise<ProductDto> =>
   apiClient.post('/inventory/products', product).then(res => res.data);
@@ -466,6 +519,14 @@ export const forceRefreshToken = (): Promise<AuthResponse> => {
   
   if (!accessToken || !refreshToken) return Promise.reject(new Error('No tokens available'));
   return apiClient.post<AuthResponse>("/auth/refresh", { accessToken, refreshToken }).then(res => res.data);
+};
+
+export const forgotPassword = (data: { email: string }): Promise<{ message: string, isSuccess: boolean, resetToken?: string }> => {
+  return apiClient.post('/auth/forgot-password', data).then(res => res.data);
+};
+
+export const resetPassword = (data: { email: string, token: string, newPassword: string }): Promise<{ message: string, isSuccess: boolean }> => {
+  return apiClient.post('/auth/reset-password', data).then(res => res.data);
 };
 
 // --- User Management ---
