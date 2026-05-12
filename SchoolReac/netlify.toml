@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "build" # Note: Change to "dist" if your project uses Vite instead of Create React App
+
+[[redirects]]
+  # This ensures React Router handles all page navigation without 404 errors
+  from = "/*"
+  to = "/index.html"
+  status = 200

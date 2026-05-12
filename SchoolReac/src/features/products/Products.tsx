@@ -5,7 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import {
   Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
-  IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions,
+  IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions, Skeleton,
   Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent,
   FormControlLabel, InputAdornment, Accordion, AccordionSummary, AccordionDetails, ListItemIcon, Switch
 } from '@mui/material';
@@ -1471,8 +1471,27 @@ export const Products: React.FC = () => {
             </TableHead>
         <TableBody sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
           {loading && products.length === 0 ? (
-                <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell></TableRow>
-              ) : error ? (
+            Array.from(new Array(pageSize)).map((_, index) => (
+              <TableRow key={`skel-row-${index}`}>
+                <TableCell padding="checkbox">
+                  <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: 1 }} />
+                </TableCell>
+                {ALL_COLUMNS.map(col => {
+                  if (!visibleColumns.includes(col.id)) return null;
+                  return (
+                    <TableCell key={`skel-cell-${col.id}-${index}`}>
+                      {col.id === 'name' ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Skeleton variant="circular" width={40} height={40} /><Skeleton variant="text" width="70%" /></Box>
+                      ) : <Skeleton variant="text" />}
+                    </TableCell>
+                  );
+                })}
+                <TableCell align="center">
+                  <Skeleton variant="circular" width={32} height={32} />
+                </TableCell>
+              </TableRow>
+            ))
+          ) : error ? (
                 <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><Alert severity="error">{error}</Alert></TableCell></TableRow>
               ) : products.length === 0 ? (
                 <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}>No products match your filters.</TableCell></TableRow>
@@ -1575,7 +1594,23 @@ export const Products: React.FC = () => {
         {viewMode === 'grid' && (
           <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: 'background.default', minHeight: 580, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', overflowX: 'hidden' }}>
             {loading && products.length === 0 ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+              <Grid container spacing={{ xs: 1.5, sm: 3 }} columns={60}>
+                {Array.from(new Array(pageSize)).map((_, index) => (
+                  <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={`skel-grid-${index}`}>
+                    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <Skeleton variant="rectangular" sx={{ p: { xs: 1, sm: 2 }, aspectRatio: '1 / 1', maxWidth: 140, mx: 'auto', mt: 2 }} />
+                      <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 } }}>
+                        <Skeleton variant="text" sx={{ fontSize: '1rem' }} />
+                        <Skeleton variant="text" width="60%" />
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1.5 }}>
+                          <Skeleton variant="text" width="40%" />
+                          <Skeleton variant="text" width="30%" />
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             ) : error ? (
               <Alert severity="error">{error}</Alert>
             ) : products.length === 0 ? (

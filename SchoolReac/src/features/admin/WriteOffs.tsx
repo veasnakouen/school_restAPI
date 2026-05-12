@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, TablePagination, CircularProgress, Alert, Chip, IconButton, Tooltip
+  Paper, TablePagination, CircularProgress, Alert, Chip, IconButton, Tooltip, Skeleton
 } from '@mui/material';
 import { Check as CheckIcon, Close as CloseIcon, Undo as UndoIcon } from '@mui/icons-material';
 import { getWriteOffs, approveWriteOff, rejectWriteOff, undoWriteOff, WriteOffDto } from '../../services/api';
@@ -89,8 +89,8 @@ export const WriteOffs: React.FC = () => {
       </Box>
 
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
-        <TableContainer sx={{ maxHeight: 'calc(100vh - 250px)' }}>
-          <Table stickyHeader>
+        <TableContainer sx={{ maxHeight: 'calc(100vh - 250px)', overflowX: 'auto' }}>
+          <Table stickyHeader sx={{ minWidth: 650 }}>
             <TableHead sx={{ '& th': { fontWeight: 'bold', bgcolor: 'background.paper' } }}>
               <TableRow>
                 <TableCell>Date Submitted</TableCell>
@@ -104,9 +104,17 @@ export const WriteOffs: React.FC = () => {
             </TableHead>
             <TableBody sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
               {loading && writeOffs.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}><CircularProgress /></TableCell>
-                </TableRow>
+                Array.from(new Array(pageSize)).map((_, index) => (
+                  <TableRow key={`skel-woff-${index}`}>
+                    <TableCell><Skeleton variant="text" width="80%" /></TableCell>
+                    <TableCell><Skeleton variant="text" width="90%" /></TableCell>
+                    <TableCell><Skeleton variant="text" width="70%" /></TableCell>
+                    <TableCell><Skeleton variant="text" /></TableCell>
+                    <TableCell align="center"><Skeleton variant="text" width={30} /></TableCell>
+                    <TableCell align="center"><Skeleton variant="rounded" width={80} height={24} /></TableCell>
+                    <TableCell align="right"><Skeleton variant="circular" width={32} height={32} /></TableCell>
+                  </TableRow>
+                ))
               ) : error ? (
                 <TableRow>
                   <TableCell colSpan={7} align="center" sx={{ py: 4 }}><Alert severity="error">{error}</Alert></TableCell>
