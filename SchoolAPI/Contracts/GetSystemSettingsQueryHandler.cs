@@ -33,7 +33,8 @@ public class GetSystemSettingsQueryHandler : IRequestHandler<GetSystemSettingsQu
             MaintenanceMode = settings.MaintenanceMode,
             DefaultToDarkMode = settings.DefaultToDarkMode,
             LogoBase64 = settings.LogoBase64,
-            BankQrCodeBase64 = settings.BankQrCodeBase64
+            BankQrCodeBase64 = settings.BankQrCodeBase64,
+            ProductExportFields = settings.ProductExportFields
         });
     }
 }

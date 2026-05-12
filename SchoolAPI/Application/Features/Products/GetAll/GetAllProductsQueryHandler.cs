@@ -27,7 +27,8 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         // Filtering
         if (!string.IsNullOrWhiteSpace(request.Name))
         {
-            query = query.Where(p => EF.Functions.ILike(p.ProductName, $"%{request.Name}%"));
+            query = query.Where(p => EF.Functions.ILike(p.ProductName, $"%{request.Name}%") || 
+                                     (p.CodeNumber != null && EF.Functions.ILike(p.CodeNumber, $"%{request.Name}%")));
         }
         if (!string.IsNullOrWhiteSpace(request.CategoryId))
         {
@@ -71,6 +72,24 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
         if (request.MaxPrice.HasValue)
         {
             query = query.Where(p => p.Price <= request.MaxPrice.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.ProductGroup))
+        {
+            if (request.ProductGroup.Equals("Asset", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => p.CodeNumber != null && 
+                    (p.CodeNumber.StartsWith("20") || p.CodeNumber.StartsWith("19")));
+            }
+            else if (request.ProductGroup.Equals("Inventory", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => p.CodeNumber != null && 
+                    !p.CodeNumber.StartsWith("20") && !p.CodeNumber.StartsWith("19"));
+            }
+            else if (request.ProductGroup.Equals("NoCode", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(p => string.IsNullOrWhiteSpace(p.CodeNumber));
+            }
         }
         
         // Fallback for free-text filters from frontend

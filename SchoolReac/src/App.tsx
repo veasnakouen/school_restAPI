@@ -10,6 +10,7 @@ import { AdminGuard } from "./auth/AdminGuard";
 import { SystemSettings } from './features/admin/SystemSettings';
 import { LookupManagement } from "./features/admin/LookupManagement";
 import { Transactions } from "./features/admin/Transactions";
+import { WriteOffs } from "./features/admin/WriteOffs";
 import { AuthProvider } from './auth/AuthContext';
 import { LoginPage } from './features/auth/LoginPage';
 import { Products } from './features/products/Products';
@@ -96,6 +97,7 @@ const AppContent = () => {
                   <Route path="settings" element={<SystemSettings />} />
                   <Route path="lookups" element={<LookupManagement />} />
                   <Route path="transactions" element={<Transactions />} />
+                  <Route path="write-offs" element={<WriteOffs />} />
                 </Route>
               </Route>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />

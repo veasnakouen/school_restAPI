@@ -16,6 +16,7 @@ public record GetAllProductsQuery(
     string? SortBy = null,
     string? FilterOn = null,
     string? FilterQuery = null,
+    string? ProductGroup = null,
     DateTime? InvoiceStartDate = null,
     DateTime? InvoiceEndDate = null,
     decimal? MinPrice = null,

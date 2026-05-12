@@ -10,4 +10,5 @@ public class SystemSettingsDto
     public bool DefaultToDarkMode { get; set; }
     public string? LogoBase64 { get; set; }
     public string? BankQrCodeBase64 { get; set; }
+    public string? ProductExportFields { get; set; }
 }

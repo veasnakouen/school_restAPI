@@ -7,7 +7,7 @@ import {
   TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
   IconButton, Chip, Avatar, FormControl, Select, MenuItem, Checkbox, TableSortLabel, Menu, Tooltip, Autocomplete, TableFooter, createFilterOptions,
   Grid, Divider, ListItemText, ToggleButton, ToggleButtonGroup, Card, CardContent,
-  FormControlLabel
+  FormControlLabel, InputAdornment, Accordion, AccordionSummary, AccordionDetails, ListItemIcon, Switch
 } from '@mui/material';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme as useMuiTheme } from '@mui/material/styles';
@@ -15,8 +15,9 @@ import {
   Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, MoreVert as MoreVertIcon,
   Image as ImageIcon, BrokenImage as BrokenImageIcon, CloudUpload as CloudUploadIcon,
   DeleteForever as DeleteForeverIcon, Close as CloseIcon, Visibility as VisibilityIcon,
-  FileDownload as FileDownloadIcon, ViewColumn as ViewColumnIcon, SwapHoriz as SwapHorizIcon,
-  ViewList as ViewListIcon, GridView as GridViewIcon, Category as CategoryIcon
+  FileDownload as FileDownloadIcon, ViewColumn as ViewColumnIcon, SwapHoriz as SwapHorizIcon, Autorenew as AutorenewIcon,
+  ViewList as ViewListIcon, GridView as GridViewIcon, Category as CategoryIcon, Search as SearchIcon, ExpandMore as ExpandMoreIcon, FilterList as FilterListIcon, Print as PrintIcon,
+  ReportProblem as ReportProblemIcon
 } from '@mui/icons-material';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -68,6 +69,7 @@ export const Products: React.FC = () => {
   const [filterCategory, setFilterCategory] = useState<string[]>(searchParams.get('category') ? searchParams.get('category')!.split(',') : []);
   const [filterQuality, setFilterQuality] = useState<string[]>(searchParams.get('quality') ? searchParams.get('quality')!.split(',') : []);
   const [filterPurchaseType, setFilterPurchaseType] = useState(searchParams.get('purchaseType') || '');
+  const [filterGroup, setFilterGroup] = useState(searchParams.get('group') || '');
   const [filterStartDate, setFilterStartDate] = useState(searchParams.get('startDate') || '');
   const [filterEndDate, setFilterEndDate] = useState(searchParams.get('endDate') || '');
   const [filterPrice, setFilterPrice] = useState(searchParams.get('price') || '');
@@ -76,8 +78,8 @@ export const Products: React.FC = () => {
     const saved = localStorage.getItem('products_page_size');
     return saved ? parseInt(saved, 10) : 10;
   });
-  const [sortBy, setSortBy] = useState<keyof api.ProductDto>('name');
-  const [isAscending, setIsAscending] = useState(true);
+  const [sortBy, setSortBy] = useState<keyof api.ProductDto>('createdDate');
+  const [isAscending, setIsAscending] = useState(false); // false = descending (newest first)
   const [selected, setSelected] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     return (localStorage.getItem('products_view_mode') as 'list' | 'grid') || 'list';
@@ -85,6 +87,10 @@ export const Products: React.FC = () => {
   const [gridColumns, setGridColumns] = useState<number>(() => {
     return parseInt(localStorage.getItem('products_grid_cols') || '4', 10);
   });
+
+  // Action Menu State
+  const [actionMenuAnchorEl, setActionMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [activeActionProduct, setActiveActionProduct] = useState<api.ProductDto | null>(null);
 
   // Modal & Form State
   const [modalMode, setModalMode] = useState<'create' | 'edit' | 'view' | null>(null);
@@ -107,6 +113,14 @@ export const Products: React.FC = () => {
   const [transferNotes, setTransferNotes] = useState<string>('');
   const [isTransferring, setIsTransferring] = useState(false);
 
+  // Write-Off State
+  const [writeOffModalOpen, setWriteOffModalOpen] = useState(false);
+  const [productToWriteOff, setProductToWriteOff] = useState<api.ProductDto | null>(null);
+  const [writeOffQuantity, setWriteOffQuantity] = useState<number>(1);
+  const [writeOffReason, setWriteOffReason] = useState<number>(1);
+  const [writeOffNotes, setWriteOffNotes] = useState<string>('');
+  const [isWritingOff, setIsWritingOff] = useState(false);
+
   // Image State
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -122,6 +136,7 @@ export const Products: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
   const [exportAllData, setExportAllData] = useState(false);
+  const [exportFields, setExportFields] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
     const localStorageKey = 'products_table_hidden_cols_v7';
     const savedHidden = localStorage.getItem(localStorageKey);
@@ -139,6 +154,7 @@ export const Products: React.FC = () => {
     return initialVisible;
   });
   const viewModalContentRef = useRef<HTMLDivElement>(null);
+  const [showImageInView, setShowImageInView] = useState(true);
 
   const muiTheme = useMuiTheme();
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
@@ -146,6 +162,9 @@ export const Products: React.FC = () => {
   const filter = createFilterOptions<any>();
 
   const { showToast } = useToast();
+
+  const activeFilterCount = filterCategory.length + filterDepartment.length + filterQuality.length + 
+    (filterPurchaseType ? 1 : 0) + (filterGroup ? 1 : 0) + (filterStartDate ? 1 : 0) + (filterEndDate ? 1 : 0) + (filterPrice ? 1 : 0);
 
   const totalValue = useMemo(() => {
     return products.reduce((sum, p) => sum + (p.price || 0), 0);
@@ -242,6 +261,7 @@ export const Products: React.FC = () => {
         departmentId: departmentIds || undefined,
         qualityId: qualityIds || undefined,
         purchaseType: filterPurchaseType || undefined,
+        productGroup: filterGroup || undefined,
         invoiceStartDate: filterStartDate ? new Date(filterStartDate).toISOString() : undefined,
         invoiceEndDate: filterEndDate ? new Date(filterEndDate).toISOString() : undefined,
         minPrice,
@@ -259,7 +279,7 @@ export const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterPrice, filterStartDate, filterEndDate, debouncedSearchQuery, showToast, categories, departments, qualities]);
+  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterGroup, filterPrice, filterStartDate, filterEndDate, debouncedSearchQuery, showToast, categories, departments, qualities]);
 
   useEffect(() => {
     loadProducts();
@@ -293,6 +313,11 @@ export const Products: React.FC = () => {
     } else {
       params.delete('purchaseType');
     }
+    if (filterGroup) {
+      params.set('group', filterGroup);
+    } else {
+      params.delete('group');
+    }
     if (filterStartDate) {
       params.set('startDate', filterStartDate);
     } else {
@@ -312,19 +337,27 @@ export const Products: React.FC = () => {
 
     // Using replace to not pollute browser history on every filter change
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchQuery, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterStartDate, filterEndDate, filterPrice, currentPage, setSearchParams]);
+  }, [debouncedSearchQuery, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterGroup, filterStartDate, filterEndDate, filterPrice, currentPage, setSearchParams]);
 
   useEffect(() => {
     const fetchLookups = async () => {
       try {
-        const [cats, brnds, depts, pers, supps, quals] = await Promise.all([
+        const [cats, brnds, depts, pers, supps, quals, settings] = await Promise.all([
           api.getCategories().catch(() => []),
           api.getBrands().catch(() => []),
           api.getDepartments().catch(() => []),
           api.getPersons().catch(() => []),
           api.getSuppliers().catch(() => []),
-          api.getQualities().catch(() => [])
+          api.getQualities().catch(() => []),
+          api.getSystemSettings().catch(() => null)
         ]);
+
+        const localExportFields = localStorage.getItem('productExportFields');
+        const finalExportFields = settings?.productExportFields || localExportFields;
+
+        if (finalExportFields) {
+          setExportFields(finalExportFields.split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean));
+        }
 
         function getUnique<T, K extends keyof T>(arr: T[], key: K) {
           const map = new Map();
@@ -384,6 +417,34 @@ export const Products: React.FC = () => {
     setSelected(newSelected);
   };
 
+  const handleOpenActionMenu = (event: React.MouseEvent<HTMLElement>, product: api.ProductDto) => {
+    event.stopPropagation();
+    setActionMenuAnchorEl(event.currentTarget);
+    setActiveActionProduct(product);
+  };
+
+  const handleCloseActionMenu = (event?: React.MouseEvent) => {
+    if (event) event.stopPropagation();
+    setActionMenuAnchorEl(null);
+    setActiveActionProduct(null);
+  };
+
+  const handleGenerateAssetCode = () => {
+    if (!selectedProduct) return;
+    const yearPart = selectedProduct.year ? new Date(selectedProduct.year).getFullYear().toString() : new Date().getFullYear().toString();
+    const catPart = selectedProduct.categoryName ? selectedProduct.categoryName.substring(0, 3).toUpperCase() : 'GEN';
+    const randomPart = Math.floor(1000 + Math.random() * 9000);
+    setSelectedProduct({ ...selectedProduct, codeNumber: `${yearPart}-${catPart}-${randomPart}` });
+  };
+
+  const handleGenerateInventoryCode = () => {
+    if (!selectedProduct) return;
+    const yearPart = selectedProduct.year ? new Date(selectedProduct.year).getFullYear().toString() : new Date().getFullYear().toString();
+    const catPart = selectedProduct.categoryName ? selectedProduct.categoryName.substring(0, 2).toUpperCase() : 'FN';
+    const randomPart = Math.floor(1000 + Math.random() * 9000);
+    setSelectedProduct({ ...selectedProduct, codeNumber: `${catPart}${yearPart}-${randomPart}` });
+  };
+
   const addContact = () => {
     setContacts([...contacts, { type: 'Phone', value: '' }]);
   };
@@ -423,6 +484,20 @@ export const Products: React.FC = () => {
         setHistoryLoading(true);
         setPurchaseHistory([]); // Clear old history
         
+        // Dynamically fetch the latest export fields configuration so you never need to refresh the page!
+        if (mode === 'view') {
+          setShowImageInView(true);
+          api.getSystemSettings().then(settings => {
+            const localExportFields = localStorage.getItem('productExportFields');
+            const finalExportFields = settings?.productExportFields || localExportFields;
+            if (finalExportFields) {
+              setExportFields(finalExportFields.split(',').map((s: string) => s.trim().toLowerCase()).filter(Boolean));
+            } else {
+              setExportFields([]);
+            }
+          }).catch(console.warn);
+        }
+
         // Fetch full product details including purchase history
         api.getProductById(product.id)
           .then(fullProduct => {
@@ -497,6 +572,34 @@ export const Products: React.FC = () => {
       showToast('Failed to transfer product.', 'error');
     } finally {
       setIsTransferring(false);
+    }
+  };
+
+  const openWriteOffModal = (product: api.ProductDto) => {
+    setProductToWriteOff(product);
+    setWriteOffQuantity(1);
+    setWriteOffReason(1);
+    setWriteOffNotes('');
+    setWriteOffModalOpen(true);
+  };
+
+  const handleWriteOff = async () => {
+    if (!productToWriteOff || !productToWriteOff.id) return;
+    setIsWritingOff(true);
+    try {
+      await api.createWriteOff({
+        productId: productToWriteOff.id,
+        quantity: writeOffQuantity,
+        reason: writeOffReason,
+        description: writeOffNotes
+      });
+      showToast('Product reported for write-off successfully!', 'success');
+      setWriteOffModalOpen(false);
+      loadProducts();
+    } catch (err: any) {
+      showToast('Failed to submit write-off.', 'error');
+    } finally {
+      setIsWritingOff(false);
     }
   };
 
@@ -765,6 +868,7 @@ export const Products: React.FC = () => {
         departmentId: exportAllData ? undefined : departmentIds || undefined,
         qualityId: exportAllData ? undefined : qualityIds || undefined,
         purchaseType: exportAllData ? undefined : filterPurchaseType || undefined,
+        productGroup: exportAllData ? undefined : filterGroup || undefined,
         invoiceStartDate: exportAllData ? undefined : (filterStartDate ? new Date(filterStartDate).toISOString() : undefined),
         invoiceEndDate: exportAllData ? undefined : (filterEndDate ? new Date(filterEndDate).toISOString() : undefined),
         minPrice: exportAllData ? undefined : minPrice,
@@ -808,11 +912,21 @@ export const Products: React.FC = () => {
   const isSelected = (id: string) => selected.indexOf(id) !== -1;
 
   const renderProductField = (label: string, value: any) => (
-    <Box>
-      <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-      <Typography variant="body1">{value || '-'}</Typography>
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, borderBottom: '1px dashed', borderColor: 'divider', pb: 1 }}>
+      <Typography variant="body2" color="text.secondary" sx={{ minWidth: 140, fontWeight: 500, flexShrink: 0 }}>{label}:</Typography>
+      <Typography variant="body2" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>{value || '-'}</Typography>
     </Box>
   );
+
+  const renderViewField = (label: string, value: any) => {
+    if (exportFields.length > 0) {
+      const match = exportFields.some(f => label.toLowerCase().includes(f));
+      if (!match) return null;
+    }
+    return (
+      <Grid item xs={12}>{renderProductField(label, value)}</Grid>
+    );
+  };
 
   const handleExportSingleProduct = (product: api.ProductDto) => {
     const doc = new jsPDF();
@@ -825,13 +939,19 @@ export const Products: React.FC = () => {
     doc.text(`Product Details - ${product.codeNumber || 'N/A'}`, 14, 30);
 
     const qName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
-    const productData = [
+    let productData = [
+      ['Item Name', product.name || '-'],
+      ['Code Number', product.codeNumber || '-'],
       ['Category', product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'],
       ['Brand', product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'],
-      ['Price', product.price ? `$${product.price.toFixed(2)}` : '-'],
-      ['Quality', qName || '-'],
       ['Department', product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'],
+      ['Quality / Condition', qName || '-'],
+      ['Price', product.price != null ? `$${product.price.toFixed(2)}` : '-'],
+      ['Voucher Number', product.voucherNumber || '-'],
+      ['Purchase Date', product.invoiceDate ? new Date(product.invoiceDate).toLocaleDateString() : (product.createdDate ? new Date(product.createdDate).toLocaleDateString() : '-')],
       ['Responsible Person', product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'],
+      ['Supplier', product.supplierName || '-'],
+      ['Donor', product.donorName || '-'],
       ['Created Date', product.createdDate ? new Date(product.createdDate).toLocaleDateString() : '-'],
     ];
 
@@ -844,6 +964,10 @@ export const Products: React.FC = () => {
     if (product.attributes) {
       const splitSpecs = doc.splitTextToSize(product.attributes, 180);
       productData.push(['Specs', splitSpecs]);
+    }
+
+    if (exportFields.length > 0) {
+      productData = productData.filter(row => exportFields.some(f => row[0].toString().toLowerCase().includes(f)));
     }
 
     (doc as any).autoTable({
@@ -874,6 +998,34 @@ export const Products: React.FC = () => {
     link.click();
   };
 
+  const handlePrintDetails = async () => {
+    if (!viewModalContentRef.current) {
+      showToast('Could not capture product details for printing.', 'error');
+      return;
+    }
+
+    try {
+      const canvas = await html2canvas(viewModalContentRef.current, { scale: 2 });
+      const image = canvas.toDataURL('image/png');
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Please allow popups for this site to print.', 'warning');
+        return;
+      }
+
+      printWindow.document.write(`<html><head><title>Print Product Details</title></head><body style="margin:0; text-align: center;"><img src="${image}" style="max-width:100%;"></body></html>`);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+      }, 250);
+    } catch (error) {
+      showToast('Failed to prepare details for printing.', 'error');
+    }
+  };
+
   const disablePurchaseFields = modalMode === 'edit' && historyLoading;
 
   const handleClearFilters = () => {
@@ -882,6 +1034,7 @@ export const Products: React.FC = () => {
     setFilterDepartment([]);
     setFilterQuality([]);
     setFilterPurchaseType('');
+    setFilterGroup('');
     setFilterStartDate('');
     setFilterEndDate('');
     setFilterPrice('');
@@ -896,97 +1049,126 @@ export const Products: React.FC = () => {
           <Typography variant="h4" fontWeight="bold">Products</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your inventory items.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <ToggleButtonGroup
-            value={viewMode}
-            exclusive
-            onChange={(e, newMode) => { if (newMode) setViewMode(newMode); }}
-            size="small"
-            sx={{ bgcolor: 'background.paper' }}
-          >
-            <ToggleButton value="list" aria-label="list view">
-              <ViewListIcon fontSize="small" />
-            </ToggleButton>
-            <ToggleButton value="grid" aria-label="grid view">
-              <GridViewIcon fontSize="small" />
-            </ToggleButton>
-          </ToggleButtonGroup>
-          {viewMode === 'grid' && (
-            <FormControl size="small" sx={{ width: 110 }}>
-              <Select
-                value={gridColumns}
-                onChange={(e) => setGridColumns(e.target.value as number)}
-                displayEmpty
-              >
-                <MenuItem value={2}>2 Columns</MenuItem>
-                <MenuItem value={3}>3 Columns</MenuItem>
-                <MenuItem value={4}>4 Columns</MenuItem>
-                <MenuItem value={5}>5 Columns</MenuItem>
-                <MenuItem value={6}>6 Columns</MenuItem>
-              </Select>
-            </FormControl>
-          )}
-          <Button variant="outlined" startIcon={<ViewColumnIcon />} onClick={(e) => setColumnMenuAnchorEl(e.currentTarget)} disabled={viewMode === 'grid'}>
-            Columns
-          </Button>
-          <Menu anchorEl={columnMenuAnchorEl} open={Boolean(columnMenuAnchorEl)} onClose={() => setColumnMenuAnchorEl(null)}>
-            {ALL_COLUMNS.map(col => (
-              <MenuItem key={col.id} onClick={() => {
-                setVisibleColumns(prev => prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id])
-              }}>
-                <Checkbox checked={visibleColumns.includes(col.id)} size="small" />
-                <ListItemText primary={col.label} />
-              </MenuItem>
-            ))}
-          </Menu>
-          <Button
-            component="label"
-            variant="outlined"
-            startIcon={isImporting ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
-            disabled={isImporting}
-          >
-            Import
-            <input type="file" hidden accept=".xlsx" onChange={handleImportExcel} />
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<FileDownloadIcon />}
-            onClick={(e) => setAnchorEl(e.currentTarget)}
-          >
-            Export
-          </Button>
-          <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
-            <Box sx={{ px: 2, py: 1 }}>
-              <FormControlLabel
-                control={<Checkbox checked={exportAllData} onChange={(e) => setExportAllData(e.target.checked)} size="small" />}
-                label={<Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>Export all data & columns</Typography>}
-              />
-            </Box>
-            <Divider />
-            <MenuItem onClick={() => handleExport('excel')}>Export as Excel</MenuItem>
-            <MenuItem onClick={() => handleExport('csv')}>Export as CSV</MenuItem>
-            <MenuItem onClick={() => handleExport('pdf')}>Export as PDF</MenuItem>
-          </Menu>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal('create')}>
-            Add Product
-          </Button>
-        </Box>
       </Box>
 
       {/* Table Card */}
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3, position: 'relative' }}>
         {loading && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} />}
-        {/* Filter Bar */}
-        <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'flex-start', alignItems: { sm: 'center' }, flexWrap: 'wrap' }}>
+        
+        {/* Primary Search Bar */}
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 2, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
           <TextField
             value={searchQuery}
             onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(0); }}
-            placeholder="Search products..."
+            placeholder="Search by name or code..."
             variant="outlined"
             size="small"
-            sx={{ width: { xs: '100%', sm: 300 } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{ width: { xs: 200, sm: 300 }, flexShrink: 0 }}
           />
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', flexShrink: 0 }}>
+            {searchQuery && (
+              <Button variant="text" color="inherit" onClick={() => { setSearchQuery(''); setCurrentPage(0); }}>
+                Clear Search
+              </Button>
+            )}
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(e, newMode) => { if (newMode) setViewMode(newMode); }}
+              size="small"
+              sx={{ bgcolor: 'background.paper' }}
+            >
+              <ToggleButton value="list" aria-label="list view">
+                <ViewListIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="grid" aria-label="grid view">
+                <GridViewIcon fontSize="small" />
+              </ToggleButton>
+            </ToggleButtonGroup>
+            {viewMode === 'grid' && (
+              <FormControl size="small" sx={{ width: 110 }}>
+                <Select
+                  value={gridColumns}
+                  onChange={(e) => setGridColumns(e.target.value as number)}
+                  displayEmpty
+                >
+                  <MenuItem value={2}>2 Columns</MenuItem>
+                  <MenuItem value={3}>3 Columns</MenuItem>
+                  <MenuItem value={4}>4 Columns</MenuItem>
+                  <MenuItem value={5}>5 Columns</MenuItem>
+                  <MenuItem value={6}>6 Columns</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            <Button variant="outlined" startIcon={<ViewColumnIcon />} onClick={(e) => setColumnMenuAnchorEl(e.currentTarget)} disabled={viewMode === 'grid'}>
+              Columns
+            </Button>
+            <Menu anchorEl={columnMenuAnchorEl} open={Boolean(columnMenuAnchorEl)} onClose={() => setColumnMenuAnchorEl(null)}>
+              {ALL_COLUMNS.map(col => (
+                <MenuItem key={col.id} onClick={() => {
+                  setVisibleColumns(prev => prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id])
+                }}>
+                  <Checkbox checked={visibleColumns.includes(col.id)} size="small" />
+                  <ListItemText primary={col.label} />
+                </MenuItem>
+              ))}
+            </Menu>
+            <Button
+              component="label"
+              variant="outlined"
+              startIcon={isImporting ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
+              disabled={isImporting}
+            >
+              Import
+              <input type="file" hidden accept=".xlsx" onChange={handleImportExcel} />
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<FileDownloadIcon />}
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+            >
+              Export
+            </Button>
+            <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
+              <Box sx={{ px: 2, py: 1 }}>
+                <FormControlLabel
+                  control={<Checkbox checked={exportAllData} onChange={(e) => setExportAllData(e.target.checked)} size="small" />}
+                  label={<Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>Export all data & columns</Typography>}
+                />
+              </Box>
+              <Divider />
+              <MenuItem onClick={() => handleExport('excel')}>Export as Excel</MenuItem>
+              <MenuItem onClick={() => handleExport('csv')}>Export as CSV</MenuItem>
+              <MenuItem onClick={() => handleExport('pdf')}>Export as PDF</MenuItem>
+            </Menu>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal('create')}>
+              Add Product
+            </Button>
+          </Box>
+        </Box>
+
+        {/* Advanced Filters Accordion */}
+        <Accordion elevation={0} sx={{ borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'divider', '&:before': { display: 'none' } }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'grey.50' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FilterListIcon fontSize="small" color="action" />
+              <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">Advanced Filters</Typography>
+              {activeFilterCount > 0 && (
+                <Chip size="small" label={`${activeFilterCount} Active`} color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
+              )}
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails sx={{ bgcolor: 'grey.50', p: { xs: 2, md: 3 } }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <Select
               multiple
               value={filterCategory}
@@ -1009,8 +1191,10 @@ export const Products: React.FC = () => {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 180 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <Select
               multiple
               value={filterDepartment}
@@ -1033,8 +1217,10 @@ export const Products: React.FC = () => {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <Select
               multiple
               value={filterQuality}
@@ -1043,8 +1229,7 @@ export const Products: React.FC = () => {
                 setFilterQuality(typeof val === 'string' ? val.split(',') : val as string[]); 
                 setCurrentPage(0); 
               }}
-              displayEmpty 
-              sx={{ width: { xs: '100%', sm: 180 } }}
+              displayEmpty
               renderValue={(selected) => {
                 if ((selected as string[]).length === 0) return "All Conditions";
                 return (selected as string[]).join(', ');
@@ -1058,19 +1243,37 @@ export const Products: React.FC = () => {
                 </MenuItem>
               ))}
             </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <Select
               value={filterPurchaseType}
               onChange={(e) => { setFilterPurchaseType(e.target.value); setCurrentPage(0); }}
-              displayEmpty sx={{ width: { xs: '100%', sm: 180 } }}
+              displayEmpty
             >
               <MenuItem value="">All Acquisitions</MenuItem>
               <MenuItem value="Purchased">Purchased</MenuItem>
               <MenuItem value="Donated">Donated</MenuItem>
             </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
+        <Select
+          value={filterGroup}
+          onChange={(e) => { setFilterGroup(e.target.value as string); setCurrentPage(0); }}
+          displayEmpty
+        >
+          <MenuItem value="">All Groups</MenuItem>
+          <MenuItem value="Inventory">Inventory (Letters first)</MenuItem>
+          <MenuItem value="Asset">Assets (Year first)</MenuItem>
+          <MenuItem value="NoCode">No Code Assigned</MenuItem>
+        </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <TextField
               type="date"
               label="From Date"
@@ -1079,8 +1282,10 @@ export const Products: React.FC = () => {
               value={filterStartDate}
               onChange={(e) => { setFilterStartDate(e.target.value); setCurrentPage(0); }}
             />
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <TextField
               type="date"
               label="To Date"
@@ -1089,8 +1294,10 @@ export const Products: React.FC = () => {
               value={filterEndDate}
               onChange={(e) => { setFilterEndDate(e.target.value); setCurrentPage(0); }}
             />
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4} lg={3}>
+                <FormControl size="small" fullWidth>
             <Select
               value={filterPrice}
               onChange={(e) => { setFilterPrice(e.target.value as string); setCurrentPage(0); }}
@@ -1101,13 +1308,18 @@ export const Products: React.FC = () => {
               <MenuItem value="equal100">Exactly $100</MenuItem>
               <MenuItem value="over100">Over $100</MenuItem>
             </Select>
-          </FormControl>
-          {(searchQuery || filterCategory.length > 0 || filterDepartment.length > 0 || filterQuality.length > 0 || filterPurchaseType || filterPrice || filterStartDate || filterEndDate) && (
-            <Button variant="text" color="inherit" onClick={handleClearFilters} startIcon={<CloseIcon />}>
-              Clear
+                </FormControl>
+              </Grid>
+            </Grid>
+              {activeFilterCount > 0 && (
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="text" color="error" onClick={handleClearFilters} startIcon={<CloseIcon />}>
+                  Clear All Filters
             </Button>
+              </Box>
           )}
-        </Box>
+          </AccordionDetails>
+        </Accordion>
 
         {/* Bulk Actions Toolbar */}
         {selected.length > 0 && (
@@ -1123,8 +1335,8 @@ export const Products: React.FC = () => {
 
         {/* Table */}
         {viewMode === 'list' && (
-        <TableContainer sx={{ minHeight: 580, maxHeight: 'calc(100vh - 220px)' }}>
-          <Table stickyHeader sx={{ minWidth: 750 }} aria-labelledby="tableTitle">
+        <TableContainer sx={{ minHeight: 580, maxHeight: { xs: 'calc(100vh - 280px)', sm: 'calc(100vh - 220px)' } }}>
+          <Table stickyHeader sx={{ minWidth: { xs: '100%', sm: 750 } }} aria-labelledby="tableTitle">
             <TableHead>
               <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', bgcolor: 'background.paper' } }}>
                 <TableCell padding="checkbox">
@@ -1292,7 +1504,21 @@ export const Products: React.FC = () => {
                           </Box>
                         </TableCell>
                       )}
-                      {visibleColumns.includes('codeNumber') && <TableCell>{product.codeNumber || '-'}</TableCell>}
+                      {visibleColumns.includes('codeNumber') && (
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {product.codeNumber || '-'}
+                            {product.codeNumber && (
+                              <Chip 
+                                label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'} 
+                                size="small" 
+                                color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'} 
+                                sx={{ height: 20, fontSize: '0.7rem' }}
+                              />
+                            )}
+                          </Box>
+                        </TableCell>
+                      )}
                       {visibleColumns.includes('year') && <TableCell>{product.year ? product.year.substring(0, 4) : '-'}</TableCell>}
                       {visibleColumns.includes('plateNumber') && <TableCell>{product.plateNumber || '-'}</TableCell>}
                       {visibleColumns.includes('engineNumber') && <TableCell>{product.engineNumber || '-'}</TableCell>}
@@ -1318,26 +1544,9 @@ export const Products: React.FC = () => {
                       {visibleColumns.includes('price') && <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>}
                       {visibleColumns.includes('description') && <TableCell sx={{ whiteSpace: 'normal', minWidth: 150 }}>{product.description || '-'}</TableCell>}
                       <TableCell align="center">
-                        <Tooltip title="View">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal('view', product); }}>
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Transfer Department">
-                          <IconButton size="small" color="secondary" onClick={(e) => { e.stopPropagation(); openTransferModal(product); }}>
-                            <SwapHorizIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal('edit', product); }}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                  <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)}>
+                    <MoreVertIcon fontSize="small" />
+                  </IconButton>
                       </TableCell>
                       </TableRow>
                     );
@@ -1364,7 +1573,7 @@ export const Products: React.FC = () => {
 
         {/* Grid View */}
         {viewMode === 'grid' && (
-          <Box sx={{ p: 2, bgcolor: 'background.default', minHeight: 580, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
+          <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: 'background.default', minHeight: 580, maxHeight: 'calc(100vh - 220px)', overflowY: 'auto', overflowX: 'hidden' }}>
             {loading && products.length === 0 ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
             ) : error ? (
@@ -1373,7 +1582,7 @@ export const Products: React.FC = () => {
               <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>No products match your filters.</Box>
             ) : (
               <Box sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
-              <Grid container spacing={3} columns={60}>
+              <Grid container spacing={{ xs: 1.5, sm: 3 }} columns={60}>
                 {products.map((product) => {
                   const isItemSelected = isSelected(product.id!);
                   const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
@@ -1385,7 +1594,7 @@ export const Products: React.FC = () => {
                     else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
                   }
                   return (
-                    <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={product.id}>
+                <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={product.id}>
                       <Card 
                         sx={{ 
                           height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
@@ -1397,35 +1606,43 @@ export const Products: React.FC = () => {
                         }}
                         onClick={(event) => handleClick(event, product.id!)}
                       >
-                        <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}>
+                  <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <Checkbox checked={isItemSelected} onChange={(e) => { e.stopPropagation(); handleClick(e, product.id!); }} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }} />
+                    <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)} sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }}>
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
                         </Box>
-                        <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: 120, height: 120, bgcolor: 'grey.200' }}>
-                            <ImageIcon sx={{ fontSize: 48, color: 'grey.400' }} />
+                        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'center', bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', maxWidth: 140, bgcolor: 'grey.200' }}>
+                            <ImageIcon sx={{ fontSize: { xs: 32, sm: 48 }, color: 'grey.400' }} />
                           </Avatar>
                         </Box>
-                        <CardContent sx={{ flexGrow: 1, p: 2, pb: 1 }}>
-                          <Typography variant="subtitle1" fontWeight="bold" noWrap title={product.name}>{product.name}</Typography>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>{product.codeNumber || 'No Code'}</Typography>
+                        <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 }, pb: 1 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: { xs: '0.85rem', sm: '1rem' } }} noWrap title={product.name}>{product.name}</Typography>
+                          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                              {product.codeNumber || 'No Code'}
+                            </span>
+                            {product.codeNumber && (
+                              <Chip 
+                                label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'} 
+                                size="small" 
+                                color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'} 
+                                sx={{ height: 18, fontSize: '0.65rem' }}
+                              />
+                            )}
+                          </Typography>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                            <Typography variant="h6" color="primary.main" fontWeight="bold">${product.price?.toFixed(2) || '0.00'}</Typography>
+                            <Typography variant="subtitle1" color="primary.main" fontWeight="bold">${product.price?.toFixed(2) || '0.00'}</Typography>
                             {qualityName && <Chip label={qualityName} size="small" color={badgeColor} variant="outlined" />}
                           </Box>
                           <Typography variant="body2" sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CategoryIcon fontSize="small" color="action" />
+                            <CategoryIcon fontSize="small" color="action" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}
                             </span>
                           </Typography>
                         </CardContent>
-                        <Divider />
-                        <Box sx={{ display: 'flex', justifyContent: 'center', p: 1, gap: 0.5 }}>
-                          <Tooltip title="View"><IconButton size="small" onClick={(e) => { e.stopPropagation(); handleOpenModal('view', product); }}><VisibilityIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="Transfer"><IconButton size="small" color="secondary" onClick={(e) => { e.stopPropagation(); openTransferModal(product); }}><SwapHorizIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="Edit"><IconButton size="small" color="primary" onClick={(e) => { e.stopPropagation(); handleOpenModal('edit', product); }}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                          <Tooltip title="Delete"><IconButton size="small" color="error" onClick={(e) => { e.stopPropagation(); setProductToDelete(product); }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-                        </Box>
                       </Card>
                     </Grid>
                   );
@@ -1475,6 +1692,38 @@ export const Products: React.FC = () => {
         </Box>
       </Paper>
 
+      {/* Shared Action Menu for both Table and Grid views */}
+      <Menu
+        anchorEl={actionMenuAnchorEl}
+        open={Boolean(actionMenuAnchorEl)}
+        onClose={handleCloseActionMenu}
+        onClick={handleCloseActionMenu}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) handleOpenModal('view', activeActionProduct); }}>
+          <ListItemIcon><VisibilityIcon fontSize="small" color="info" /></ListItemIcon>
+          <ListItemText>View Details</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) openTransferModal(activeActionProduct); }}>
+          <ListItemIcon><SwapHorizIcon fontSize="small" color="secondary" /></ListItemIcon>
+          <ListItemText>Transfer Dept</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) openWriteOffModal(activeActionProduct); }}>
+          <ListItemIcon><ReportProblemIcon fontSize="small" color="warning" /></ListItemIcon>
+          <ListItemText>Write-Off (Broken/Lost)</ListItemText>
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) handleOpenModal('edit', activeActionProduct); }}>
+          <ListItemIcon><EditIcon fontSize="small" color="primary" /></ListItemIcon>
+          <ListItemText>Edit Product</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) setProductToDelete(activeActionProduct); }}>
+          <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
+          <ListItemText sx={{ color: 'error.main' }}>Delete Product</ListItemText>
+        </MenuItem>
+      </Menu>
+
       {/* Create/Edit Modal */}
       <Dialog open={modalMode === 'create' || modalMode === 'edit'} onClose={handleCloseModal} maxWidth="md" fullWidth fullScreen={isMobile}>
         <DialogTitle>{modalMode === 'create' ? 'Create New Product' : 'Edit Product'}</DialogTitle>
@@ -1483,7 +1732,19 @@ export const Products: React.FC = () => {
             <Grid item xs={12} md={8}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField label="Product Name" value={selectedProduct?.name || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, name: e.target.value } : null)} required fullWidth />
-                <TextField label="Code Number" value={selectedProduct?.codeNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, codeNumber: e.target.value } : null)} fullWidth />
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField label="Code Number" value={selectedProduct?.codeNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, codeNumber: e.target.value } : null)} fullWidth />
+              <Tooltip title="Generate Asset Code (e.g. 2025-LAP...)">
+                <Button variant="outlined" onClick={handleGenerateAssetCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
+                  <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Asset
+                </Button>
+              </Tooltip>
+              <Tooltip title="Generate Inventory Code (e.g. FN2025-...)">
+                <Button variant="outlined" onClick={handleGenerateInventoryCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
+                  <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Inv
+                    </Button>
+                  </Tooltip>
+                </Box>
                 <TextField label="Product Specs" value={selectedProduct?.attributes || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, attributes: e.target.value } : null)} multiline rows={3} placeholder="E.g. Dimensions: 10x10, Weight: 1kg" fullWidth />
               </Box>
             </Grid>
@@ -1520,7 +1781,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1548,8 +1809,8 @@ export const Products: React.FC = () => {
                 renderOption={(props, option) => {
                   const { key, ...restProps } = props as any;
                   const isString = typeof option === 'string';
-                  const label = isString ? option : (option.inputValue || option.name);
-                  const desc = !isString ? option.description : null;
+                  const label = isString ? option : ((option as any).inputValue || (option as any).name);
+                  const desc = !isString ? (option as any).description : null;
                   return (
                     <li key={key} {...restProps}>
                       <Box>
@@ -1576,7 +1837,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1651,7 +1912,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1687,7 +1948,7 @@ export const Products: React.FC = () => {
                 filterOptions={(options, params) => {
                   const filtered = filter(options, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1770,7 +2031,7 @@ export const Products: React.FC = () => {
                             filterOptions={(options, params) => {
                               const filtered = filter(options, params);
                               const { inputValue } = params;
-                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.name.toLowerCase().replace(/\s+/g, ' ').trim());
+                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                               if (inputValue !== '' && !isExisting) {
                                 filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                               }
@@ -1809,7 +2070,7 @@ export const Products: React.FC = () => {
                             filterOptions={(options, params) => {
                               const filtered = filter(options, params);
                               const { inputValue } = params;
-                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === option.fullName.toLowerCase().replace(/\s+/g, ' ').trim());
+                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.fullName || '').toLowerCase().replace(/\s+/g, ' ').trim());
                               if (inputValue !== '' && !isExisting) {
                                 filtered.push({ inputValue, fullName: `Add "${inputValue}"` } as any);
                               }
@@ -1835,9 +2096,9 @@ export const Products: React.FC = () => {
                 renderOption={(props, option) => {
                   const { key, ...restProps } = props as any;
                   const isString = typeof option === 'string';
-                  const label = isString ? option : (option.inputValue || option.fullName);
-                  const email = !isString ? option.email : null;
-                  const dept = !isString ? option.department : null;
+                          const label = isString ? option : ((option as any).inputValue || (option as any).fullName);
+                          const email = !isString ? (option as any).email : null;
+                          const dept = !isString ? (option as any).department : null;
                   return (
                     <li key={key} {...restProps}>
                       <Box>
@@ -1968,27 +2229,54 @@ export const Products: React.FC = () => {
           <>
             <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" component="div">{selectedProduct.name}</Typography>
-              <IconButton aria-label="close" onClick={handleCloseModal}><CloseIcon /></IconButton>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FormControlLabel 
+                  control={<Switch size="small" checked={showImageInView} onChange={(e) => setShowImageInView(e.target.checked)} />} 
+                  label={<Typography variant="body2">Include Image</Typography>} 
+                  sx={{ m: 0 }}
+                />
+                <IconButton aria-label="close" onClick={handleCloseModal}><CloseIcon /></IconButton>
+              </Box>
             </DialogTitle>
             <DialogContent dividers ref={viewModalContentRef}>
               <Grid container spacing={2}>
+                {showImageInView && (
                 <Grid item xs={12} sm={5}>
-                  <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', bgcolor: 'grey.200' }}>
-                    <BrokenImageIcon sx={{ fontSize: 60, color: 'grey.400' }} />
-                  </Avatar>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ position: 'relative', width: '100%', maxWidth: 220, mx: 'auto', aspectRatio: '1 / 1' }}>
+                      <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'grey.200' }}>
+                        <BrokenImageIcon sx={{ fontSize: 60, color: 'grey.400' }} />
+                      </Avatar>
+                      {isSaving && (
+                        <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, borderRadius: 1 }}>
+                          <CircularProgress />
+                        </Box>
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button component="label" variant="outlined" size="small" startIcon={<CloudUploadIcon />} disabled={isSaving}>
+                        Upload
+                        <input type="file" hidden accept="image/*" onChange={handleImageChange} disabled={isSaving} />
+                      </Button>
+                      {selectedProduct.imageUrl && (
+                        <Button size="small" color="error" onClick={handleInstantRemoveImage} disabled={isSaving}>Remove</Button>
+                      )}
+                    </Box>
+                  </Box>
                 </Grid>
-                <Grid item xs={12} sm={7} container spacing={2}>
-                  <Grid item xs={6}>{renderProductField('Item Name', selectedProduct.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Code Number', selectedProduct.codeNumber)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Quality / Condition', selectedProduct.quality || qualities.find(q => q.id === selectedProduct.qualityId)?.name)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Price', selectedProduct.price != null ? `$${selectedProduct.price.toFixed(2)}` : '-')}</Grid>
-                  <Grid item xs={6}>{renderProductField('Voucher Number', selectedProduct.voucherNumber)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Purchase Date', selectedProduct.invoiceDate ? new Date(selectedProduct.invoiceDate).toLocaleDateString() : (selectedProduct.createdDate ? new Date(selectedProduct.createdDate).toLocaleDateString() : '-'))}</Grid>
-                  <Grid item xs={6}>{renderProductField('Responsible Person', selectedProduct.responsiblePerson || persons.find(per => per.id === selectedProduct.responsiblePersonId)?.fullName)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Supplier', selectedProduct.supplierName)}</Grid>
-                  <Grid item xs={6}>{renderProductField('Donor', selectedProduct.donorName)}</Grid>
+                )}
+                <Grid item xs={12} sm={showImageInView ? 7 : 12} container spacing={2} alignContent="flex-start">
+                  {renderViewField('Item Name', selectedProduct.name)}
+                  {renderViewField('Code Number', selectedProduct.codeNumber)}
+                  {renderViewField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}
+                  {renderViewField('Department', selectedProduct.departmentName || departments.find(d => d.id === selectedProduct.departmentId)?.name)}
+                  {renderViewField('Quality / Condition', selectedProduct.quality || qualities.find(q => q.id === selectedProduct.qualityId)?.name)}
+                  {renderViewField('Price', selectedProduct.price != null ? `$${selectedProduct.price.toFixed(2)}` : '-')}
+                  {renderViewField('Voucher Number', selectedProduct.voucherNumber)}
+                  {renderViewField('Purchase Date', selectedProduct.invoiceDate ? new Date(selectedProduct.invoiceDate).toLocaleDateString() : (selectedProduct.createdDate ? new Date(selectedProduct.createdDate).toLocaleDateString() : '-'))}
+                  {renderViewField('Responsible Person', selectedProduct.responsiblePerson || persons.find(per => per.id === selectedProduct.responsiblePersonId)?.fullName)}
+                  {renderViewField('Supplier', selectedProduct.supplierName)}
+                  {renderViewField('Donor', selectedProduct.donorName)}
                 </Grid>
               </Grid>
             </DialogContent>
@@ -2004,6 +2292,12 @@ export const Products: React.FC = () => {
                 onClick={() => selectedProduct && handleExportSingleProduct(selectedProduct)}
               >
                 Export PDF
+              </Button>
+              <Button
+                startIcon={<PrintIcon />}
+                onClick={handlePrintDetails}
+              >
+                Print Details
               </Button>
               <Button onClick={() => handleOpenModal('edit', selectedProduct)}>Edit</Button>
             </DialogActions>
@@ -2084,6 +2378,37 @@ export const Products: React.FC = () => {
           <Button onClick={() => setTransferModalOpen(false)} disabled={isTransferring}>Cancel</Button>
           <Button onClick={handleTransfer} variant="contained" color="primary" disabled={!transferDeptId || isTransferring}>
             {isTransferring ? <CircularProgress size={24} /> : 'Confirm Transfer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Write-Off Modal */}
+      <Dialog open={writeOffModalOpen} onClose={() => setWriteOffModalOpen(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
+        <DialogTitle sx={{ color: 'warning.main' }}>Report Broken / Lost Asset</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" sx={{ mb: 3 }}>
+            Submit a write-off request for <strong>{productToWriteOff?.name}</strong> to remove it from your active inventory.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <FormControl fullWidth>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>Reason for Write-Off</Typography>
+              <Select size="small" value={writeOffReason} onChange={(e) => setWriteOffReason(e.target.value as number)}>
+                <MenuItem value={1}>Damaged / Broken</MenuItem>
+                <MenuItem value={2}>Stolen</MenuItem>
+                <MenuItem value={3}>Expired</MenuItem>
+                <MenuItem value={4}>Obsolete</MenuItem>
+                <MenuItem value={5}>Lost</MenuItem>
+                <MenuItem value={6}>Beyond Repair</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField label="Quantity" type="number" value={writeOffQuantity} onChange={(e) => setWriteOffQuantity(Number(e.target.value))} inputProps={{ min: 1 }} fullWidth size="small" />
+            <TextField label="Description / Notes" multiline rows={3} value={writeOffNotes} onChange={(e) => setWriteOffNotes(e.target.value)} fullWidth placeholder="Provide details about the damage or loss..." />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setWriteOffModalOpen(false)} disabled={isWritingOff}>Cancel</Button>
+          <Button onClick={handleWriteOff} variant="contained" color="warning" disabled={!writeOffQuantity || isWritingOff}>
+            {isWritingOff ? <CircularProgress size={24} color="inherit" /> : 'Submit Write-Off'}
           </Button>
         </DialogActions>
       </Dialog>

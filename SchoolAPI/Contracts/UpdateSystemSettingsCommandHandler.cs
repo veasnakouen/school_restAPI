@@ -35,6 +35,7 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
         settings.DefaultToDarkMode = req.DefaultToDarkMode;
         settings.LogoBase64=req.LogoBase64;
         settings.BankQrCodeBase64=req.BankQrCodeBase64;
+        settings.ProductExportFields = req.ProductExportFields;
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -47,7 +48,8 @@ public class UpdateSystemSettingsCommandHandler : IRequestHandler<UpdateSystemSe
             MaintenanceMode = settings.MaintenanceMode,
             DefaultToDarkMode = settings.DefaultToDarkMode,
             LogoBase64 = settings.LogoBase64,
-            BankQrCodeBase64 = settings.BankQrCodeBase64
+            BankQrCodeBase64 = settings.BankQrCodeBase64,
+            ProductExportFields = settings.ProductExportFields
         });
     }
 }

@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Card, CardContent, Grid, TextField, Switch, FormControlLabel, Button, Divider, Alert, CircularProgress, Avatar } from '@mui/material';
+import { Box, Typography, Card, CardContent, Grid, TextField, Switch, FormControlLabel, Button, Divider, Alert, CircularProgress, Avatar, Autocomplete, Chip } from '@mui/material';
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
 import { useToast } from '../../context/ToastContext';
 import { getSystemSettings, updateSystemSettings, SystemSettingsDto } from '../../services/api';
 import { PaymentSettings } from './PaymentSetting';
 import KHQRGenerator from './Khqrgenerate';
+
+const AVAILABLE_EXPORT_FIELDS = [
+  'Item Name', 'Code Number', 'Brand', 'Department', 'Quality', 'Condition', 
+  'Price', 'Voucher Number', 'Purchase Date', 'Responsible Person', 
+  'Supplier', 'Donor', 'Description', 'Specs', 'Created Date', 'Category'
+];
 
 export const SystemSettings: React.FC = () => {
   const { showToast } = useToast();
@@ -27,12 +33,21 @@ export const SystemSettings: React.FC = () => {
     stripePublicKey: '',
     enableOnlinePayments: false,
     bankQrCodeBase64: '',
+    allowedCorsOrigins: '',
+    productExportFields: '',
   });
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         const data = await getSystemSettings();
+        
+        // Fallback: If backend doesn't support storing productExportFields yet, load it from localStorage
+        const localExportFields = localStorage.getItem('productExportFields');
+        if (data && !data.productExportFields && localExportFields !== null) {
+          data.productExportFields = localExportFields;
+        }
+        
         setSettings(data || settings); // Use existing settings as fallback
       } catch (err: any) {
         if (err.response?.status !== 404) {
@@ -90,13 +105,20 @@ export const SystemSettings: React.FC = () => {
     setIsSaving(true);
     try {
       const updatedSettings = await updateSystemSettings(settings);
+      
+      // Fallback: Save to localStorage in case the C# backend drops the field
+      if (settings.productExportFields !== undefined) {
+        localStorage.setItem('productExportFields', settings.productExportFields);
+      }
+
       // After saving, merge the response from the server with the current state
       // to ensure any just-uploaded (but not yet saved) images are preserved visually.
       setSettings(prev => ({ 
         ...prev, 
         ...updatedSettings,
         logoBase64: updatedSettings.logoBase64 || prev.logoBase64,
-        bankQrCodeBase64: updatedSettings.bankQrCodeBase64 || prev.bankQrCodeBase64
+        bankQrCodeBase64: updatedSettings.bankQrCodeBase64 || prev.bankQrCodeBase64,
+        productExportFields: updatedSettings.productExportFields || settings.productExportFields
       }));
       showToast('System settings saved successfully', 'success');
       
@@ -183,6 +205,45 @@ export const SystemSettings: React.FC = () => {
                   <FormControlLabel
                     control={<Switch checked={settings.maintenanceMode} onChange={(e) => handleChange('maintenanceMode', e.target.checked)} color="error" />}
                     label="Enable Maintenance Mode"
+                  />
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>CORS Configuration</Typography>
+                  <TextField
+                    label="Allowed CORS Origins"
+                    value={settings.allowedCorsOrigins || ''}
+                    onChange={(e) => handleChange('allowedCorsOrigins', e.target.value)}
+                    fullWidth
+                    variant="outlined"
+                    placeholder="http://localhost:3000, https://myapp.com"
+                    helperText="Comma-separated list of allowed origins. Leave empty to allow all."
+                  />
+                </Box>
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>Export Configuration</Typography>
+                  <Autocomplete
+                    multiple
+                    freeSolo
+                    options={AVAILABLE_EXPORT_FIELDS}
+                    value={settings.productExportFields ? settings.productExportFields.split(',').map(s => s.trim()).filter(Boolean) : []}
+                    onChange={(_event, newValue) => {
+                      handleChange('productExportFields', newValue.join(', '));
+                    }}
+                    renderTags={(value: readonly string[], getTagProps) =>
+                      value.map((option: string, index: number) => {
+                        const { key, ...tagProps } = getTagProps({ index });
+                        return <Chip key={key} variant="outlined" label={option} size="small" {...tagProps} />;
+                      })
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        label="Product Export Fields"
+                        placeholder="e.g. Category, Brand, Price"
+                        helperText="Select or type fields to include in Product PDF/Image exports. Leave empty to include all."
+                      />
+                    )}
                   />
                 </Box>
               </Box>

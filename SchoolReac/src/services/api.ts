@@ -161,12 +161,14 @@ export interface QueryOptions {
   sortBy?: string;
   isAscending?: boolean;
   name?: string;
+  codeNumber?: string;
   categoryId?: string;
   departmentId?: string;
   qualityId?: string;
   purchaseType?: string;
   filterOn?: string;
   filterQuery?: string;
+  productGroup?: string;
   // For date range filtering
   startDate?: string;
   endDate?: string;
@@ -587,6 +589,8 @@ export interface SystemSettingsDto {
   stripePublicKey?: string;
   enableOnlinePayments?: boolean;
   bankQrCodeBase64?: string;
+  allowedCorsOrigins?: string;
+  productExportFields?: string;
 }
 export const getSystemSettings = (): Promise<SystemSettingsDto> => apiClient.get('/settings').then(res => res.data);
 export const updateSystemSettings = (settings: SystemSettingsDto): Promise<SystemSettingsDto> => apiClient.put('/settings', settings).then(res => res.data);
@@ -629,3 +633,29 @@ export interface ProductPurchaseHistoryDto {
 
 export const getProductPurchaseHistory = (productId: string): Promise<ProductPurchaseHistoryDto[]> =>
   apiClient.get(`/inventory/products/${productId}/purchase-history`).then(res => res.data);
+
+export interface CreateWriteOffRequest {
+  productId: string;
+  quantity: number;
+  reason: number; // 1: Damaged, 2: Stolen, 3: Expired, 4: Obsolete, 5: Lost, 6: BeyondRepair
+  description?: string;
+}
+export const createWriteOff = (data: CreateWriteOffRequest): Promise<any> => apiClient.post('/inventory/write-offs', data).then(res => res.data);
+
+export interface WriteOffDto {
+  id: string;
+  productId: string;
+  productName?: string;
+  codeNumber?: string;
+  quantity: number;
+  reason: number;
+  description?: string;
+  status: string; // e.g., 'Pending', 'Approved', 'Rejected'
+  createdDate?: string;
+  createdBy?: string;
+}
+
+export const getWriteOffs = (params?: QueryOptions): Promise<PagedResult<WriteOffDto>> => apiClient.get('/inventory/write-offs', { params }).then(res => res.data);
+export const approveWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/approve`, {}).then(res => res.data);
+export const rejectWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/reject`, {}).then(res => res.data);
+export const undoWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/undo`, {}).then(res => res.data);
