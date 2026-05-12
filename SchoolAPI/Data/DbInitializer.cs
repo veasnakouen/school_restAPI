@@ -38,7 +38,7 @@ public static class DbInitializer
             // await SeedInventoryDataAsync(context); // Commented out to prevent fake data
             
             logger.LogInformation("Starting Excel data import...");
-            DbInitialize.SeedExcelData(context);
+            // DbInitialize.SeedExcelData(context);
 
             logger.LogInformation("Database initialized and seeded successfully.");
         }
