@@ -1,5 +1,6 @@
 [build]
-  command = "npm run build"
+  # Setting CI=false prevents Create React App from failing the build due to warnings
+  command = "CI=false npm run build"
   publish = "build" # Note: Change to "dist" if your project uses Vite instead of Create React App
 
 [[redirects]]
