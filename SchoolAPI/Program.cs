@@ -225,4 +225,11 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-await app.RunAsync();
+try
+{
+    await app.RunAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogCritical(ex, "\n❌ FATAL STARTUP ERROR: The application crashed. Please check your Database and Redis Environment Variables in Render!\n");
+}
