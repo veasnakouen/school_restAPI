@@ -182,64 +182,60 @@ builder.Services.PostConfigureAll<JwtBearerOptions>(options =>
 
 var app = builder.Build();
 
-await DbInitializer.InitializeDatabaseAsync(app);
-
-app.UseForwardedHeaders();
-app.UseSwagger();
-app.UseSwaggerUI();
-
-app.UseRouting();
-app.UseCors("CorePolicy");
-app.UseResponseCompression();
-app.UseOutputCache();
-app.UseRateLimiter();
-app.UseAuthentication();
-app.UseAuthorization();
-
-// Enforce maintenance mode for non-admins
-app.UseMiddleware<MaintenanceModeMiddleware>();
-
-app.MapControllers();
-
-app.MapHub<SchoolAPI.Hubs.DashboardHub>("/hubs/dashboard");
-app.MapHub<SchoolAPI.Hubs.ChatHub>("/hubs/chat");
-app.UseStaticFiles();
-
-// Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
-using (var scope = app.Services.CreateScope())
-{
-    try
-    {
-        var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
-        if (recurringJobManager != null)
-        {
-            recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
-                "monthly-transaction-report",
-                job => job.GeneratePreviousMonthReportAsync(),
-                Cron.Monthly());
-        }
-    }
-    catch (Exception ex)
-    {
-        app.Logger.LogError(ex, "Could not initialize Hangfire recurring jobs.");
-    }
-}
-
 try
 {
+    await DbInitializer.InitializeDatabaseAsync(app);
+
+    app.UseForwardedHeaders();
+    app.UseSwagger();
+    app.UseSwaggerUI();
+
+    app.UseRouting();
+    app.UseCors("CorePolicy");
+    app.UseResponseCompression();
+    app.UseOutputCache();
+    app.UseRateLimiter();
+    app.UseAuthentication();
+    app.UseAuthorization();
+
+    // Enforce maintenance mode for non-admins
+    app.UseMiddleware<MaintenanceModeMiddleware>();
+
+    app.MapControllers();
+
+    app.MapHub<SchoolAPI.Hubs.DashboardHub>("/hubs/dashboard");
+    app.MapHub<SchoolAPI.Hubs.ChatHub>("/hubs/chat");
+    app.UseStaticFiles();
+
+    // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
+    using (var scope = app.Services.CreateScope())
+    {
+        try
+        {
+            var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
+            if (recurringJobManager != null)
+            {
+                recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
+                    "monthly-transaction-report",
+                    job => job.GeneratePreviousMonthReportAsync(),
+                    Cron.Monthly());
+            }
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogError(ex, "Could not initialize Hangfire recurring jobs.");
+        }
+    }
+
     await app.RunAsync();
 }
 catch (Exception ex)
 {
-    // Force the error to print directly to the synchronous error stream
-    Console.Error.WriteLine("\n========================================================");
-    Console.Error.WriteLine("❌ FATAL STARTUP ERROR DETECTED!");
-    Console.Error.WriteLine("========================================================");
-    Console.Error.WriteLine(ex.ToString());
-    Console.Error.WriteLine("========================================================\n");
-    
-    Log.CloseAndFlush(); // Ensure Serilog flushes its buffer to the console
-    await Task.Delay(2000); // Give Render's log drain 2 seconds to capture the output before the container dies
-    
+    // Print directly to standard output so Render guarantees it shows up in your logs
+    Console.WriteLine($"\n❌ [RENDER STARTUP ERROR] {ex.GetType().Name}: {ex.Message}");
+    Console.WriteLine(ex.StackTrace);
+
+    try { Log.CloseAndFlush(); } catch { }
+    await Task.Delay(3000);
     Environment.Exit(1);
 }
