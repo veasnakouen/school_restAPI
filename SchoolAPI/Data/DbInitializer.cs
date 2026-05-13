@@ -35,6 +35,10 @@ public static class DbInitializer
             // Call all your seeders sequentially
             await SeedPermissionsAsync(context);
             await SeedRolesAndUsersAsync(userManager, roleManager, logger);
+            
+            // Assign Permissions to Roles (Claims)
+            await AssignRolePermissionsAsync(context, roleManager);
+
             await SeedClassesAsync(context);
             await SeedStudentsAsync(context);
             // await SeedInventoryDataAsync(context); // Commented out to prevent fake data

@@ -178,7 +178,12 @@ export interface QueryOptions {
 
 // Use environment variable in production, fallback to localhost:5001 in development
 // Assuming Vite setup; use process.env.REACT_APP_API_URL for CRA
-let envUrl = import.meta.env?.VITE_API_URL || `http://${window.location.hostname}:5001`;
+let envUrl = import.meta.env?.VITE_API_URL || (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL);
+
+if (!envUrl) {
+  console.warn("⚠️ NO API URL PROVIDED! Falling back to localhost. Please set VITE_API_URL in Netlify.");
+  envUrl = `http://${window.location.hostname}:5001`;
+}
 
 // Ensure we don't accidentally double up on '/api' or trailing slashes from the .env file
 envUrl = envUrl.replace(/\/+$/, '').replace(/\/api$/i, '');
