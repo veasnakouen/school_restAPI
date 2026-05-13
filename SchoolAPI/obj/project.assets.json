@@ -601,8 +601,26 @@
           "Microsoft.AspNetCore.App"
         ]
       },
-      "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis/10.0.6": {
-        "type": "package"
+      "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis/9.0.0": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.0",
+          "Microsoft.Extensions.Options": "9.0.0",
+          "StackExchange.Redis": "2.7.27"
+        },
+        "compile": {
+          "lib/net9.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net9.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.dll": {
+            "related": ".xml"
+          }
+        },
+        "frameworkReferences": [
+          "Microsoft.AspNetCore.App"
+        ]
       },
       "Microsoft.Bcl.AsyncInterfaces/7.0.0": {
         "type": "package",
@@ -1818,7 +1836,7 @@
           }
         }
       },
-      "Microsoft.Win32.SystemEvents/10.0.5": {
+      "Microsoft.Win32.SystemEvents/9.0.0": {
         "type": "package",
         "compile": {
           "lib/net9.0/Microsoft.Win32.SystemEvents.dll": {
@@ -2908,19 +2926,16 @@
           }
         }
       },
-      "System.Drawing.Common/10.0.5": {
+      "System.Drawing.Common/9.0.0": {
         "type": "package",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "10.0.5"
+          "Microsoft.Win32.SystemEvents": "9.0.0"
         },
         "compile": {
           "lib/net9.0/System.Drawing.Common.dll": {
             "related": ".pdb;.xml"
           },
           "lib/net9.0/System.Private.Windows.Core.dll": {
-            "related": ".xml"
-          },
-          "lib/net9.0/System.Private.Windows.GdiPlus.dll": {
             "related": ".xml"
           }
         },
@@ -2929,9 +2944,6 @@
             "related": ".pdb;.xml"
           },
           "lib/net9.0/System.Private.Windows.Core.dll": {
-            "related": ".xml"
-          },
-          "lib/net9.0/System.Private.Windows.GdiPlus.dll": {
             "related": ".xml"
           }
         },
@@ -4843,18 +4855,18 @@
         "microsoft.aspnetcore.openapi.nuspec"
       ]
     },
-    "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis/10.0.6": {
-      "sha512": "92Y6+hxR8nTOQ7Gqic4I3U+6PTSRW2/e4YvsN3g62P43jLp4jD2d9yfJ1648WeasYr4Q996ZtIheOVVTJMMUTg==",
+    "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis/9.0.0": {
+      "sha512": "h5rliwSTc8qx9vO3uoi1hlfJ4f2nOE/1xm3yedQ551rmCdLwcKxebG0d22xTw5C064bYHYM7HbRnFLRxt1CTdg==",
       "type": "package",
-      "path": "microsoft.aspnetcore.outputcaching.stackexchangeredis/10.0.6",
+      "path": "microsoft.aspnetcore.outputcaching.stackexchangeredis/9.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
         "THIRD-PARTY-NOTICES.TXT",
-        "lib/net10.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.dll",
-        "lib/net10.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.xml",
-        "microsoft.aspnetcore.outputcaching.stackexchangeredis.10.0.6.nupkg.sha512",
+        "lib/net9.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.dll",
+        "lib/net9.0/Microsoft.AspNetCore.OutputCaching.StackExchangeRedis.xml",
+        "microsoft.aspnetcore.outputcaching.stackexchangeredis.9.0.0.nupkg.sha512",
         "microsoft.aspnetcore.outputcaching.stackexchangeredis.nuspec"
       ]
     },
@@ -7358,22 +7370,21 @@
         "microsoft.sqlserver.server.nuspec"
       ]
     },
-    "Microsoft.Win32.SystemEvents/10.0.5": {
-      "sha512": "a7rC0Qb5JGiA4f4ooqQjsx17LgYkb9feOcMNGyBXGqYmqC4ZoLbrV98zn7Kr5Z39BIU10Bti80Jwm/QAw+45VA==",
+    "Microsoft.Win32.SystemEvents/9.0.0": {
+      "sha512": "z8FfGIaoeALdD+KF44A2uP8PZIQQtDGiXsOLuN8nohbKhkyKt7zGaZb+fKiCxTuBqG22Q7myIAioSWaIcOOrOw==",
       "type": "package",
-      "path": "microsoft.win32.systemevents/10.0.5",
+      "path": "microsoft.win32.systemevents/9.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
         "Icon.png",
+        "LICENSE.TXT",
         "PACKAGE.md",
         "THIRD-PARTY-NOTICES.TXT",
         "buildTransitive/net461/Microsoft.Win32.SystemEvents.targets",
         "buildTransitive/net462/_._",
         "buildTransitive/net8.0/_._",
         "buildTransitive/netcoreapp2.0/Microsoft.Win32.SystemEvents.targets",
-        "lib/net10.0/Microsoft.Win32.SystemEvents.dll",
-        "lib/net10.0/Microsoft.Win32.SystemEvents.xml",
         "lib/net462/Microsoft.Win32.SystemEvents.dll",
         "lib/net462/Microsoft.Win32.SystemEvents.xml",
         "lib/net8.0/Microsoft.Win32.SystemEvents.dll",
@@ -7382,10 +7393,8 @@
         "lib/net9.0/Microsoft.Win32.SystemEvents.xml",
         "lib/netstandard2.0/Microsoft.Win32.SystemEvents.dll",
         "lib/netstandard2.0/Microsoft.Win32.SystemEvents.xml",
-        "microsoft.win32.systemevents.10.0.5.nupkg.sha512",
+        "microsoft.win32.systemevents.9.0.0.nupkg.sha512",
         "microsoft.win32.systemevents.nuspec",
-        "runtimes/win/lib/net10.0/Microsoft.Win32.SystemEvents.dll",
-        "runtimes/win/lib/net10.0/Microsoft.Win32.SystemEvents.xml",
         "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.dll",
         "runtimes/win/lib/net8.0/Microsoft.Win32.SystemEvents.xml",
         "runtimes/win/lib/net9.0/Microsoft.Win32.SystemEvents.dll",
@@ -9052,10 +9061,10 @@
         "system.diagnostics.tracing.nuspec"
       ]
     },
-    "System.Drawing.Common/10.0.5": {
-      "sha512": "FYgPPbii/9Prh7RuY1gaxSyik7Ysw594K0uCHggDxHDgl7mfk8c4UlwluKjQoMquVGLce7Jld4DjjsnuYK3m7g==",
+    "System.Drawing.Common/9.0.0": {
+      "sha512": "uoozjI3+dlgKh2onFJcz8aNLh6TRCPlLSh8Dbuljc8CdvqXrxHOVysJlrHvlsOCqceqGBR1wrMPxlnzzhynktw==",
       "type": "package",
-      "path": "system.drawing.common/10.0.5",
+      "path": "system.drawing.common/9.0.0",
       "files": [
         ".nupkg.metadata",
         ".signature.p7s",
@@ -9069,13 +9078,6 @@
         "buildTransitive/netcoreapp2.0/System.Drawing.Common.targets",
         "lib/MonoAndroid10/_._",
         "lib/MonoTouch10/_._",
-        "lib/net10.0/System.Drawing.Common.dll",
-        "lib/net10.0/System.Drawing.Common.pdb",
-        "lib/net10.0/System.Drawing.Common.xml",
-        "lib/net10.0/System.Private.Windows.Core.dll",
-        "lib/net10.0/System.Private.Windows.Core.xml",
-        "lib/net10.0/System.Private.Windows.GdiPlus.dll",
-        "lib/net10.0/System.Private.Windows.GdiPlus.xml",
         "lib/net462/System.Drawing.Common.dll",
         "lib/net462/System.Drawing.Common.pdb",
         "lib/net462/System.Drawing.Common.xml",
@@ -9084,15 +9086,11 @@
         "lib/net8.0/System.Drawing.Common.xml",
         "lib/net8.0/System.Private.Windows.Core.dll",
         "lib/net8.0/System.Private.Windows.Core.xml",
-        "lib/net8.0/System.Private.Windows.GdiPlus.dll",
-        "lib/net8.0/System.Private.Windows.GdiPlus.xml",
         "lib/net9.0/System.Drawing.Common.dll",
         "lib/net9.0/System.Drawing.Common.pdb",
         "lib/net9.0/System.Drawing.Common.xml",
         "lib/net9.0/System.Private.Windows.Core.dll",
         "lib/net9.0/System.Private.Windows.Core.xml",
-        "lib/net9.0/System.Private.Windows.GdiPlus.dll",
-        "lib/net9.0/System.Private.Windows.GdiPlus.xml",
         "lib/netstandard2.0/System.Drawing.Common.dll",
         "lib/netstandard2.0/System.Drawing.Common.pdb",
         "lib/netstandard2.0/System.Drawing.Common.xml",
@@ -9100,7 +9098,7 @@
         "lib/xamarinmac20/_._",
         "lib/xamarintvos10/_._",
         "lib/xamarinwatchos10/_._",
-        "system.drawing.common.10.0.5.nupkg.sha512",
+        "system.drawing.common.9.0.0.nupkg.sha512",
         "system.drawing.common.nuspec",
         "useSharedDesignerContext.txt"
       ]
@@ -11939,7 +11937,7 @@
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 9.0.0",
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 9.0.0",
       "Microsoft.AspNetCore.OpenApi >= 9.0.0",
-      "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis >= 10.0.6",
+      "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis >= 9.0.0",
       "Microsoft.EntityFrameworkCore >= 9.0.0",
       "Microsoft.EntityFrameworkCore.Design >= 9.0.0",
       "Microsoft.EntityFrameworkCore.InMemory >= 9.0.0",
@@ -11959,7 +11957,7 @@
       "SixLabors.ImageSharp >= 3.1.12",
       "Swashbuckle.AspNetCore >= 9.0.3",
       "System.Data.SqlClient >= 4.9.1",
-      "System.Drawing.Common >= 10.0.5",
+      "System.Drawing.Common >= 9.0.0",
       "Yarp.ReverseProxy >= 2.3.0",
       "xunit >= 2.9.3"
     ]
@@ -12080,7 +12078,7 @@
           },
           "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis": {
             "target": "Package",
-            "version": "[10.0.6, )"
+            "version": "[9.0.0, )"
           },
           "Microsoft.EntityFrameworkCore": {
             "target": "Package",
@@ -12160,7 +12158,7 @@
           },
           "System.Drawing.Common": {
             "target": "Package",
-            "version": "[10.0.5, )"
+            "version": "[9.0.0, )"
           },
           "Yarp.ReverseProxy": {
             "target": "Package",
@@ -12193,16 +12191,5 @@
         "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\10.0.200-preview.0.26103.119/PortableRuntimeIdentifierGraph.json"
       }
     }
-  },
-  "logs": [
-    {
-      "code": "NU1202",
-      "level": "Error",
-      "message": "Package Microsoft.AspNetCore.OutputCaching.StackExchangeRedis 10.0.6 is not compatible with net9.0 (.NETCoreApp,Version=v9.0). Package Microsoft.AspNetCore.OutputCaching.StackExchangeRedis 10.0.6 supports: net10.0 (.NETCoreApp,Version=v10.0)",
-      "libraryId": "Microsoft.AspNetCore.OutputCaching.StackExchangeRedis",
-      "targetGraphs": [
-        "net9.0"
-      ]
-    }
-  ]
+  }
 }
