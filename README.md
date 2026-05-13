@@ -1,3 +1,5 @@
+<!-- slide -->
+
 # School REST API (ASP.NET Core)
 
 A simple ASP.NET Core Web API for managing school data (students, classes, teachers, and enrollments). This repository provides endpoints to create, read, update, and delete resources and is intended as a starter/template for building a school management API in C#.
@@ -9,6 +11,7 @@ A simple ASP.NET Core Web API for managing school data (students, classes, teach
 - JSON-based REST API
 - Input validation and basic error handling
 - (Optional) Entity Framework Core migrations and database seeding
+- Policy-based authorization with a documented role-permission matrix: [SchoolAPI/Document/authorization-permission-matrix.md](SchoolAPI/Document/authorization-permission-matrix.md)
 
 ## Tech stack
 
@@ -127,8 +130,7 @@ Contributions are welcome. Please open an issue or submit a pull request with a 
 If you want me to update the README to include specific project names, the exact EF Core commands, or the Swagger URL, tell me the project/assembly names (the .csproj filenames) and whether EF Core is used.
 
 ## License
-
-Add a LICENSE file to the repository and reference it here (for example, MIT).
+*****
 
 ## Notes / What I changed
 

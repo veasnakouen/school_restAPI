@@ -1,28 +1,25 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using SchoolAPI.Application.Common.Interfaces;
 
 namespace SchoolAPI.Services;
 
-public class CurrentUserService : ICurrentUserService
+public class CurrentUserService : SchoolAPI.Application.Common.Interfaces.ICurrentUserService, SchoolAPI.Services.ICurrentUserService
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
-    // private readonly HttpContext _context;
 
     public CurrentUserService(IHttpContextAccessor httpContextAccessor)
     {
         _httpContextAccessor = httpContextAccessor;
     }
 
-    public string? GetUserId()
-    {
-        var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        return userId;
-    }
+    public string? UserId => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
+    
+    public string? Email => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
+    
+    public bool IsAuthenticated => _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
 
-    // 
-    public async Task<string> GetUserEmailAsync()
-    {
-        var email = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
-        return await Task.FromResult(email ?? string.Empty);
-    }
+    public string? GetUserId() => UserId;
+
+    public Task<string> GetUserEmailAsync() => Task.FromResult(Email ?? string.Empty);
 }
-

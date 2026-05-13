@@ -222,3 +222,8 @@ onRowSelected(row: any) {
 👉 Next step: do you want me to also **connect this with the Angular service (API fetch with HttpClient)** so that the table auto-loads data from backend (Django/ASP.NET), instead of static arrays?
 
 '''
+''' docker in development note:
+I added docker-compose.yml with both services in one file: Postgres and Redis, 
+each with a persistent volume and a health check. Postgres is configured with database schooldb,
+user schooluser, and password schoolpass123; Redis is exposed on port 6379.
+'''

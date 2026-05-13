@@ -1,28 +1,42 @@
-using System.Diagnostics.CodeAnalysis;
-using SchoolAPI.Entities;
+namespace SchoolAPI.Entities;
 
-namespace SchoolAPI.Controllers;
+public class Product : BaseAuditableEntity
+{
+    public string? CodeNumber { get; set; }
+    public string ProductName { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public decimal? Price { get; set; }
 
-public class Product:BaseEntity
-{
-    public string CodeNumber { get; set; }
-    public string Name { get; set; }
-    public string Description { get; set; }
-    [AllowNull]
-    public Category Category { get; set; }
-    public Decimal? Price { get; set; }
-    public string ImageUrl { get; set; } = string.Empty;
-    // public string Department { get; set; } = string.Empty;
-    public string VochurNumber { get; set; }  
-}
+    // Product specifications or other attributes as a string.
+    public string? Attributes { get; set; }
 
-public class Category : BaseEntity
-{
-    public string Name { get; set; }
-}
- 
-public class Department : BaseEntity
-{
-    public string Name { get; set; }
-    public string Location{ get; set; }
+    public bool IsActive { get; set; } = true;
+    public DateTime? Year { get; set; }
+    public string? PlateNumber { get; set; } 
+    public string? EngineNumber { get; set; }
+
+    // ── Inventory (auto-updated) ─────────
+    public int TotalQuantity { get; set; }      // sum of all purchases
+    public int AvailableQuantity { get; set; }  // TotalQty - assigned
+    public int AssignedQuantity { get; set; }   // currently in use
+
+    // One-to-one relationship with ProductImage
+    public string? BrandId { get; set; }
+    public Brand? Brand { get; set; }
+    public string? CategoryId { get; set; }
+    public Category? Category { get; set; }
+    public ProductImage? Image { get; set; }
+    public string? QualityId { get; set; }
+    public Quality? Quality { get; set; }
+    public string? DepartmentId { get; set; }
+    public Department? Department { get; set; }
+    
+    // The person currently responsible for this product
+    public Guid? ResponsiblePersonId { get; set; }
+    public Person? ResponsiblePerson { get; set; }
+    
+    // Vehicle-specific fields
+
+    // A product can be purchased multiple times across different purchase orders
+    public ICollection<PurchaseItem> PurchaseItems { get; set; } = new List<PurchaseItem>();
 }

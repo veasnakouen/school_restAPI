@@ -13,7 +13,7 @@ namespace SchoolAPI.Entities
         //collection of student enrolled  in this class
         public ICollection<Student> Students { get; set; } = new List<Student>();
         //collection of attendance record for this class
-        public ICollection<Attendance> Attendances { get; set; }
+        public ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
 
         // add properties
         // public ICollection<Enrollment> Enrollments { get; set; } = new List<Enrollment>();

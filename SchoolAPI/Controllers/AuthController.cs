@@ -1,164 +1,176 @@
-using System.IdentityModel.Tokens.Jwt;
+// MIGRATION/SEED INSTRUCTIONS:
+// 1. Run: dotnet ef migrations add PermissionSystem
+// 2. Run: dotnet ef database update
+// 3. In your startup (e.g., Program.cs), call:
+//    using (var scope = app.Services.CreateScope())
+//    {
+//        var db = scope.ServiceProvider.GetRequiredService<SchoolDbContext>();
+//        await DbInitializer.SeedPermissionsAsync(db);
+//    }
+// This will ensure all permissions from Permissions.cs are seeded into the database.
+#nullable enable
 using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using AutoMapper;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Options;
 using SchoolAPI.Constant;
-using SchoolAPI.Constant.Auth;
+using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Contracts.Auth;
-using SchoolAPI.Data;
 using SchoolAPI.Entities;
-using SchoolAPI.Interfaces;
 using SchoolAPI.Services;
+using SchoolAPI.Application.Features.Auth.Register;
+using SchoolAPI.Application.Features.Auth.ForgotPassword;
+using SchoolAPI.Application.Features.Auth.ResetPassword;
+using SchoolAPI.Application.Features.Auth.ConfirmEmail;
+using SchoolAPI.Application.Features.Auth.ResendConfirmationEmail;
+using SchoolAPI.Application.Features.Products.GetAll;
+using SchoolAPI.Data;
+using SchoolAPI.Application.Common.Interfaces;
+using SchoolAPI.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace SchoolAPI.Controllers;
 
 public class AuthController : BaseController
 {
-   
-    // these (three) build-in libraries
-    private readonly RoleManager<IdentityRole> _roleManager;
+    private const string UserNotFound = "User not found.";
 
     private readonly SignInManager<AppUser> _signInManager;
     private readonly UserManager<AppUser> _userManager;
     private readonly ITokenService _tokenService;
-    private IConfiguration _configuration;
     private readonly IMapper _mapper;
-    private readonly SchoolDbContext _context;
-    private readonly ITokenServices _tokenServices;
+    private readonly JwtSettings _jwtSettings;
+    private readonly IMediator _mediator;
+    private readonly ClassService _classService;
+    private readonly RoleManager<AppRole> _roleManager;
+    private readonly IPhotoService _photoService;
+    private readonly IApplicationDbContext _context;
 
     public AuthController(
         UserManager<AppUser> userManager,
         ITokenService tokenService,
-        RoleManager<IdentityRole> roleManager,
-        IConfiguration configuration,
         SignInManager<AppUser> signInManager,
-        ITokenServices tokenServices,
-        IMapper mapper)
+        IMapper mapper,
+        IOptions<JwtSettings> jwtSettings,
+        IMediator mediator,
+        ClassService classService,
+        RoleManager<AppRole> roleManager,
+        IPhotoService photoService,
+        IApplicationDbContext context)
     {
         _userManager = userManager;
         _tokenService = tokenService;
-        _roleManager = roleManager;
-        _configuration = configuration;
         _signInManager = signInManager;
         _mapper = mapper;
-        _tokenServices = tokenServices;
-        // var today = DateOnly.FromDateTime(DateTime.UtcNow);
-    }
- 
-    // without UserManager
-    //not yet working
-
-    
-    [HttpPost("user register")]
-    [AllowAnonymous]
-    public async Task<ActionResult<UserDto>> RegisterUser([FromBody] RegisterDto dto)
-    {
-        if (await UserExists(dto.Username)) return BadRequest("UserName is taken!.");
-
-        
-
-       if(dto.Roles)
-        {
-            await _userManager.AddToRoleAsync(user, Roles.User);
-        }
-        else
-        {
-            foreach (var role in dto.Roles)
-            {
-                await _userManager.AddToRoleAsync(user, role);
-            }
-        }
-        return Ok("User registered successfully.");
+        _jwtSettings = jwtSettings.Value;
+        _mediator = mediator;
+        _classService = classService;
+        _roleManager = roleManager;
+        _photoService = photoService;
+        _context = context;
     }
 
-    [HttpPost("LoginUser")]
-    [AllowAnonymous]
-    public async Task<ActionResult<UserDto>> LoginUser([FromBody] LoginRequest dto)
+    private DateTime GetRefreshTokenExpiryUtc()
     {
-        // var user = await _context.Users.FirstOrDefaultAsync();
-        var user = await _context.Users
-            .SingleOrDefaultAsync(u => u.Email == dto.Email);
+        var refreshTokenExpiryInDays = _jwtSettings.RefreshTokenExpiryInDays > 0
+            ? _jwtSettings.RefreshTokenExpiryInDays
+            : 7;
 
-        if (user == null || !await _userManager.CheckPasswordAsync(user, dto.Password)) return Unauthorized("Invalid UserName!.");
-
-        return new UserDto
-        {
-            UserName = user.UserName,
-            Token = _tokenServices.CreateToken(user),
-            RefreshToken = _tokenServices.RefreshToken(user)
-        };
-
+        return DateTime.UtcNow.AddDays(refreshTokenExpiryInDays);
     }
 
     [HttpPost("register")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
-        // var existedUser= await _userManager.FindByEmailAsync(request.Email);
         if (!ModelState.IsValid) return BadRequest(ModelState);
-        var existedUser = await _userManager.FindByNameAsync(request.Email);
-        if (existedUser != null) return BadRequest("User already exists with this email.");
 
-        // var user = new AppUser
-        // {
-        //     UserName = request.Email,
-        //     Email = request.Email,
-        //     FullName = request.FullName,
-        // };
+        var command = new RegisterCommand(request.Email, request.Password, request.FullName, request.Roles);
+        var result = await _mediator.Send(command);
 
-        var user = _mapper.Map<AppUser>(request);
-        user.UserName = request.Email;
-
-        var result = await _userManager.CreateAsync(user, request.Password);
-        if (!result.Succeeded) return BadRequest(result.Errors);
-
-        // ✅ Use constant: Roles.User
-        if (request.Roles is null)
+        if (!result.IsSuccess)
         {
-            await _userManager.AddToRoleAsync(user, Roles.User);
+            return BadRequest(new { message = result.ErrorMessage });
         }
-        else
+
+        var response = new AuthResponse
         {
-            foreach (var role in request.Roles)
-            {
-                await _userManager.AddToRoleAsync(user, role);
-            }
-        }
-        return Ok("User registered successfully.");
+            AccessToken = result.Data!.AccessToken,
+            RefreshToken = result.Data.RefreshToken,
+            ExpiresAt = result.Data.ExpiresAt,
+            UserId = result.Data.UserId,
+            Email = result.Data.Email,
+            FullName = result.Data.FullName,
+            IsSuccess = true,
+            Role = result.Data.Roles.ToList(),
+            Message = "User registered successfully."
+        };
 
-
+        return Ok(response);
     }
 
-
-    // use this if want return with the form of <AuthResponse> 
-    // public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request) { }
     [HttpPost("login")]
     [AllowAnonymous]
+    [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        //do checking model state
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
-        var user = await _userManager.FindByEmailAsync(request.Email);
-        // we also can split it for checking the exact error (user or password)
-        // if (user == null){} then var result = await _userManager.CheckPasswordAsync(user,request.Password); if(!result){}
-        if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
-            return Unauthorized("Invalid credentials.");
+        // Try to find the user by Email first, and if not found, try by FullName
+        var user = await _userManager.FindByEmailAsync(request.Email) 
+                ?? await _userManager.FindByNameAsync(request.Email);
 
+        if (user == null)
+        {
+            // Don't reveal whether user exists or not
+            return Unauthorized("Invalid credentials.");
+        }
+
+        // Check if user is locked out
+        if (await _userManager.IsLockedOutAsync(user))
+        {
+            // DEV WORKAROUND: Automatically unlock the admin account to regain access
+            if (user.Email?.ToLower() == "admin@school.com")
+            {
+                await _userManager.SetLockoutEndDateAsync(user, null);
+            }
+            else
+            {
+                return Unauthorized("Account is locked out. Please try again later.");
+            }
+        }
+
+        var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!passwordValid)
+        {
+            await _userManager.AccessFailedAsync(user);
+            
+            // Check if lockout threshold reached
+            if (await _userManager.IsLockedOutAsync(user))
+            {
+                return Unauthorized("Account is locked out due to too many failed attempts.");
+            }
+            
+            return Unauthorized("Invalid credentials.");
+        }
+
+        // Reset access failed count on successful login
+        await _userManager.ResetAccessFailedCountAsync(user);
 
         var roles = await _userManager.GetRolesAsync(user);
-        var accessToken = _tokenService.GenerateAccessToken(user, roles);
+        var accessToken = await _tokenService.GenerateAccessToken(user, roles);
         var refreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = refreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        // Hash the refresh token before storing
+        user.RefreshToken = _tokenService.HashRefreshToken(refreshToken);
+        user.RefreshTokenExpiryTime = GetRefreshTokenExpiryUtc();
         await _userManager.UpdateAsync(user);
 
         await _signInManager.SignInAsync(user, isPersistent: false);
@@ -167,366 +179,406 @@ public class AuthController : BaseController
         {
             AccessToken = accessToken,
             RefreshToken = refreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryInMinutes > 0 ? _jwtSettings.ExpiryInMinutes : 120),
             UserId = user.Id,
-            Email = user.Email!,
-            FullName = user.FullName!
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName ?? string.Empty,
+            IsSuccess = true,
+            Role = roles.ToList(),
+            PhoneNumber = user.PhoneNumber ?? string.Empty,
+            AccessFailedCount = user.AccessFailedCount,
+            ImageUrl = user.ImageUrl
         };
 
         return Ok(response);
     }
 
-
     [HttpPost("refresh")]
-    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)//[FromQuery]​​​​​​ 
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
     {
         var principal = _tokenService.GetPrincipalFromExpiredToken(request.AccessToken);
         if (principal == null) return BadRequest("Invalid access token.");
 
-        var email = principal.FindFirst(ClaimTypes.Email)?.Value;
+        var email = principal.FindFirst(ClaimTypes.Email)?.Value
+            ?? principal.FindFirst(ClaimTypes.Name)?.Value
+            ?? principal.FindFirst("email")?.Value;
         if (email == null) return BadRequest("Invalid token.");
 
         var user = await _userManager.FindByEmailAsync(email);
-        // var user = await existedUserByEmail(email);  
-        if (user == null ||
-            user.RefreshToken != request.RefreshToken ||
-            user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+        if (user == null)
             return Unauthorized("Invalid refresh token.");
 
+        // Verify the refresh token using hash comparison
+        if (user.RefreshToken == null || !_tokenService.VerifyRefreshToken(user.RefreshToken, request.RefreshToken) ||
+            user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            return Unauthorized("Invalid or expired refresh token.");
+
         var roles = await _userManager.GetRolesAsync(user);
-        var newAccessToken = _tokenService.GenerateAccessToken(user, roles);
+        var newAccessToken = await _tokenService.GenerateAccessToken(user, roles);
         var newRefreshToken = _tokenService.GenerateRefreshToken();
 
-        user.RefreshToken = newRefreshToken;
-        user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+        // Hash the new refresh token before storing
+        user.RefreshToken = _tokenService.HashRefreshToken(newRefreshToken);
+        user.RefreshTokenExpiryTime = GetRefreshTokenExpiryUtc();
         await _userManager.UpdateAsync(user);
 
-        // TODO: consider using with auto mapper
         var response = new AuthResponse
         {
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(15),
+            ExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryInMinutes > 0 ? _jwtSettings.ExpiryInMinutes : 120),
             UserId = user.Id,
-            Email = user.Email!,
-            FullName = user.FullName!
+            Email = user.Email ?? string.Empty,
+            FullName = user.FullName ?? string.Empty,
+            IsSuccess = true,
+            Role = roles.ToList(),
+            ImageUrl = user.ImageUrl
         };
 
         return Ok(response);
     }
 
+    // Simple DTO for profile updates
+    public class UpdateProfileRequest
+    {
+        public string? UserName { get; set; }
+        public string? FullName { get; set; }
+        public string? Email { get; set; }
+        public string? PhoneNumber { get; set; }
+    }
 
-    //TODO: update profile
-    [HttpPost("update-profile")]
-    public async Task<IActionResult> UpdateProfile([FromBody] UserDetail request)
+    [HttpPut("profile")]
+    [Authorize]
+    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null) return Unauthorized("User not found.");
+        if (userId == null) return Unauthorized(UserNotFound);
 
         var user = await _userManager.FindByIdAsync(userId);
-        if (user == null) return NotFound("User not found.");
+        if (user == null) return Unauthorized(UserNotFound);
 
         user.FullName = request.FullName ?? user.FullName;
         user.PhoneNumber = request.PhoneNumber ?? user.PhoneNumber;
-        await _userManager.AddToRoleAsync(user, request.Roles?.FirstOrDefault());
+        
+        if (!string.IsNullOrWhiteSpace(request.UserName) && user.UserName != request.UserName)
+        {
+            var existingUser = await _userManager.FindByNameAsync(request.UserName);
+            if (existingUser != null && existingUser.Id != user.Id)
+                return BadRequest(new { title = "Username is already taken." });
+            user.UserName = request.UserName;
+        }
 
+        if (!string.IsNullOrWhiteSpace(request.Email) && user.Email != request.Email)
+        {
+            var existingEmail = await _userManager.FindByEmailAsync(request.Email);
+            if (existingEmail != null && existingEmail.Id != user.Id)
+                return BadRequest(new { title = "Email is already taken." });
+                
+            user.Email = request.Email;
+        }
 
         var result = await _userManager.UpdateAsync(user);
-        if (!result.Succeeded) return BadRequest(result.Errors);
+        if (!result.Succeeded) return BadRequest(new { title = "Failed to update profile.", errors = result.Errors.Select(e => e.Description) });
 
-
-        return Ok("Profile updated successfully.");
-    }
-
-
-    [HttpGet("profile")]
-    [Authorize(Roles = "Admin")]//allow only Admin
-    public async Task<ActionResult<UserDetail>> GetProfile()
-    {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId == null) return Unauthorized("User not found.");
-
-        var user = await _userManager.FindByIdAsync(userId);
-
-        // if (user == null) return NotFound("User not found.");
-        if (user is null) return NotFound("User not found.");
-
+        // Return the full, updated user object so the frontend can update its state
         var roles = await _userManager.GetRolesAsync(user);
-
-        var profile = new
-        {
-            user.Id,
-            user.FullName,
-            user.Email,
-            Roles = roles,
-            user.PhoneNumber,
-            user.PhoneNumberConfirmed,
-            user.AccessFailedCount
+        var profile = new {
+            id = user.Id, 
+            userName = user.UserName, 
+            fullName = user.FullName, 
+            email = user.Email, 
+            roles = roles,
+            phoneNumber = user.PhoneNumber, 
+            phoneNumberConfirmed = user.PhoneNumberConfirmed, 
+            accessFailedCount = user.AccessFailedCount,
+            lockoutEnd = user.LockoutEnd, 
+            imageUrl = user.ImageUrl
         };
 
         return Ok(profile);
     }
 
-
-    [HttpGet("{id}")]
-    public async Task<ActionResult<AuthResponse>> GetUser(Guid id)
+    [HttpGet("profile")]
+    [Authorize]
+    public async Task<IActionResult> GetProfile()
     {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(UserNotFound);
 
-        var user = await _userManager.FindByIdAsync(id.ToString());
-
-
-        return _mapper.Map<AuthResponse>(user);
-
-    }
-
-
-    [HttpGet("users")]
-    public async Task<IActionResult> GetAllUsers(string? filterOn = null, string? filterQuery = null)
-    {
-        var users = new List<AppUser>();
-        if (filterOn != null && filterQuery != null)
-        {
-            // using EF.Functions.Like
-            users = _userManager.Users
-                .Where(u => EF.Functions.Like(u.FullName, $"%{filterQuery}%"))
-                .ToList();
-
-            var userListLinq = new List<object>();
-            foreach (var user in users)
-            {
-                var roles = await _userManager.GetRolesAsync(user);
-                userListLinq.Add(new
-                {
-                    user.Id,
-                    user.FullName,
-                    user.Email,
-                    Roles = roles
-                });
-            }
-
-            return Ok(userListLinq);
-        }
-        // using OCP example
-        users = await _userManager.Users.ToListAsync();
-        var bf = new BetterFilter();
-        IEnumerable<AppUser> result = new List<AppUser>();
-
-        if (filterOn == "name")
-        {
-            result = bf.Filter(users, new ColorSpecification(filterQuery));
-        }
-
-        var userListOCP = new List<object>();
-        foreach (var user in result)
-        {
-            var roles = await _userManager.GetRolesAsync(user);
-            userListOCP.Add(new
-            {
-                user.Id,
-                user.FullName,
-                user.Email,
-                Roles = roles
-            });
-        }
-
-        return Ok(userListOCP);
-
-
-
-        // users = _userManager.Users.ToList();
-        // var userList = new List<object>();
-
-        // foreach (var user in users)
-        // {
-        //     var roles = await _userManager.GetRolesAsync(user);
-        //     userList.Add(new
-        //     {
-        //         user.Id,
-        //         user.FullName,
-        //         user.Email,
-        //         Roles = roles
-        //     });
-        // }
-
-        // return Ok(userList);
-    }
-
-
-    //
-    [HttpGet("details")]
-    [Authorize(Roles = Roles.Admin)]
-    public async Task<ActionResult<UserDetail>> GetUserDetail(string id)
-    {
-        var user = await _userManager.FindByIdAsync(id);
-        if (user is null) return NotFound("User not found.");
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized(UserNotFound);
 
         var roles = await _userManager.GetRolesAsync(user);
 
-        // var userDetail = new UserDetail
-        // {
-        //     Id = user.Id,
-        //     FullName = user.FullName!,
-        //     Email = user.Email!,
-        //     PhoneNumber = user.PhoneNumber,
-        //     Roles = roles.ToList(),
-        //     PhoneNumberConfirm = user.PhoneNumberConfirmed,
-        //     AccessFailedCount = user.AccessFailedCount
-        // };
-        var userDetail = _mapper.Map<UserDetail>(user);
-        userDetail.Roles = roles.ToList();
-
-        return Ok(userDetail);
-
-    }
-
-
-    // function for Generate token but our above code we use the TokenService
-    // we split it for better organization of code
-    private string GenerateToken(AppUser user)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes(_configuration.GetSection("JwtSettings").GetSection("Secret").Value);
-        var roles = _userManager.GetRolesAsync(user).Result;
-
-        List<Claim> claims =
-        [
-                new (JwtRegisteredClaimNames.Email,user.Email ?? ""),
-                new (JwtRegisteredClaimNames.Name,user.FullName ?? ""),
-                new (JwtRegisteredClaimNames.NameId,user.Id ?? ""),
-                new (JwtRegisteredClaimNames.Aud,
-                _configuration.GetSection("JwtSettings").GetSection("Audience").Value),
-                new (JwtRegisteredClaimNames.Iss,_configuration.GetSection("JwtSettings").GetSection("schoolAPI").Value!)
-        ];
-
-        foreach (var role in roles)
+        var profile = new
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
-        }
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(1),
-            SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256
-            )
+            id = user.Id,
+            userName = user.UserName,
+            fullName = user.FullName,
+            email = user.Email,
+            roles = roles,
+            phoneNumber = user.PhoneNumber,
+            phoneNumberConfirmed = user.PhoneNumberConfirmed,
+            accessFailedCount = user.AccessFailedCount,
+            lockoutEnd = user.LockoutEnd,
+            imageUrl = user.ImageUrl
         };
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+        return Ok(profile);
     }
 
-    #region Open-Closed Principle (OCP) Example
-    public interface ISpecification<T> where T : class
+    public class ChangePasswordRequest
     {
-        bool IsSatisfiedBy(T item);
-    }
-    public interface IFilter<T> where T : class
-    {
-        IEnumerable<T> Filter(IEnumerable<T> items, ISpecification<T> spec);
+        public string CurrentPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 
-    public class ColorSpecification : ISpecification<AppUser>
+    [HttpPost("profile/change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        private readonly string _color;
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(UserNotFound);
 
-        public ColorSpecification(string color)
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return Unauthorized(UserNotFound);
+
+        var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+        if (!result.Succeeded)
         {
-            _color = color;
+            return BadRequest(new { title = "Failed to change password.", errors = result.Errors.Select(e => e.Description) });
         }
 
-        public bool IsSatisfiedBy(AppUser user)
-        {
-            if ( user.Email == _color)
-            {
-                return true;
-            }
-            return false;
-        }
+        return Ok(new { message = "Password changed successfully." });
     }
 
-    public class BetterFilter : IFilter<AppUser>
+    [HttpGet("sidebar-summary")]
+    [Authorize]
+    public async Task<IActionResult> GetSidebarSummary(CancellationToken cancellationToken)
     {
-        public IEnumerable<AppUser> Filter(IEnumerable<AppUser> items, ISpecification<AppUser> spec)
+        try
         {
-            foreach (var item in items)
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (userId == null) return Unauthorized(UserNotFound);
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null) return Unauthorized(UserNotFound);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var profile = new
             {
-                if (spec.IsSatisfiedBy(item))
+                id = user.Id,
+                userName = user.UserName,
+                fullName = user.FullName,
+                email = user.Email,
+                roles = roles,
+                phoneNumber = user.PhoneNumber,
+                phoneNumberConfirmed = user.PhoneNumberConfirmed,
+                accessFailedCount = user.AccessFailedCount,
+                imageUrl = user.ImageUrl,
+                lockoutEnd = user.LockoutEnd
+            };
+
+            var classes = await _classService.GetAllClasses(pageNumber: 1, pageSize: 5);
+            var students = await _classService.GetAllStudentsAsync(pageNumber: 1, pageSize: 5);
+            var products = await _mediator.Send(new GetAllProductsQuery(null, null, null, null,null, true, 1, 5), cancellationToken);
+
+            return Ok(new
+            {
+                profile,
+                classes,
+                students,
+                products = products.IsSuccess ? products.Data : null,
+                errors = new
                 {
-                    yield return item;
+                    classes = (string?)null,
+                    students = (string?)null,
+                    products = products.IsSuccess ? null : products.ErrorMessage
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.Message, stack = ex.StackTrace });
+        }
+    }
+
+
+    /// <summary>
+    /// Grants a permission to a role. Only accessible by Admins.
+    /// </summary>
+    [HttpPost("roles/grant-permission")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> GrantPermissionToRole([FromBody] GrantPermissionToRoleRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.RoleName) || string.IsNullOrWhiteSpace(request.Permission))
+            return BadRequest("RoleName and Permission are required.");
+
+        var role = await _roleManager.FindByNameAsync(request.RoleName);
+        if (role == null)
+            return NotFound("Role not found");
+
+        // It's better to check against the DB source of truth for permissions
+        var permissionExists = await _context.Permissions.AnyAsync(p => p.Name == request.Permission);
+        if (!permissionExists)
+        {
+            return NotFound("Permission not found");
+        }
+
+        var existingClaims = await _roleManager.GetClaimsAsync(role);
+        if (existingClaims.Any(c => c.Type == Permissions.ClaimType && c.Value == request.Permission))
+        {
+            return Ok($"Permission '{request.Permission}' already granted to role '{request.RoleName}'.");
+        }
+
+        var result = await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, request.Permission));
+
+        if (!result.Succeeded)
+        {
+            return StatusCode(500, "Failed to grant permission.");
+        }
+
+        return Ok($"Permission '{request.Permission}' granted to role '{request.RoleName}'");
+    }
+
+    public class GrantPermissionToRoleRequest
+    {
+        public string RoleName { get; set; } = string.Empty;
+        public string Permission { get; set; } = string.Empty;
+    }
+
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ForgotPasswordCommand(request.Email);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess, resetToken = result.Data.ResetToken });
+    }
+
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ResetPasswordCommand(request.Email, request.Token, request.NewPassword);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess });
+    }
+
+    [HttpGet("confirm-email")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ConfirmEmail([FromQuery] ConfirmEmailRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ConfirmEmailCommand(request.UserId, request.Token);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage, isSuccess = false });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess });
+    }
+
+    [HttpPost("resend-confirmation-email")]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResendConfirmationEmail([FromBody] ResendConfirmationEmailRequest request)
+    {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        var command = new ResendConfirmationEmailCommand(request.Email);
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(new { message = result.ErrorMessage });
+        }
+
+        return Ok(new { message = result.Data!.Message, isSuccess = result.Data.IsSuccess, 
+            // Remove these in production - only for testing
+            userId = result.Data.UserId,
+            confirmationToken = result.Data.ConfirmationToken 
+        });
+    }
+
+    [HttpPost("profile/avatar")]
+    [Authorize]
+    [ApiExplorerSettings(IgnoreApi = true)]  // Keep this - file upload breaks Swagger
+    [Produces("application/json", Type = typeof(object))]
+    public async Task<IActionResult> UploadAvatar([FromForm] IFormFile file)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized(UserNotFound);
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return Unauthorized(UserNotFound);
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { title = "No file uploaded." });
+        }
+
+        var uploadResult = await _photoService.UploadPhotoAsync(file);
+
+        if (uploadResult.Error != null || uploadResult.SecureUrl == null)
+        {
+            return BadRequest(new { title = uploadResult.Error?.Message ?? "Unknown error during image upload." });
+        }
+
+        // Delete the old avatar from Cloudinary if it exists
+        if (!string.IsNullOrEmpty(user.ImageUrl))
+        {
+            try
+            {
+                var urlParts = user.ImageUrl.Split('/');
+                var uploadIndex = Array.IndexOf(urlParts, "upload");
+                if (uploadIndex != -1)
+                {
+                    // Cloudinary URLs format: .../upload/v1234567890/folder/filename.jpg
+                    var startIndex = urlParts[uploadIndex + 1].StartsWith("v") ? uploadIndex + 2 : uploadIndex + 1;
+                    var publicIdWithExt = string.Join("/", urlParts.Skip(startIndex));
+                    var publicId = publicIdWithExt.Substring(0, publicIdWithExt.LastIndexOf('.'));
+                    
+                    await _photoService.DeletePhotoAsync(publicId);
                 }
             }
+            catch 
+            {
+                // Ignore parsing errors so we don't break the upload flow if the old URL was malformed or not from Cloudinary
+            }
         }
-    }
 
-    #endregion
-    // testing for get user without aut 
-    [HttpGet("AllUsers")]
-    [Authorize(Roles = "Admin")]
-    // public async Task<ActionResult<IReadOnlyList<AppUser>>> GetUsers()
-    // public ActionResult<IReadOnlyList<AppUser>> GetUsers()
-    public async Task<ActionResult<IEnumerable<AppUser>>> GetUsers()
-    {
-        var users = await _userManager.Users.AsNoTracking().ToListAsync();
-        return Ok(users);
-    }
+        user.ImageUrl = uploadResult.SecureUrl.ToString();
+        var result = await _userManager.UpdateAsync(user);
 
-    // some functions
-    async Task<bool> ExistedUser(string id)
-    {
-        var existedUser = await _userManager.FindByIdAsync(id);
-        if (existedUser != null)
+        if (!result.Succeeded)
         {
-            return true;
+            return BadRequest(new { title = "Failed to update user profile with new avatar." });
         }
-        // await HttpContext.Response.WriteAsJsonAsync(existedUser);
-        return false;
+
+        return Ok(new { imageUrl = user.ImageUrl });
     }
-
-    private async Task<bool> UserExists(string username)
-    {
-        return await _context.Users.AnyAsync(u => u.UserName.ToLower() == username.ToLower());
-    }
-
-    // Testing Controller
-    // public class Product
-    // {
-    //     public string Id { get; set; } = new Guid().ToString();
-    //     // [Required(ErrorMessage = "The field Name is required")]
-    //     // [MinLength(3, ErrorMessage = "The name field must have at least 3 characters.")]
-    //     public string ProductName { get; set; }
-    //     public decimal Price { get; set; }
-    //     public string? ImageUrl { get; set; }
-    // }
-
-    [HttpGet("getTask")]
-    public IActionResult GetTask([FromQuery] bool isCompleted = false)
-    {
-        var product = new Product
-        {
-            Id = new Guid().ToString(),
-            Name = "IPhone 18",
-            Price = 1500
-        };
-        if (product.Price < 0)
-            ModelState.AddModelError("Price", "The Price field cannot have a value less than zero.");
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        isCompleted = true;
-        return Ok(product);
-    }
-
-    [HttpPost(" product")]
-    public async Task<IActionResult> CreateProduct(ProductDto prod)
-    {
-        if (!ModelState.IsValid) return BadRequest("Somethings gone wron!");
-        var item = await _context.Products.SingleOrDefaultAsync(p => p.Name == prod.Name);
-        if (item is not null) return BadRequest("Product Already Existed");
-        var product = _mapper.Map<Product>(prod);
-        _context.Products.Add(product);
-        await _context.SaveChangesAsync();
-        return Ok(product);
-    }
-
 }

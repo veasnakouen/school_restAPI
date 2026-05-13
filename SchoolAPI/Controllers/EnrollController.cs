@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using SchoolAPI.Constant;
 using SchoolAPI.DTOs;
 using SchoolAPI.Services;
 
@@ -6,6 +8,7 @@ namespace SchoolAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = Permissions.EnrollmentRead)]
     public class EnrollController : ControllerBase
     {
         private readonly ClassService _service;
@@ -18,20 +21,20 @@ namespace SchoolAPI.Controllers
         /// <summary>
         /// Enrolls a student in a class.
         /// </summary>
-        /// <param name="studentId">The ID of the student.</param>
-        /// <param name="classId">The ID of the class.</param>
+        /// <param name="request">The student and class IDs.</param>
         /// <returns>Success message or error if enrollment fails.</returns>
         [HttpPost("enroll")]
+        [Authorize(Policy = Permissions.EnrollmentCreate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> EnrollStudent(Guid studentId, Guid classId)
+        public async Task<IActionResult> EnrollStudent([FromBody] EnrollStudentRequest request)
         {
-            if (studentId == Guid.Empty || classId == Guid.Empty)
+            if (request.StudentId == Guid.Empty || request.ClassId == Guid.Empty)
             {
                 return BadRequest("Invalid student or class ID.");
             }
 
-            var success = await _service.EnrollStudentAsync(studentId, classId);
+            var success = await _service.EnrollStudentAsync(request.StudentId, request.ClassId);
             return success ? Ok("Student enrolled successfully.") : BadRequest("Enrollment failed. Student or class not found, or student already enrolled.");
         }
 
@@ -41,6 +44,7 @@ namespace SchoolAPI.Controllers
         /// <param name="studentId">The ID of the student.</param>
         /// <returns>Success message or error if removal fails.</returns>
         [HttpDelete("remove")]
+        [Authorize(Policy = Permissions.EnrollmentDelete)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> RemoveStudent(Guid studentId)
@@ -60,6 +64,7 @@ namespace SchoolAPI.Controllers
         /// <param name="attendanceDto">Attendance details (student ID, class ID, date, status).</param>
         /// <returns>Success message or error if marking fails.</returns>
         [HttpPost("attendance")]
+        [Authorize(Policy = Permissions.EnrollmentUpdate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> MarkAttendance([FromBody] AttendanceDto attendanceDto)

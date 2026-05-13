@@ -18,6 +18,8 @@ namespace SchoolAPI.Entities
         public int Age => DateTime.Now.Year - DateOfBirth.Year -
                          (DateTime.Now.DayOfYear < DateOfBirth.DayOfYear ? 1 : 0);
 
+        public string? ImageUrl { get; set; }
+
         public Guid? ClassId { get; set; }
         public ClassRoom? Class { get; set; }
 

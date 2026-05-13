@@ -7,6 +7,7 @@ namespace SchoolAPI.DTOs
         public string LastName { get; set; }
         public string? NickName { get; set; }
         public string? Contact { get; set; }
+        public string? ImageUrl { get; set; }
         public List<StudentDto> Students { get; set; } = new List<StudentDto>();
     }
     public class CreateOutReachDto

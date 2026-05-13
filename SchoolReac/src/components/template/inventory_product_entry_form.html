@@ -1,0 +1,698 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap');
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f7f6f3;--surface:#ffffff;--surface2:#f0efe9;
+    --border:#e2e0d8;--border2:#cccab8;
+    --text:#1a1916;--text2:#6b6a63;--text3:#9e9d95;
+    --accent:#1a3a5c;--accent2:#2d5a8e;--accent-light:#e8eef5;
+    --success:#1a5c3a;--success-light:#e8f5ee;
+    --warning:#7a4a00;--warning-light:#fdf3e3;
+    --danger:#7a1a1a;--danger-light:#fde8e8;
+    --radius:8px;--radius-lg:12px;
+    --font:'Sora',sans-serif;--mono:'IBM Plex Mono',monospace;
+    --step-active:#1a3a5c;--step-done:#2d7a4f;--step-todo:#cccab8;
+  }
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh;padding:20px 16px 40px}
+  
+  .shell{max-width:720px;margin:0 auto}
+  
+  .header{margin-bottom:24px}
+  .header-top{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+  .header-badge{font-family:var(--mono);font-size:10px;background:var(--accent);color:#fff;padding:3px 8px;border-radius:4px;letter-spacing:.05em}
+  .header h1{font-size:22px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+  .header p{font-size:13px;color:var(--text2);margin-top:2px}
+
+  .steps{display:flex;align-items:center;gap:0;margin-bottom:28px;background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 20px;overflow-x:auto}
+  .step{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:var(--mono);transition:all .2s;flex-shrink:0}
+  .step-dot.active{background:var(--step-active);color:#fff}
+  .step-dot.done{background:var(--step-done);color:#fff}
+  .step-dot.done::before{content:'✓'}
+  .step-dot.todo{background:var(--surface2);color:var(--text3);border:1px solid var(--border)}
+  .step-label{font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap}
+  .step-label.active{color:var(--step-active);font-weight:600}
+  .step-label.done{color:var(--step-done)}
+  .step-sep{width:28px;height:1px;background:var(--border2);margin:0 6px;flex-shrink:0}
+
+  .card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:16px}
+  .card-header{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:0.5px solid var(--border)}
+  .card-icon{width:32px;height:32px;border-radius:var(--radius);background:var(--accent-light);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+  .card-title{font-size:15px;font-weight:600;color:var(--text)}
+  .card-sub{font-size:12px;color:var(--text2);margin-top:1px}
+
+  .field-grid{display:grid;gap:14px}
+  .col2{grid-template-columns:1fr 1fr}
+  .col3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:540px){.col2,.col3{grid-template-columns:1fr}}
+
+  .field label{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:500;color:var(--text2);margin-bottom:5px;letter-spacing:.01em;text-transform:uppercase}
+  .req{color:#c0392b;font-size:10px}
+  .field input,.field select,.field textarea{
+    width:100%;padding:9px 12px;font-size:13px;font-family:var(--font);
+    background:var(--surface);border:0.5px solid var(--border2);
+    border-radius:var(--radius);color:var(--text);outline:none;
+    transition:border-color .15s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent2)}
+  .field input::placeholder{color:var(--text3)}
+  .field textarea{resize:vertical;min-height:70px}
+  .field select{cursor:pointer}
+
+  .toggle-group{display:flex;gap:0;border:0.5px solid var(--border2);border-radius:var(--radius);overflow:hidden}
+  .toggle-btn{flex:1;padding:9px 10px;font-size:12px;font-weight:500;font-family:var(--font);cursor:pointer;border:none;background:var(--surface);color:var(--text2);transition:all .15s;text-align:center}
+  .toggle-btn.active{background:var(--accent);color:#fff}
+
+  .dyn-section{background:var(--accent-light);border:0.5px solid #c5d5e8;border-radius:var(--radius-lg);padding:16px;margin-top:4px}
+  .dyn-label{font-size:11px;font-weight:600;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+  .dyn-label::after{content:'';flex:1;height:1px;background:#c5d5e8}
+
+  .product-mode{display:flex;gap:0;border:0.5px solid var(--border2);border-radius:var(--radius);overflow:hidden;margin-bottom:14px}
+  .mode-btn{flex:1;padding:10px;font-size:12px;font-weight:500;font-family:var(--font);cursor:pointer;border:none;background:var(--surface);color:var(--text2);transition:all .15s;text-align:center}
+  .mode-btn.active{background:var(--accent);color:#fff}
+
+  .assign-toggle{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border-radius:var(--radius);cursor:pointer;border:0.5px solid var(--border)}
+  .toggle-switch{width:36px;height:20px;border-radius:10px;background:var(--border2);position:relative;transition:background .2s;flex-shrink:0}
+  .toggle-switch.on{background:var(--accent)}
+  .toggle-switch::after{content:'';position:absolute;width:14px;height:14px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s}
+  .toggle-switch.on::after{left:19px}
+
+  .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
+  .summary-card{background:var(--surface2);border-radius:var(--radius);padding:12px 14px}
+  .summary-card .sc-label{font-size:11px;color:var(--text3);letter-spacing:.04em;text-transform:uppercase;font-weight:500;margin-bottom:4px}
+  .summary-card .sc-val{font-size:18px;font-weight:600;color:var(--text);font-family:var(--mono)}
+
+  .review-row{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--border);font-size:13px}
+  .review-row:last-child{border-bottom:none}
+  .rr-key{color:var(--text2);font-size:12px}
+  .rr-val{color:var(--text);font-weight:500;text-align:right;max-width:60%}
+  .rr-val.code{font-family:var(--mono);color:var(--accent)}
+  .rr-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+  .badge-new{background:var(--success-light);color:var(--success)}
+  .badge-donated{background:var(--warning-light);color:var(--warning)}
+
+  .actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:8px}
+  .btn{padding:10px 20px;border-radius:var(--radius);font-size:13px;font-weight:500;font-family:var(--font);cursor:pointer;border:none;transition:all .15s}
+  .btn-ghost{background:transparent;border:0.5px solid var(--border2);color:var(--text2)}
+  .btn-ghost:hover{background:var(--surface2)}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent2)}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed}
+  .btn-success{background:var(--success);color:#fff;font-size:14px;padding:12px 28px}
+  .btn-group{display:flex;gap:8px}
+
+  .success-screen{text-align:center;padding:40px 20px}
+  .success-icon{width:64px;height:64px;border-radius:50%;background:var(--success-light);border:2px solid var(--success);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px}
+  .success-code{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--accent);margin:8px 0}
+  .success-sub{font-size:13px;color:var(--text2);max-width:340px;margin:0 auto 28px}
+  .result-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:24px}
+  .chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:500;font-family:var(--mono)}
+  .chip-blue{background:var(--accent-light);color:var(--accent)}
+  .chip-green{background:var(--success-light);color:var(--success)}
+
+  .hint{font-size:11px;color:var(--text3);margin-top:4px}
+  .section-sep{height:0.5px;background:var(--border);margin:20px 0}
+
+  .field-search{position:relative}
+  .search-results{position:absolute;top:100%;left:0;right:0;background:var(--surface);border:0.5px solid var(--border2);border-radius:var(--radius);z-index:10;max-height:160px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.08)}
+  .search-item{padding:9px 12px;font-size:13px;cursor:pointer;border-bottom:0.5px solid var(--border)}
+  .search-item:last-child{border-bottom:none}
+  .search-item:hover{background:var(--surface2)}
+  .search-item small{color:var(--text3);font-family:var(--mono);font-size:11px;display:block;margin-top:1px}
+
+  .cond-display{display:flex;align-items:center;gap:10px}
+  .cond-bar{flex:1;height:6px;border-radius:3px;background:var(--border);overflow:hidden}
+  .cond-fill{height:100%;border-radius:3px;transition:width .2s}
+  .cond-label{font-size:12px;font-weight:500;font-family:var(--mono);min-width:38px}
+
+  input[type=range]{padding:0;height:20px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="header">
+    <div class="header-top">
+      <span class="header-badge">IMS v1.0</span>
+    </div>
+    <h1>New Inventory Entry</h1>
+    <p>Complete the form — product, purchase, and stock records are saved automatically.</p>
+  </div>
+
+  <div class="steps" id="steps-bar"></div>
+  <div id="form-body"></div>
+</div>
+
+<script>
+const STEPS = [
+  {id:'item', label:'Item info', icon:'📦'},
+  {id:'purchase', label:'Purchase', icon:'🧾'},
+  {id:'stock', label:'Location', icon:'📍'},
+  {id:'assign', label:'Assignment', icon:'👤'},
+  {id:'review', label:'Review', icon:'✅'},
+];
+
+const CATEGORIES = [
+  {id:'moto', name:'MotoBike', icon:'🏍️', attrs:[
+    {key:'color',label:'Color',type:'text',ph:'e.g. Red, Black',req:true},
+    {key:'year',label:'Year',type:'number',ph:'e.g. 2023',req:true},
+    {key:'engine_number',label:'Engine No.',type:'text',ph:'ENG-2024-001',req:true,unique:true},
+    {key:'plate_number',label:'Plate No.',type:'text',ph:'ABC-1234',req:true,unique:true},
+  ]},
+  {id:'elec', name:'Electronic', icon:'💻', attrs:[
+    {key:'size',label:'Size / Screen',type:'text',ph:'e.g. 15.6 inch'},
+    {key:'serial_number',label:'Serial No.',type:'text',ph:'SN-2024-001',unique:true},
+    {key:'model_number',label:'Model No.',type:'text',ph:'e.g. ThinkPad X1'},
+    {key:'warranty_expiry',label:'Warranty Expiry',type:'date'},
+  ]},
+  {id:'tech', name:'Technical Equipment', icon:'🔧', attrs:[
+    {key:'size',label:'Size',type:'text',ph:'e.g. Large, 30x40cm'},
+    {key:'color',label:'Color',type:'text',ph:'e.g. Black'},
+    {key:'serial_number',label:'Serial No.',type:'text',ph:'SN-2024-001',unique:true},
+    {key:'model_number',label:'Model No.',type:'text',ph:'e.g. Model X200'},
+  ]},
+  {id:'ent', name:'Entertainment Equipment', icon:'🎬', attrs:[
+    {key:'size',label:'Size',type:'text',ph:'e.g. 55 inch, Large'},
+    {key:'color',label:'Color',type:'text',ph:'e.g. Black'},
+    {key:'equipment_type',label:'Equipment Type',type:'select',opts:['Projector','TV','Speaker','Camera','Microphone','Other']},
+    {key:'serial_number',label:'Serial No.',type:'text',ph:'SN-2024-001',unique:true},
+  ]},
+  {id:'furn', name:'Furniture Equipment', icon:'🪑', attrs:[
+    {key:'size',label:'Size / Dimensions',type:'text',ph:'e.g. 120x60cm, King'},
+    {key:'material',label:'Material',type:'select',opts:['Wood','Metal','Plastic','Fabric','Glass','Other']},
+    {key:'color',label:'Color',type:'text',ph:'e.g. Brown, White'},
+    {key:'furniture_type',label:'Furniture Type',type:'select',opts:['Chair','Desk','Cabinet','Shelf','Table','Sofa','Bed','Other']},
+  ]},
+];
+
+const SUPPLIERS = [
+  {id:'s1',name:'Tech Solutions Co.',country:'Cambodia'},
+  {id:'s2',name:'Global Office Supply',country:'Thailand'},
+  {id:'s3',name:'Phnom Penh Traders',country:'Cambodia'},
+];
+const DONORS = [
+  {id:'d1',name:'USAID',type:'Government'},
+  {id:'d2',name:'UNICEF',type:'NGO'},
+  {id:'d3',name:'World Bank',type:'International'},
+];
+const PERSONS = [
+  {id:'p1',name:'Sophea Mak',dept:'Field Operations'},
+  {id:'p2',name:'Dara Chhun',dept:'IT Department'},
+  {id:'p3',name:'Bopha Lim',dept:'Administration'},
+  {id:'p4',name:'Ratanak Pov',dept:'Logistics'},
+];
+const MOCK_PRODUCTS = [
+  {id:'e1',code:'MOT-2023-00001',name:'Honda Wave 110',cat:'MotoBike',brand:'Honda'},
+  {id:'e2',code:'ELE-2023-00001',name:'Dell Laptop XPS 15',cat:'Electronic',brand:'Dell'},
+  {id:'e3',code:'TEC-2023-00001',name:'Epson Projector X400',cat:'Technical Equipment',brand:'Epson'},
+];
+
+let state = {
+  step:0, mode:'new', selectedProduct:null,
+  itemName:'', brand:'', description:'',
+  categoryId:'', attrs:{},
+  purchase:{ type:'purchased', supplierId:'', donorId:'', voucherNo:'', invoiceDate:'', qty:1, unitPrice:'', percentNew:100, notes:'' },
+  stock:{ location:'', responsiblePersonId:'' },
+  assign:{ enabled:false, personId:'', location:'', purpose:'', returnDate:'' },
+  savedResult:null,
+};
+
+function getCategory(){ return CATEGORIES.find(c=>c.id===state.categoryId)||null; }
+
+function renderSteps(){
+  const bar=document.getElementById('steps-bar');
+  bar.innerHTML=STEPS.map((s,i)=>{
+    let cls='todo',lbl='';
+    if(i<state.step){cls='done';lbl='done'}
+    else if(i===state.step){cls='active';lbl='active'}
+    const dot=cls==='done'?`<div class="step-dot done"></div>`:`<div class="step-dot ${cls}">${i+1}</div>`;
+    return `${i>0?'<div class="step-sep"></div>':''}
+    <div class="step">
+      ${dot}
+      <span class="step-label ${lbl}">${s.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function condColor(v){
+  if(v>=80)return'#2d7a4f';
+  if(v>=60)return'#b8860b';
+  return'#a32d2d';
+}
+function condText(v){
+  if(v===100)return'Brand New';
+  if(v>=90)return'Excellent';
+  if(v>=80)return'Very Good';
+  if(v>=70)return'Good';
+  if(v>=60)return'Fair';
+  if(v>=50)return'Poor';
+  return'Damaged';
+}
+
+function renderField(key, label, type, ph='', req=false, unique=false, opts=[]){
+  const val = state.attrs[key]||'';
+  if(type==='select'){
+    return `<div class="field">
+      <label>${label}${req?'<span class="req">✱</span>':''}</label>
+      <select onchange="state.attrs['${key}']=this.value">
+        <option value="">— select —</option>
+        ${opts.map(o=>`<option value="${o}" ${val===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+      ${unique?`<div class="hint">Must be unique across all records.</div>`:''}
+    </div>`;
+  }
+  return `<div class="field">
+    <label>${label}${req?'<span class="req">✱</span>':''}${unique?' <span style="font-family:var(--mono);font-size:9px;background:var(--accent-light);color:var(--accent);padding:1px 5px;border-radius:3px">UNIQUE</span>':''}</label>
+    <input type="${type}" placeholder="${ph}" value="${val}" onchange="state.attrs['${key}']=this.value" oninput="state.attrs['${key}']=this.value">
+  </div>`;
+}
+
+function renderStep0(){
+  const cat=getCategory();
+  const dynFields = cat ? cat.attrs.map(a=>renderField(a.key,a.label,a.type,a.ph||'',a.req||false,a.unique||false,a.opts||[])).join('') : '';
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">📦</div>
+      <div><div class="card-title">Item information</div><div class="card-sub">New product or restock existing?</div></div>
+    </div>
+
+    <div class="product-mode">
+      <button class="mode-btn ${state.mode==='new'?'active':''}" onclick="state.mode='new';state.selectedProduct=null;render()">New item</button>
+      <button class="mode-btn ${state.mode==='restock'?'active':''}" onclick="state.mode='restock';render()">Restock existing</button>
+    </div>
+
+    ${state.mode==='restock'?`
+    <div class="field field-search" style="margin-bottom:14px">
+      <label>Search existing product</label>
+      <input type="text" id="prod-search" placeholder="Search by name or code..." oninput="renderProductSearch(this.value)" value="${state.selectedProduct?state.selectedProduct.code+' — '+state.selectedProduct.name:''}">
+      <div id="prod-results" class="search-results" style="display:none"></div>
+    </div>
+    ${state.selectedProduct?`
+    <div style="padding:10px 14px;background:var(--success-light);border:0.5px solid #a8d5b5;border-radius:var(--radius);margin-bottom:14px;font-size:13px">
+      <span style="font-family:var(--mono);color:var(--success);font-weight:600">${state.selectedProduct.code}</span>
+      <span style="color:var(--text);margin-left:8px">${state.selectedProduct.name}</span>
+      <span style="color:var(--text2);margin-left:6px;font-size:12px">· ${state.selectedProduct.cat}</span>
+    </div>`:''}`:''}
+
+    <div class="field-grid col2">
+      ${state.mode==='new'?`<div class="field" style="grid-column:1/-1">
+        <label>Category <span class="req">✱</span></label>
+        <select onchange="state.categoryId=this.value;state.attrs={};render()">
+          <option value="">— select category —</option>
+          ${CATEGORIES.map(c=>`<option value="${c.id}" ${state.categoryId===c.id?'selected':''}>${c.icon} ${c.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field">
+        <label>Item name <span class="req">✱</span></label>
+        <input type="text" placeholder="e.g. Honda Wave 110" value="${state.itemName}" oninput="state.itemName=this.value">
+      </div>
+      <div class="field">
+        <label>Brand</label>
+        <input type="text" placeholder="e.g. Honda, Dell, IKEA" value="${state.brand}" oninput="state.brand=this.value">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Description</label>
+        <textarea placeholder="Optional notes about this item..." oninput="state.description=this.value">${state.description}</textarea>
+      </div>`:`
+      <div class="field" style="grid-column:1/-1">
+        <label>Description / Restock notes</label>
+        <textarea placeholder="Optional notes about this restock..." oninput="state.description=this.value">${state.description}</textarea>
+      </div>`}
+    </div>
+
+    ${cat && state.mode==='new'?`
+    <div class="dyn-section" style="margin-top:16px">
+      <div class="dyn-label">${cat.icon} ${cat.name} — specific fields</div>
+      <div class="field-grid col2">${dynFields}</div>
+    </div>`:''}
+  </div>
+  <div class="actions">
+    <div></div>
+    <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+  </div>`;
+}
+
+function renderProductSearch(q){
+  const box=document.getElementById('prod-results');
+  if(!q){box.style.display='none';return;}
+  const hits=MOCK_PRODUCTS.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||p.code.toLowerCase().includes(q.toLowerCase()));
+  if(!hits.length){box.style.display='none';return;}
+  box.style.display='block';
+  box.innerHTML=hits.map(p=>`<div class="search-item" onclick="selectProduct('${p.id}')">
+    ${p.name} <small>${p.code} · ${p.cat}</small>
+  </div>`).join('');
+}
+function selectProduct(id){
+  const p=MOCK_PRODUCTS.find(x=>x.id===id);
+  state.selectedProduct=p;
+  state.categoryId=CATEGORIES.find(c=>c.name===p.cat)?.id||'';
+  render();
+}
+
+function renderStep1(){
+  const p=state.purchase;
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">🧾</div>
+      <div><div class="card-title">Purchase information</div><div class="card-sub">Invoice details and acquisition type</div></div>
+    </div>
+
+    <div class="field" style="margin-bottom:16px">
+      <label>Acquisition type <span class="req">✱</span></label>
+      <div class="toggle-group">
+        <button class="toggle-btn ${p.type==='purchased'?'active':''}" onclick="state.purchase.type='purchased';render()">Purchased</button>
+        <button class="toggle-btn ${p.type==='donated'?'active':''}" onclick="state.purchase.type='donated';render()">Donated</button>
+        <button class="toggle-btn ${p.type==='transferred'?'active':''}" onclick="state.purchase.type='transferred';render()">Transferred</button>
+      </div>
+    </div>
+
+    <div class="field-grid col2">
+      ${p.type==='purchased'?`<div class="field" style="grid-column:1/-1">
+        <label>Supplier <span class="req">✱</span></label>
+        <select onchange="state.purchase.supplierId=this.value">
+          <option value="">— select supplier —</option>
+          ${SUPPLIERS.map(s=>`<option value="${s.id}" ${p.supplierId===s.id?'selected':''}>${s.name} (${s.country})</option>`).join('')}
+        </select>
+      </div>`:''}
+      ${p.type==='donated'?`<div class="field" style="grid-column:1/-1">
+        <label>Donor <span class="req">✱</span></label>
+        <select onchange="state.purchase.donorId=this.value">
+          <option value="">— select donor —</option>
+          ${DONORS.map(d=>`<option value="${d.id}" ${p.donorId===d.id?'selected':''}>${d.name} (${d.type})</option>`).join('')}
+        </select>
+      </div>`:''}
+      <div class="field">
+        <label>Voucher / Invoice No.</label>
+        <input type="text" placeholder="Auto-generated if blank" value="${p.voucherNo}" oninput="state.purchase.voucherNo=this.value">
+        <div class="hint">Leave blank to auto-generate (PO-202401-0001)</div>
+      </div>
+      <div class="field">
+        <label>Invoice date <span class="req">✱</span></label>
+        <input type="date" value="${p.invoiceDate}" onchange="state.purchase.invoiceDate=this.value">
+      </div>
+      <div class="field">
+        <label>Quantity <span class="req">✱</span></label>
+        <input type="number" min="1" value="${p.qty}" oninput="state.purchase.qty=parseInt(this.value)||1">
+      </div>
+      <div class="field">
+        <label>Unit price (USD) <span class="req">✱</span></label>
+        <input type="number" min="0" step="0.01" placeholder="0.00" value="${p.unitPrice}" oninput="state.purchase.unitPrice=this.value">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Condition — <span style="font-family:var(--mono);font-weight:500">${p.percentNew}%</span> · <span style="color:var(--text2)">${condText(p.percentNew)}</span></label>
+        <div class="cond-display">
+          <input type="range" min="1" max="100" step="1" value="${p.percentNew}" style="flex:1" oninput="state.purchase.percentNew=parseInt(this.value);renderCondBar(this.value)">
+          <div class="cond-bar" style="width:100px"><div class="cond-fill" id="cond-fill" style="width:${p.percentNew}%;background:${condColor(p.percentNew)}"></div></div>
+        </div>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Notes</label>
+        <textarea placeholder="Any notes about this purchase..." oninput="state.purchase.notes=this.value">${p.notes}</textarea>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+    <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+  </div>`;
+}
+function renderCondBar(v){
+  const el=document.getElementById('cond-fill');
+  if(el){el.style.width=v+'%';el.style.background=condColor(parseInt(v));}
+}
+
+function renderStep2(){
+  const s=state.stock;
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">📍</div>
+      <div><div class="card-title">Stock location</div><div class="card-sub">Where will this item be stored?</div></div>
+    </div>
+    <div class="field-grid col2">
+      <div class="field" style="grid-column:1/-1">
+        <label>Storage location <span class="req">✱</span></label>
+        <input type="text" placeholder="e.g. Main Office - Storage Room A" value="${s.location}" oninput="state.stock.location=this.value">
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Responsible person</label>
+        <select onchange="state.stock.responsiblePersonId=this.value">
+          <option value="">— none / unassigned —</option>
+          ${PERSONS.map(p=>`<option value="${p.id}" ${s.responsiblePersonId===p.id?'selected':''}>${p.name} · ${p.dept}</option>`).join('')}
+        </select>
+        <div class="hint">Person responsible for this item at its storage location.</div>
+      </div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+    <button class="btn btn-primary" onclick="nextStep()">Continue →</button>
+  </div>`;
+}
+
+function renderStep3(){
+  const a=state.assign;
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">👤</div>
+      <div><div class="card-title">Assignment</div><div class="card-sub">Optionally assign this item right now</div></div>
+    </div>
+
+    <div class="assign-toggle" onclick="state.assign.enabled=!state.assign.enabled;render()" style="cursor:pointer;margin-bottom:${a.enabled?'20px':'0'}">
+      <div class="toggle-switch ${a.enabled?'on':''}"></div>
+      <div>
+        <div style="font-size:13px;font-weight:500">Assign immediately after saving</div>
+        <div style="font-size:12px;color:var(--text2)">Item goes directly to a person's custody</div>
+      </div>
+    </div>
+
+    ${a.enabled?`
+    <div class="field-grid col2">
+      <div class="field" style="grid-column:1/-1">
+        <label>Assign to <span class="req">✱</span></label>
+        <select onchange="state.assign.personId=this.value">
+          <option value="">— select person —</option>
+          ${PERSONS.map(p=>`<option value="${p.id}" ${a.personId===p.id?'selected':''}>${p.name} · ${p.dept}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Assignment location</label>
+        <input type="text" placeholder="e.g. Field - Province A" value="${a.location}" oninput="state.assign.location=this.value">
+        <div class="hint">Defaults to storage location if blank.</div>
+      </div>
+      <div class="field">
+        <label>Purpose</label>
+        <input type="text" placeholder="e.g. Field operations" value="${a.purpose}" oninput="state.assign.purpose=this.value">
+      </div>
+      <div class="field">
+        <label>Expected return date</label>
+        <input type="date" value="${a.returnDate}" onchange="state.assign.returnDate=this.value">
+      </div>
+    </div>`:''}
+  </div>
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+    <button class="btn btn-primary" onclick="nextStep()">Review & Save →</button>
+  </div>`;
+}
+
+function renderStep4(){
+  const p=state.purchase;
+  const cat=getCategory();
+  const totalVal=(parseFloat(p.unitPrice)||0)*p.qty;
+  const assignPerson=state.assign.enabled&&state.assign.personId?PERSONS.find(x=>x.id===state.assign.personId):null;
+  const supplier=p.supplierId?SUPPLIERS.find(s=>s.id===p.supplierId):null;
+  const donor=p.donorId?DONORS.find(d=>d.id===p.donorId):null;
+  const respPerson=state.stock.responsiblePersonId?PERSONS.find(x=>x.id===state.stock.responsiblePersonId):null;
+
+  const attrEntries=Object.entries(state.attrs).filter(([k,v])=>v);
+
+  return `<div class="card">
+    <div class="card-header">
+      <div class="card-icon">✅</div>
+      <div><div class="card-title">Review before saving</div><div class="card-sub">Check all details — this will create records across all modules</div></div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="sc-label">Quantity</div>
+        <div class="sc-val">${p.qty}</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-label">Unit price</div>
+        <div class="sc-val">$${parseFloat(p.unitPrice||0).toFixed(2)}</div>
+      </div>
+      <div class="summary-card">
+        <div class="sc-label">Total value</div>
+        <div class="sc-val">$${totalVal.toFixed(2)}</div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Product</div>
+      ${state.mode==='restock'&&state.selectedProduct?`
+      <div class="review-row"><span class="rr-key">Mode</span><span class="rr-val"><span class="rr-badge badge-new">Restock existing</span></span></div>
+      <div class="review-row"><span class="rr-key">Product code</span><span class="rr-val code">${state.selectedProduct.code}</span></div>
+      <div class="review-row"><span class="rr-key">Item name</span><span class="rr-val">${state.selectedProduct.name}</span></div>`:`
+      <div class="review-row"><span class="rr-key">Mode</span><span class="rr-val"><span class="rr-badge badge-new">New item</span></span></div>
+      <div class="review-row"><span class="rr-key">Category</span><span class="rr-val">${cat?cat.icon+' '+cat.name:'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Item name</span><span class="rr-val">${state.itemName||'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Brand</span><span class="rr-val">${state.brand||'—'}</span></div>
+      ${attrEntries.map(([k,v])=>`<div class="review-row"><span class="rr-key">${k.replace(/_/g,' ')}</span><span class="rr-val">${v}</span></div>`).join('')}`}
+    </div>
+
+    <div class="section-sep"></div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Purchase</div>
+      <div class="review-row"><span class="rr-key">Type</span><span class="rr-val"><span class="rr-badge ${p.type==='donated'?'badge-donated':'badge-new'}">${p.type.charAt(0).toUpperCase()+p.type.slice(1)}</span></span></div>
+      ${supplier?`<div class="review-row"><span class="rr-key">Supplier</span><span class="rr-val">${supplier.name}</span></div>`:''}
+      ${donor?`<div class="review-row"><span class="rr-key">Donor</span><span class="rr-val">${donor.name}</span></div>`:''}
+      <div class="review-row"><span class="rr-key">Voucher No.</span><span class="rr-val code">${p.voucherNo||'Auto-generated'}</span></div>
+      <div class="review-row"><span class="rr-key">Invoice date</span><span class="rr-val">${p.invoiceDate||'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Condition</span><span class="rr-val">${p.percentNew}% — ${condText(p.percentNew)}</span></div>
+    </div>
+
+    <div class="section-sep"></div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Stock location</div>
+      <div class="review-row"><span class="rr-key">Location</span><span class="rr-val">${state.stock.location||'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Responsible</span><span class="rr-val">${respPerson?respPerson.name:'Unassigned'}</span></div>
+    </div>
+
+    ${state.assign.enabled&&assignPerson?`
+    <div class="section-sep"></div>
+    <div style="margin-bottom:4px">
+      <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Assignment</div>
+      <div class="review-row"><span class="rr-key">Assign to</span><span class="rr-val">${assignPerson.name} · ${assignPerson.dept}</span></div>
+      <div class="review-row"><span class="rr-key">Location</span><span class="rr-val">${state.assign.location||state.stock.location||'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Purpose</span><span class="rr-val">${state.assign.purpose||'—'}</span></div>
+      <div class="review-row"><span class="rr-key">Return by</span><span class="rr-val">${state.assign.returnDate||'Open-ended'}</span></div>
+    </div>`:''}
+
+    <div style="background:var(--accent-light);border:0.5px solid #c5d5e8;border-radius:var(--radius);padding:12px 14px;margin-top:16px;font-size:12px;color:var(--accent2)">
+      <strong style="font-weight:600">What will be created:</strong> Product record · Purchase + line item · Stock movement (In)${state.assign.enabled&&assignPerson?' · Asset assignment · Stock movement (Out)':''}
+    </div>
+  </div>
+  <div class="actions">
+    <button class="btn btn-ghost" onclick="prevStep()">← Back</button>
+    <button class="btn btn-success" onclick="submitForm()">💾 Save to inventory</button>
+  </div>`;
+}
+
+function renderSuccess(){
+  const r=state.savedResult;
+  return `<div class="card">
+    <div class="success-screen">
+      <div class="success-icon">✓</div>
+      <h2 style="font-size:18px;font-weight:600;color:var(--text)">${r.itemName}</h2>
+      <div class="success-code">${r.productCode}</div>
+      <p class="success-sub">${r.summary}</p>
+      <div class="result-chips">
+        <span class="chip chip-blue">Product: ${r.productCode}</span>
+        <span class="chip chip-blue">Voucher: ${r.voucherNumber}</span>
+        <span class="chip chip-green">Available: ${r.availableQty}</span>
+        ${r.assignmentId?`<span class="chip chip-green">Assigned ✓</span>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:300px;margin:0 auto">
+        <button class="btn btn-primary" style="width:100%" onclick="resetForm()">+ Add another item</button>
+        <button class="btn btn-ghost" style="width:100%" onclick="sendPrompt('Show me the inventory dashboard with the latest stock summary')">View inventory dashboard ↗</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function nextStep(){
+  if(!validateStep()) return;
+  state.step=Math.min(state.step+1, STEPS.length-1);
+  render();
+  window.scrollTo(0,0);
+}
+function prevStep(){
+  state.step=Math.max(state.step-1,0);
+  render();
+}
+
+function validateStep(){
+  const s=state.step;
+  if(s===0){
+    if(state.mode==='new'&&!state.categoryId){alert('Please select a category.');return false;}
+    if(state.mode==='new'&&!state.itemName.trim()){alert('Please enter an item name.');return false;}
+    if(state.mode==='restock'&&!state.selectedProduct){alert('Please select an existing product.');return false;}
+  }
+  if(s===1){
+    if(!state.purchase.qty||state.purchase.qty<1){alert('Quantity must be at least 1.');return false;}
+    if(!state.purchase.invoiceDate){alert('Please enter an invoice date.');return false;}
+    if(state.purchase.type==='purchased'&&!state.purchase.supplierId){alert('Please select a supplier.');return false;}
+    if(state.purchase.type==='donated'&&!state.purchase.donorId){alert('Please select a donor.');return false;}
+  }
+  if(s===2){
+    if(!state.stock.location.trim()){alert('Please enter a storage location.');return false;}
+  }
+  if(s===3){
+    if(state.assign.enabled&&!state.assign.personId){alert('Please select a person to assign to.');return false;}
+  }
+  return true;
+}
+
+function submitForm(){
+  const cat=getCategory();
+  const productCode=(state.mode==='restock'&&state.selectedProduct)
+    ? state.selectedProduct.code
+    : (cat?cat.name.substring(0,3).toUpperCase():'ITE')+'-'+new Date().getFullYear()+'-'+String(Math.floor(Math.random()*9000)+1000);
+  
+  const voucherNo=state.purchase.voucherNo||'PO-'+new Date().getFullYear()+String(new Date().getMonth()+1).padStart(2,'0')+'-'+String(Math.floor(Math.random()*9000)+1000);
+  
+  state.savedResult={
+    productId:'prod-'+Date.now(),
+    productCode,
+    itemName:state.mode==='restock'&&state.selectedProduct?state.selectedProduct.name:state.itemName,
+    purchaseId:'pur-'+Date.now(),
+    voucherNumber:voucherNo,
+    purchaseItemId:'pi-'+Date.now(),
+    movementId:'mov-'+Date.now(),
+    assignmentId:state.assign.enabled&&state.assign.personId?'asgn-'+Date.now():null,
+    totalQty:state.purchase.qty,
+    availableQty:state.assign.enabled&&state.assign.personId?0:state.purchase.qty,
+    assignedQty:state.assign.enabled&&state.assign.personId?state.purchase.qty:0,
+    summary:(state.assign.enabled&&state.assign.personId)
+      ? `Saved and assigned to ${PERSONS.find(p=>p.id===state.assign.personId)?.name||'person'}.`
+      : 'Saved to inventory storage.',
+  };
+  state.step=99;
+  render();
+}
+
+function resetForm(){
+  state={step:0,mode:'new',selectedProduct:null,itemName:'',brand:'',description:'',categoryId:'',attrs:{},
+    purchase:{type:'purchased',supplierId:'',donorId:'',voucherNo:'',invoiceDate:'',qty:1,unitPrice:'',percentNew:100,notes:''},
+    stock:{location:'',responsiblePersonId:''},
+    assign:{enabled:false,personId:'',location:'',purpose:'',returnDate:''},
+    savedResult:null};
+  render();
+}
+
+function render(){
+  renderSteps();
+  const body=document.getElementById('form-body');
+  if(state.step===99){body.innerHTML=renderSuccess();return;}
+  const renderers=[renderStep0,renderStep1,renderStep2,renderStep3,renderStep4];
+  body.innerHTML=(renderers[state.step]||renderStep0)();
+}
+
+window.renderProductSearch=renderProductSearch;
+window.selectProduct=selectProduct;
+window.nextStep=nextStep;
+window.prevStep=prevStep;
+window.submitForm=submitForm;
+window.resetForm=resetForm;
+window.renderCondBar=renderCondBar;
+window.state=state;
+
+render();
+</script>
+</body>
+</html>

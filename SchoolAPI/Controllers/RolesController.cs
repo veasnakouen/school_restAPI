@@ -1,242 +1,134 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SchoolAPI.Data;
+using SchoolAPI.Constant;
 using SchoolAPI.Entities;
+using System.Security.Claims;
 
 namespace SchoolAPI.Controllers;
 
-[ApiController]
 [Route("api/[controller]")]
+[ApiController]
+[Authorize]
 public class RolesController : ControllerBase
 {
-    private readonly RoleManager<IdentityRole> _roleManager;
-    private readonly UserManager<AppUser> _userManager;
-    private readonly SchoolDbContext _context;
-    private readonly ILogger<RolesController> _logger;
-    public RolesController(RoleManager<IdentityRole> roleManager, UserManager<AppUser> userManager, ILogger<RolesController> logger, SchoolDbContext context)
+    private readonly RoleManager<AppRole> _roleManager;
+
+    public RolesController(RoleManager<AppRole> roleManager)
     {
-        _userManager = userManager;
         _roleManager = roleManager;
-        _context = context;
-        _logger = logger;
     }
-
-    [HttpPost]
-    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest createRoleRequest)
-    {
-        if (!ModelState.IsValid) throw new NotImplementedException();
-
-        if (string.IsNullOrEmpty(createRoleRequest.RoleName))
-        {
-            return BadRequest("Role name is required!");
-        }
-
-        var roleExist = await _roleManager.RoleExistsAsync(createRoleRequest.RoleName);
-        // role existed
-        if (roleExist)
-        {
-            return BadRequest("Role already existed!.");
-        }
-
-        if (!roleExist) //check on the role exist status
-        {
-            var roleResult = await _roleManager.CreateAsync(new IdentityRole(createRoleRequest.RoleName));
-            // check if the role has been added successfully
-            if (roleResult.Succeeded)
-            {
-                _logger.LogInformation($"The role {createRoleRequest.RoleName} Has been added successfully");
-
-                // yield return Ok(new
-                return Ok(new
-                {
-                    result = $"The role {createRoleRequest.RoleName} Has been added successfully",
-                    // message = "Role Created Successfully!."
-                });
-            }
-            else
-            {
-                _logger.LogInformation($"The role {createRoleRequest.RoleName} Has not been added successfully");
-                return BadRequest(new
-                {
-                    error = $"The role {createRoleRequest.RoleName} Has not been added!.",
-                    // message = "Role has not Created Successfully!."
-                });
-            }
-        }
-        return BadRequest(new { error = "Role already existed!." });
-    }
-
-    [HttpPost("AddUserToRole")]
-    public async Task<IActionResult> AddUserToRole(string email, string roleName)
-    {
-        //check if user exist
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)
-        {
-            _logger.LogInformation($"The User{email} does not exist!.");
-            return BadRequest(new
-            {
-                error = "User does not exist."
-            });
-        }
-
-        //check if role exist
-        var roleExist = await _roleManager.RoleExistsAsync(roleName);
-        if (!roleExist)
-        {
-            _logger.LogInformation($"The role {roleName} does not existed!.");
-            return BadRequest(new
-            {
-                error = "Role does not exist."
-            });
-        }
-        var result = await _userManager.AddToRoleAsync(user, roleName);
-        // check if the user is assign to the role successfully
-        if (result.Succeeded)
-        {
-            return Ok(new
-            {
-                result = "Success!."
-            });
-        }
-        else
-        {
-            _logger.LogInformation($"The user was not be able to add to role.");
-            return BadRequest(new
-            {
-                error = "The user was not be able to add to role."
-            });
-        }
-    }
-
-    // [HttpGet("GetUserRole")]
-    [HttpGet]
-    [Route("GetUserRole")]
-    public async Task<IActionResult> GetUserRoles(string email)
-    {
-        //check if email valid
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)
-        {
-            _logger.LogInformation($"The use with the {email} does not exist!.");
-            return BadRequest(new
-            {
-                error = "User does not exist!."
-            });
-        }
-
-        //return the role
-        var roles = await _userManager.GetRolesAsync(user);
-        return Ok(roles);
-    }
-
-    [HttpPost("RemoveUserFromRole")]
-    public async Task<IActionResult> RemoveUserFromRole(string email, string roleName)
-    {
-        // user exist
-        var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)// User does not exist
-        {
-            _logger.LogInformation($"The user with the {email} does not exist!.");
-            return BadRequest(new
-            {
-                error = "User does not exist."
-            });
-        }
-        // role exist
-        var roleExisted = await _roleManager.RoleExistsAsync(roleName);
-        if (!roleExisted)//checks on the role exist status
-        {
-            _logger.LogInformation($"");
-            return BadRequest(new
-            {
-                error = "Role does not exist!."
-            });
-        }
-        var result = await _userManager.RemoveFromRoleAsync(user, roleName);
-        if (result.Succeeded)
-        {
-            return Ok(new
-            {
-                result = $"User {email} has been removed from role {roleName}"
-            });
-        }
-        return BadRequest(new
-        {
-            error = $"Unable to remove user{email} from role {roleName}."
-        });
-    }
-
 
     [HttpGet("all_roles")]
     public async Task<IActionResult> GetAllRoles()
     {
-        return Ok(await _roleManager.Roles.ToListAsync());
-
-
-        // var roles = await _roleManager.Roles.Where(r => r.Name != "Admin").Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name
-        // }).ToListAsync();
-        // var roles = await _roleManager.Roles.Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name
-        // }).ToListAsync();
-        // return Ok(roles);
-
-    }
-
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<RoleResponse>>> GetRoles()
-    {
-
-        var roleUserCounts = await _context.UserRoles
-           .GroupBy(ur => ur.RoleId)
-           .Select(g => new { RoleId = g.Key, UserCount = g.Count() })
-           .ToDictionaryAsync(x => x.RoleId, x => x.UserCount);
-
-        var roles = await _roleManager.Roles.Select(r => new RoleResponse
-        {
-            Id = r.Id,
-            Name = r.Name,
-            TotalUsers = roleUserCounts.ContainsKey(r.Id) ? roleUserCounts[r.Id] : 0
-        }).ToListAsync();
-
+        var roles = await _roleManager.Roles
+            // Force explicit lowercase property names so React maps them correctly!
+            .Select(r => new { id = r.Id, name = r.Name })
+            .ToListAsync();
         return Ok(roles);
-
-        // // list of user with total user count
-        // var userCount = (await _userManager.Users.ToListAsync()).Count;
-
-        // var roles = await _roleManager.Roles.Select(r => new RoleResponse
-        // {
-        //     Id = r.Id,
-        //     Name = r.Name,
-        //     TotalUsers = userCount
-        // }).ToListAsync();
-        // return Ok(roles);
     }
 
-    [HttpDelete]
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetRoleDetails(string id)
+    {
+        try
+        {
+            var role = await _roleManager.FindByIdAsync(id);
+            
+            // Fallback: If the frontend accidentally sends the role Name instead of the ID
+            if (role == null) role = await _roleManager.FindByNameAsync(id);
+            
+            if (role == null) return NotFound(new { title = "Role not found." });
+
+            var claims = await _roleManager.GetClaimsAsync(role);
+            var permissions = claims
+                .Where(c => c.Type == Permissions.ClaimType)
+                .Select(c => c.Value)
+                .ToList();
+
+            return Ok(new { id = role.Id, name = role.Name, permissions = permissions });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { title = "Server error: " + ex.Message });
+        }
+    }
+
+    public class RoleDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<string> Permissions { get; set; } = new();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateRole([FromBody] RoleDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { title = "Role name is required." });
+
+        if (await _roleManager.RoleExistsAsync(request.Name))
+            return BadRequest(new { title = "Role already exists." });
+
+        var role = new AppRole { Name = request.Name };
+        var result = await _roleManager.CreateAsync(role);
+
+        if (!result.Succeeded)
+            return BadRequest(new { title = "Failed to create role.", errors = result.Errors.Select(e => e.Description) });
+
+        foreach (var permission in request.Permissions)
+        {
+            await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, permission));
+        }
+
+        return Ok(new { message = "Role created successfully." });
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateRole(string id, [FromBody] RoleDto request)
+    {
+        var role = await _roleManager.FindByIdAsync(id);
+        if (role == null) return NotFound(new { title = "Role not found." });
+
+        role.Name = request.Name;
+        var result = await _roleManager.UpdateAsync(role);
+
+        if (!result.Succeeded)
+            return BadRequest(new { title = "Failed to update role.", errors = result.Errors.Select(e => e.Description) });
+
+        // 1. Get existing permissions
+        var existingClaims = await _roleManager.GetClaimsAsync(role);
+        var existingPermissions = existingClaims.Where(c => c.Type == Permissions.ClaimType).ToList();
+
+        // 2. Figure out what to add and what to remove
+        var permissionsToRemove = existingPermissions.Where(c => !request.Permissions.Contains(c.Value)).ToList();
+        var permissionsToAdd = request.Permissions.Where(p => !existingPermissions.Any(c => c.Value == p)).ToList();
+
+        // 3. Apply changes to database
+        foreach (var claim in permissionsToRemove)
+            await _roleManager.RemoveClaimAsync(role, claim);
+
+        foreach (var permission in permissionsToAdd)
+            await _roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, permission));
+
+        return Ok(new { message = "Role updated successfully." });
+    }
+
+    [HttpDelete("{id}")]
     public async Task<IActionResult> DeleteRole(string id)
     {
         var role = await _roleManager.FindByIdAsync(id);
+        if (role == null) return NotFound(new { title = "Role not found." });
 
-        if (role is null)
-            NotFound("Role not found!.");
+        // Prevent deleting essential system roles
+        if (role.Name == "Admin" || role.Name == "User")
+            return BadRequest(new { title = "Cannot delete core system roles." });
 
         var result = await _roleManager.DeleteAsync(role);
+        if (!result.Succeeded)
+            return BadRequest(new { title = "Failed to delete role.", errors = result.Errors.Select(e => e.Description) });
 
-        if (result.Succeeded)
-            Ok(new { message = "Role delete successfully!" });
-
-        return BadRequest("Role deletion failed");
-
-
-
+        return Ok(new { message = "Role deleted successfully." });
     }
-
-
 }

@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using SchoolAPI.Constant;
 using SchoolAPI.DTOs;
 using SchoolAPI.Services;
 
 namespace SchoolAPI.Controllers
 {
-    // [Route("api/[controller]")]
-    // [ApiController]
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize(Policy = Permissions.OutreachRead)]
     public class OutReachController : ControllerBase
     {
         public ClassService _service;
@@ -21,6 +24,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachDto">Outreach details.</param>
         /// <returns>The created outreach record.</returns>
         [HttpPost("outreach")]
+        [Authorize(Policy = Permissions.OutreachCreate)]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateOutReach([FromBody] OutReachDto outReachDto)
@@ -75,6 +79,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachDto">Updated outreach details.</param>
         /// <returns>Success message or error if update fails.</returns>
         [HttpPut("outreach/{outReachId}")]
+        [Authorize(Policy = Permissions.OutreachUpdate)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -96,6 +101,7 @@ namespace SchoolAPI.Controllers
         /// <param name="outReachId">The ID of the outreach record.</param>
         /// <returns>Success message or error if deletion fails.</returns>
         [HttpDelete("outreach/{outReachId}")]
+        [Authorize(Policy = Permissions.OutreachDelete)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> DeleteOutReach(Guid outReachId)
@@ -107,6 +113,27 @@ namespace SchoolAPI.Controllers
 
             var success = await _service.DeleteOutReachAsync(outReachId);
             return success ? Ok("Outreach deleted successfully.") : NotFound("Outreach not found.");
+        }
+
+        /// <summary>
+        /// Uploads outreach worker image.
+        /// </summary>
+        /// <param name="outReachId">The ID of the outreach record.</param>
+        /// <param name="file">Image file.</param>
+        /// <returns>Updated outreach with image URL.</returns>
+        [HttpPost("outreach/{outReachId}/image")]
+        [Authorize(Policy = Permissions.OutreachUpdate)]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> UploadOutReachImage(Guid outReachId, IFormFile file)
+        {
+            if (outReachId == Guid.Empty)
+                return BadRequest("Invalid outreach ID.");
+            if (file == null || file.Length == 0)
+                return BadRequest("No file provided.");
+
+            var result = await _service.UploadOutReachImageAsync(outReachId, file);
+            return result != null ? Ok(result) : NotFound("Outreach not found.");
         }
 
     }

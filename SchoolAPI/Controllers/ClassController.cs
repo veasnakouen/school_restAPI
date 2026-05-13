@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OfficeOpenXml;
+using SchoolAPI.Constant;
 using SchoolAPI.Data;
 using SchoolAPI.DTOs;
 using SchoolAPI.Entities;
@@ -10,6 +11,7 @@ using SchoolAPI.Services;
 
 namespace SchoolAPI.Controllers;
 
+[Authorize(Policy = Permissions.ClassRead)]
 public class ClassController : BaseController
 {
 
@@ -22,6 +24,7 @@ public class ClassController : BaseController
     }
 
     [HttpPost("classes")]
+    [Authorize(Policy = Permissions.ClassCreate)]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     // public async Task<ActionResult<Guid>> CreateClass(CreateClassCommand command) //[FromBody] ClassDto classDto
@@ -33,7 +36,7 @@ public class ClassController : BaseController
 
             var createdClassId = createdClass.Id;
             return CreatedAtAction(nameof(GetClass), new { classId = createdClass.Id }, createdClass);
-            // Using  CQRS : example 
+            // Using  CQRS : example
             // var createdClass = await _service.GetClassAsync(createdClassId);
             // var createdClassId = await _sender.Send(command);
             // return Ok(createdClassId);
@@ -60,24 +63,20 @@ public class ClassController : BaseController
 
     [HttpGet("classes")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetAllClasses()
+    public async Task<IActionResult> GetAllClasses(
+        [FromQuery] string? filterOn = null,
+        [FromQuery] string? filterQuery = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool isAscending = true,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 10)
     {
-        var classes = await _service.GetAllClassesAsync();
-        return Ok(classes);
-    }
-
-    // with IEnumerable<ClassDto>
-    [HttpGet("allClasses")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = "Admin")]
-    public async Task<IActionResult> GetClasses([FromQuery] string? filterOn, [FromQuery] string? filterQuery)
-    {
-        var classes = await _service.GetAllClasses();
+        var classes = await _service.GetAllClasses(filterOn, filterQuery, sortBy, isAscending, pageNumber, pageSize);
         return Ok(classes);
     }
 
     [HttpPut("classes/{classId}")]
+    [Authorize(Policy = Permissions.ClassUpdate)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -94,21 +93,20 @@ public class ClassController : BaseController
 
 
     [HttpDelete("classes/{classId}")]
+    [Authorize(Policy = Permissions.ClassDelete)]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    // [Authorize(Roles ="Teacher")]
     public async Task<IActionResult> DeleteClass(Guid classId)
     {
-
-        var existingClass = await _service.GetClassAsync(classId);
-
         if (classId == Guid.Empty)
         {
             return BadRequest("Invalid class room ID.");
         }
+
+        var existingClass = await _service.GetClassAsync(classId);
         if (existingClass == null)
         {
-            throw new NullReferenceException("Class Room not found.");
+            return NotFound("Class Room not found.");
         }
 
         var success = await _service.DeleteClassAsync(classId);

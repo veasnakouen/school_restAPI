@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0.200-preview As build
+WORKDIR /app
+
+COPY Carties.slm ./
+COPY src/Authentication/Authentication.csproj ./src/Authentication/
+COPY src/Cart/Cart.csproj ./src/Cart/
+
+RUN dotnet restore ./src/Authentication/Authentication.csproj
+
+COPY . .
+RUN dotnet publish ./src/AuthentService/AuctionService.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.200-preview AS runtime
+WORKDIR /app
+EXPOSE 80
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "AuctionService.dll"]

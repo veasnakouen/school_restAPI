@@ -1,4 +1,11 @@
 namespace SchoolAPI.DTOs;
+
+public class EnrollStudentRequest
+{
+    public Guid StudentId { get; set; }
+    public Guid ClassId { get; set; }
+}
+
 //for response and data transfer
 public class EnrollmentDto
 {

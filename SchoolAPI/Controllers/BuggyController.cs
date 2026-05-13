@@ -1,10 +1,9 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using SchoolAPI.Entities;
 
 namespace SchoolAPI.Controllers;
-
-
-
 
 public class BuggyController : BaseController
 {
@@ -25,6 +24,19 @@ public class BuggyController : BaseController
     public ActionResult GetBadRequest()
     {
         return BadRequest("This was not a good request");
+    }
+
+    [HttpGet("unauthorized")]
+    public IActionResult GetUnauthorized()
+    {
+        return Unauthorized();
+    }
+    [HttpGet("validation-error")]
+    public IActionResult GetValidationError()
+    {
+        ModelState.AddModelError("Problems1","This is the first Error"); 
+        ModelState.AddModelError("Problem2","This is the second errors."); 
+        return ValidationProblem();
     }
 
 }

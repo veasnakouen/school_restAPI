@@ -11,21 +11,6 @@ public static class ServiceCollectionsExtensions
     {
         // Register your services here
         services.AddScoped<ClassService>();
-        // services.AddScoped<QrcodeService>();
-        services.AddControllersWithViews();
-        services.AddControllers();
-        services.AddRazorPages();
-        services.AddEndpointsApiExplorer();
-        services.AddOpenApi();
-        services.AddHttpContextAccessor();
-        services.AddProblemDetails();
-        services.AddAutoMapper(typeof(MappingProfile));
-
-        services.Configure<ForwardedHeadersOptions>(options =>
-       {
-           options.ForwardedHeaders =
-               ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-       });
         services.AddControllers()
          .AddJsonOptions(options =>
              {
@@ -43,11 +28,16 @@ public static class ServiceCollectionsExtensions
                      .JsonSerializerOptions
                      .DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
              });
+        services.AddRazorPages();
+        services.AddHttpContextAccessor();
+        services.AddProblemDetails();
+        services.AddAutoMapper(cfg => { }, typeof(MappingProfile).Assembly);
 
-       
-       
-        
-
+        services.Configure<ForwardedHeadersOptions>(options =>
+       {
+           options.ForwardedHeaders =
+               ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+       });
 
         return services;
     }

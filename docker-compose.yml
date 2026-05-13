@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-SchoolDb}
+      - POSTGRES_USER=${DB_USER:-schooluser}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-schoolpass123}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./SchoolApi
+      dockerfile: Dockerfile
+    ports:
+      - "5001:8080" # Maps port 5001 on your host to 8080 in the container
+    depends_on:
+      - db
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${DB_NAME:-SchoolDb};Username=${DB_USER:-schooluser};Password=${DB_PASSWORD:-schoolpass123};
+
+  frontend:
+    build:
+      context: ./SchoolReac
+      dockerfile: Dockerfile
+    ports:
+      - "80:80" # Map production port 80 directly to Nginx
+    depends_on:
+      - backend
+    environment:
+      - REACT_APP_API_URL=/api
+
+volumes:
+  pgdata:

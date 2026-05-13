@@ -1,5 +1,7 @@
 using System.Text;
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -7,33 +9,33 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SchoolAPI.Contracts;
+using SchoolAPI.Authorization;
 using SchoolAPI.Data;
 using SchoolAPI.Entities;
 using SchoolAPI.Helpers;
 using SchoolAPI.Interfaces;
-using SchoolAPI.RequestHelper;
 using SchoolAPI.Services;
+using SchoolAPI.Services.Reporting;
+using System.Security.Claims;
+using System.Threading.RateLimiting;
+using SchoolAPI.Services.Jobs;
 
 namespace SchoolAPI.Extensions
 {
     // collection of services to be added to the DI container  
     public static class ServiceCollectionExtensions
     {
+        private const string BearerScheme = "Bearer";
+
         // 🔧 Add Database/DbContext :register the connection string 
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
         {
-
-            var connectionString = configuration.GetConnectionString("DefaultConnectionString");
-            services.AddControllers();
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
             services.AddDbContext<SchoolDbContext>(options =>
-                //  Use with sqlServer
-                // options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"),
-                //                     b => b.MigrationsAssembly("SchoolAPI"))
-                // options.UseSqlite("");
                 options.UseNpgsql(connectionString)
                 );
-
-            var info = Path.Combine("Data", "SchoolDatabase.db");
+            // Register IApplicationDbContext
+            services.AddScoped<SchoolAPI.Application.Common.Interfaces.IApplicationDbContext, SchoolDbContext>();
 
             return services;
         }
@@ -41,8 +43,7 @@ namespace SchoolAPI.Extensions
         // auto mapper
         public static IServiceCollection AddAutoMapper(this IServiceCollection service)
         {
-            // service.AddAutoMapper(typeof(MappingProfile));
-            service.AddAutoMapper(typeof(Program));
+            service.AddAutoMapper(cfg => { }, typeof(Program).Assembly);
             return service;
         }
 
@@ -53,43 +54,33 @@ namespace SchoolAPI.Extensions
             {
                 option.AddPolicy(name: "CorePolicy", builder =>
                 {
-                    builder.WithOrigins("*")
-                    .AllowAnyOrigin()
+                    builder.AllowAnyOrigin()
                     .AllowAnyMethod()
                     .AllowAnyHeader();
                 });
             });
         }
 
-
-
-        //🔧 inject identityCore package in middleware 
-        // TODO : Do more checking on this point 
         public static IServiceCollection AddIdentityCore(this IServiceCollection service, IConfiguration configuration)
         {
             service.AddIdentityCore<AppUser>(
                 opt =>
                 {
-                    // these are 
                     opt.Password.RequireDigit = true;
-                    // options.Password.RequireUppercase = false;
-                    // options.Password.RequireLowercase = false;
                     opt.Password.RequireNonAlphanumeric = false;
                     opt.Password.RequiredUniqueChars = 1;
                     opt.Password.RequiredLength = 6;
-
                     opt.User.RequireUniqueEmail = true;
                     opt.SignIn.RequireConfirmedEmail = false;
                 }
             )
-
             .AddRoles<IdentityRole>()
             .AddRoleManager<RoleManager<IdentityRole>>()
             .AddEntityFrameworkStores<SchoolDbContext>()
             .AddDefaultTokenProviders()
             .AddRoleValidator<RoleManager<IdentityRole>>()
             .AddTokenProvider<DataProtectorTokenProvider<AppUser>>("SchoolAPI")
-            .AddEntityFrameworkStores<SchoolDbContext>(); //"SchoolAPI" is provider's name
+            .AddEntityFrameworkStores<SchoolDbContext>();
             return service;
         }
 
@@ -121,7 +112,6 @@ namespace SchoolAPI.Extensions
                     options.Lockout.AllowedForNewUsers = true;
 
                     // Account settings
-                    // options.Account.RequireUniqueEmail = true;
                 })
                 .AddEntityFrameworkStores<SchoolDbContext>()
                 .AddDefaultTokenProviders()
@@ -133,56 +123,30 @@ namespace SchoolAPI.Extensions
             return services;
         }
 
-
         //  Add JWT Authentication
         public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
         {
             services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
-            // services.Configure<IdentityOptions>(opt =>
-            // {
-            //     opt.Password.RequireDigit = true;
-            //     opt.Password.RequireLowercase = true;
-            //     opt.Password.RequireNonAlphanumeric = false;
-            //     opt.Password.RequireUppercase = true;
-            //     opt.Password.RequiredLength = 6;
-            //     opt.Password.RequiredUniqueChars = 1;
 
-            //     opt.User.AllowedUserNameCharacters =
-            //     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-            //     opt.User.RequireUniqueEmail = true;
-            //     opt.SignIn.RequireConfirmedEmail = false;
-
-            //     opt.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-            //     opt.Lockout.MaxFailedAccessAttempts = 5;    
-            //     opt.Lockout.AllowedForNewUsers = true;
-
-
-            // });
-
-            // read/access to appSettings.json 
             var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>();
             if (string.IsNullOrEmpty(jwtSettings?.Secret))
                 throw new InvalidOperationException("JWT Secret is missing.");
 
             services.AddScoped<ITokenService, TokenService>();
-            // Token with Nailcummgin  tutorial
-            services.AddScoped<ITokenServices, TokenServices>();
-            // services.AddScoped<JwtHandler>();
 
             services.AddAuthentication(options =>
             {
                 options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
                 options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                // options.DefaultScheme=
             })
-            // .AddJwtBearer(options =>
-            .AddJwtBearer("Bearer", options =>
+            .AddJwtBearer(BearerScheme, options =>
             {
-                // var key = Encoding.UTF8.GetBytes(configuration.GetSection("JwtSettings:Secret").Value!);
-                // string issuer = configuration.GetSection("JwtSettings:Issuer").Value!;
-                // string audience = configuration.GetSection("JwtSettings:Audience").Value!;
+                var isDevelopment = string.Equals(
+                    configuration["ASPNETCORE_ENVIRONMENT"],
+                    "Development",
+                    StringComparison.OrdinalIgnoreCase);
 
-                options.RequireHttpsMetadata = false;
+                options.RequireHttpsMetadata = !isDevelopment;
                 options.SaveToken = false;
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
@@ -194,40 +158,16 @@ namespace SchoolAPI.Extensions
                     ValidAudience = jwtSettings.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Secret))
                 };
-
-                // options.Events = new JwtBearerEvents
-                // {
-                //     OnChallenge = context =>
-                //     {
-                //         context.HandleResponse();
-                //         context.Response.StatusCode = 401;
-                //         context.Response.ContentType = "application/json";
-                //         var result = System.Text.Json.JsonSerializer.Serialize(new
-                //         {
-                //             message = "You are not authorized to access this resource, Please do authentication."
-                //         });
-                //         return context.Response.WriteAsync(result);
-                //     }
-                // };
-
             });
-            // additional
+
             services.AddAuthorization(options =>
             {
-                options.FallbackPolicy = new AuthorizationPolicyBuilder()
-                    .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-                    .RequireAuthenticatedUser()
-                    .Build();
+                options.FallbackPolicy = null;
             });
 
+            services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+            services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
-            // Todo : Policy based authorization
-            // services.AddAuthorization(options => {
-            //     options.AddPolicy("Administrator", policy => policy.RequireRole("Administrator"));
-            //     options.AddPolicy("AdminAndPowerUser", policy => policy.RequireRole("Administrator", "PowerUser"));
-            //     options.AddPolicy("EmployeeWithMoreThan20Years", policy => policy.AddRequirements.Add(new EmployeeMoreThan20YearsRequirement(20)));
-            //     options.AddPolicy("User", policy => policy.RequireRole("User"));
-            // });
             services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
             return services;
         }
@@ -236,68 +176,153 @@ namespace SchoolAPI.Extensions
         // 🔧 Add Application Services (logging, etc.)
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
-            services.AddControllers();
             services.AddEndpointsApiExplorer();
+            
+            // Register application services
+            services.AddScoped<IPhotoService, PhotoService>();
+            services.AddScoped<SchoolAPI.Services.ICurrentUserService, CurrentUserService>();
+            services.AddSingleton<ICacheStore, RedisCacheStore>();
+            services.AddSingleton<ICacheVersionService, CacheVersionService>();
+            services.AddScoped<IAssessmentRequestReportService, AssessmentRequestReportService>();
+            services.AddScoped<IStudentAssessmentRequestReportService, StudentAssessmentRequestReportService>();
+            services.AddScoped<IMonthlyTransactionReportService, MonthlyTransactionReportService>();
+            services.AddScoped<IMonthlyTransactionReportJob, MonthlyTransactionReportJob>();
+            services.AddScoped<ImageCleanupJob>();
+            
             return services;
+        }
+
+        public static IServiceCollection AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException("Default connection string is missing. Hangfire requires a PostgreSQL connection string.");
+            }
+
+            services.AddHangfire(config =>
+            {
+                config.UseSimpleAssemblyNameTypeSerializer();
+                config.UseRecommendedSerializerSettings();
+                config.UsePostgreSqlStorage(storageOptions => storageOptions.UseNpgsqlConnection(connectionString));
+            });
+
+            services.AddHangfireServer();
+            return services;
+        }
+
+        // 🔧 Rate limiting
+        public static IServiceCollection AddRateLimiting(this IServiceCollection services)
+        {
+            services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+                options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 300,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.AddPolicy("auth", httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.AddPolicy("report", httpContext =>
+                {
+                    var partitionKey = GetRateLimitPartitionKey(httpContext);
+                    return RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey,
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 2,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        });
+                });
+
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.Headers.RetryAfter = "60";
+                    context.HttpContext.Response.ContentType = "application/json";
+                    await context.HttpContext.Response.WriteAsJsonAsync(
+                        new { error = "Too many requests. Please try again later." },
+                        cancellationToken);
+                };
+            });
+            return services;
+        }   
+
+        private static string GetRateLimitPartitionKey(HttpContext httpContext)
+        {
+            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrWhiteSpace(userId))
+            {
+                return $"user:{userId}";
+            }
+
+            var remoteIpAddress = httpContext.Connection.RemoteIpAddress?.ToString();
+            if (!string.IsNullOrWhiteSpace(remoteIpAddress))
+            {
+                return $"ip:{remoteIpAddress}";
+            }
+
+            return "ip:unknown";
         }
 
 
         // 🔧 Add Swagger
         public static IServiceCollection AddSwagger(this IServiceCollection services)
         {
-            services.AddSwaggerGen(c =>
+            try
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v2" });
-                // c.AddSecurityDefinition(JwtBearerDefaults.AuthenticationScheme, new OpenApiSecurityScheme
-                c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                services.AddSwaggerGen(c =>
                 {
-                    In = ParameterLocation.Header,
-                    Description = "Please enter token with Bearer",
-                    Name = "Authorization",
-                    Type = SecuritySchemeType.Http,
-                    BearerFormat = "JWT",
-                    Scheme = "bearer"
+                    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
                 });
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            },
-                            Scheme = "auth2",
-                            Name="Bearer",
-                            In=ParameterLocation.Header,
-                        },
-                        Array.Empty<string>()
-                    }
-                });
-                c.AddServer(new OpenApiServer
-                {
-                    Url = "http://localhost:5001",
-                    Description = "Development Server"
-                });
-            });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SWAGGER ERROR] {ex.Message}");
+                throw;
+            }
 
             return services;
         }
-
 
         //   Add MediatR
         public static IServiceCollection AddMediatR(this IServiceCollection services, IConfiguration configure)
         {
-            services.AddMediatR(configuration => configuration.RegisterServicesFromAssembly(typeof(Program).Assembly));
+            services.AddMediatR(configuration => 
+                configuration.RegisterServicesFromAssemblies(
+                    typeof(SchoolAPI.Application.Features.Classes.GetById.GetClassByIdQuery).Assembly
+                ));
             return services;
         }
 
         // ReadExcel File Service
-        public static IServiceCollection AddEpplus(this IServiceCollection service)
+        public static IServiceCollection ConfigureEpplus(this IServiceCollection service)
         {
-            // TODO : do checking more for configure and using EPPLUS in asp.net core web api for read file from excel 
-            service.AddEpplus();
+            OfficeOpenXml.ExcelPackage.License.SetNonCommercialPersonal("SchoolAPI");
             return service;
         }
 

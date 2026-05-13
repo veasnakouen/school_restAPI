@@ -14,7 +14,7 @@ namespace SchoolAPI.Exceptions
 
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
         {
-            _logger.LogError(exception, exception.Message);
+            _logger.LogError(exception, "Unhandled exception occurred: {Message}", exception.Message);
 
             var response = new ErrorResponse
             {

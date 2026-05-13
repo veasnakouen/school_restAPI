@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>IMS</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/x-icon" href="mt_logo.png">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        document.documentElement.style.setProperty(
+          'color-scheme',
+          ['dark','synthwave','halloween','forest','aqua','black','luxury','dracula','business','night','coffee','dim','sunset'].indexOf(t) !== -1
+            ? 'dark' : 'light'
+        );
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+</body>
+</html>

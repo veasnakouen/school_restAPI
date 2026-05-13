@@ -1,36 +1,49 @@
-using Scalar.AspNetCore;
+
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.OpenApi.Models;
+using SchoolAPI.Authorization;
+using SchoolAPI.Data;
+using Hangfire;
 using schoolAPI.Extensions;
 using SchoolAPI.Contracts;
 using SchoolAPI.Extensions;
-using SchoolAPI.Helpers;
-using SchoolAPI.Interfaces;
 using SchoolAPI.Middleware;
+using SchoolAPI.Services.Reporting;
+using SchoolAPI.Helpers;
 using SchoolAPI.Services;
 using Serilog;
+using Microsoft.AspNetCore.HttpOverrides;
+using QuestPDF.Infrastructure;
+using SchoolAPI.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// JwtSettings profile in appSettings.json file
-// var connectionString = builder.Configuration.GetConnectionString("DefaultConnectionString");
 
 
+// Register PermissionHandler for policy-based authorization
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionHandler>();
+
+// Register all services (including DbContext) before seeding and policy registration
+
+
+
+
+// Load secrets.json for local development (contains credentials, never commit to source control)
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddJsonFile("secrets.json", optional: true, reloadOnChange: false);
+}
 
 // Add services to the container.
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("JwtSettings"));
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-if (string.IsNullOrEmpty(jwtSettings.Secret))
+if (string.IsNullOrEmpty(jwtSettings?.Secret))
 {
-    throw new InvalidCastException("JWT SecretKey is missing. Please check 'JwtSettings:Key' in configuration.");
+    throw new InvalidOperationException("JWT SecretKey is missing. Please check 'JwtSettings:Secret' in configuration.");
 }
 
-// CQRS
-// builder.Services.AddMediatR(configuration=>configuration.RegisterServicesFromAssembly(typeof(Program).Assembly));
-
-//builder.Services.ConfigureHttpJsonOptions(options =>
-// {
-//     options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
-// });
 
 #region Serilog comments
 var logger = new LoggerConfiguration()
@@ -47,254 +60,186 @@ builder.Logging
 
 #endregion
 
-builder.Services.AddScoped<ClassService>();
-builder.Services.AddScoped<IPhotoService, PhotoService>();
-
-#region Angular
-// builder.Services.AddSpaStaticFile(configuration=>{
-//     configuration.RootPath = "ClientApp/dist";
-// });
-#endregion Angular
-
-#region some removable code comments
-// builder.Services.AddControllers(options => options.Filters.Add(new ValidateModelAttribute()));
-// builder.Services.AddTransient<CustomMiddleware>();
-
-// builder.Services.AddOpenApi();
-// Adding Database context
-// builder.Services.AddDbContext<SchoolDbContext>(opt => opt.UseNpgsql(connectionString));
-
-// From ApplicationServices.cs
-// builder.Services.AddHttpContextAccessor();
-// builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-// builder.Services.AddProblemDetails();
-
-// Add Identity
-// builder.Services.AddIdentity<AppUser, IdentityRole>()
-//     .AddEntityFrameworkStores<SchoolDbContext>()
-//     .AddDefaultTokenProviders();
-
-// secure api endpoints
-// builder.Services.AddIdentityApiEndpoints<AppUser>()
-//     .AddEntityFrameworkStores<SchoolDbContext>();
-#endregion
-#region registering some separate services from ServiceCollection.cs,
-builder.Services
-    .AddApplicationServices()
-    .AddIdentityServices(builder.Configuration)
-    .AddJwtAuthentication(builder.Configuration)
-    .AddDatabase(builder.Configuration)
-    .AddMediatR(builder.Configuration)
-    .AddFluentValidation()
-    // .AddAutoMapper()
-    .AddSwagger();
-#endregion
-
-// Add ASP.NET Core Identity API Endpoints (provides all built-in Identity features)
-// builder.Services.AddIdentityApiEndpoints<AppUser>()
-//     .AddRoles<AppRole>()
-//     .AddEntityFrameworkStores<SchoolDbContext>();
+QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddServices();
-#region some optional code
-//Register AutoMapper
-// builder.Services.AddAutoMapper(typeof(Program).Assembly);
-// builder.Services.AddAutoMapper(typeof(MappingProfile));
 
-// builder.Services.AddAuthentication(opt =>
-// {
-//     opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-//     opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-//     opt.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-// }).AddJwtBearer(opt =>
-//     {
-//         opt.SaveToken = true;
-//         opt.RequireHttpsMetadata = true;
-//         opt.TokenValidationParameters = new TokenValidationParameters
-//         {
-//             ValidateIssuer = true,
-//             ValidateAudience = true,
-//             ValidateLifetime = true,
-//             ValidateIssuerSigningKey = true,
-//             ValidAudience = JWTSetting["validAudience"],
-//             ValidIssuer = JWTSetting["validAudience"],
-//             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(JWTSetting.GetSection("SecurityKey").Value!))
-//         };
-//     });
-
-// 🔥Internal configure IdentityRoles 
-// builder.services.AddIdentityRoles<AppUser, IdentityRole>(
-//     option =>
-//     {
-//         option.Password.Required = true;
-//         option.Password.RequiredLowerCase = true;
-//         option.Password.RequiredUpperCase = true;
-//         option.Password.RequiredNAlphanumeric = true;
-//         option.Password.RequiredLength = 12;
-
-//     })
-//     .AddEntityFrameworkStores<SchoolDbContext>();
-
-// internal configure JwtBearer
-// builder.Services.AddAuthentication(option=>
-// {
-//     option.DefaultAuthenticateScheme =
-//     option.DefaultChallengeScheme =
-//     option.DefaultForbidScheme =
-//     option.DefaultScheme =
-//     option.DefaultSignInScheme =
-//     option.DefaultSignOutScheme = JwtBearerDefaults.AuthenticationScheme;
-// }).AddJwtBearer(option=>
-//     {option.TokenValidationParameters
-//         {
-//             ValidateIssuer = true;
-//             ValidIssuer = builder.Configuration["JwtSettings:Issuer"];
-//             ValidateAudience = true;
-//             ValidAudience = TagStructure.configuration["JwtSettings:Audience"];
-//             ValidateIssuersigningKey = true;
-//             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Secret"]!));
-
-
-//         }
-//     }); 
-#endregion
-#region Additional services comments
-// Adding Jwt from extension method (our on custom method)
-builder.Services.ConfigureIdentity();
-builder.Services.ConfigureCors();
-// builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
-// builder.Services.ConfigureJwt(builder.Configuration);
-
-
-
-// builder.Services.AddAuthentication().AddBearerToken();
-// adding the authorization service from the asp.net core identity
-// builder.Services.AddIdentityApiEndpoints<AppUser>()
-// .AddEntityFrameworkStores<SchoolDbContext>();
-
-
-// builder.Services.AddEndpointsApiExplorer();
-// builder.Services.AddOpenApi();
-#endregion
-var app = builder.Build();
-// 🪧 Register middleware
-app.UseMiddleware<ExceptionMiddleware>();
-
-#region some comments
-//these lines for swagger with authentication, it will add the lock button on the top right corner
-// builder.Services.AddSwaggerGen(options=>
-//     {
-//         options.AddSecurityDefinition("Bearer", new OpenApiSecurityRequirement
-//         {
-//             Name = "Authorization",
-//             Type = SecuritySchemeType.Http,
-//             Scheme = "Bearer",
-//             BearerFormat = "JWT",
-//             In = ParameterLocation.Header,
-//             Description = "JWT Authorization header using the Bearer scheme.",
-//         });
-//         options.AddSecurityRequirement(new OpenApiSecurityRequirement
-//         {
-//             {
-//                 new OpenApiSecurityScheme
-//                 {
-//                     Reference = new OpenApiReference
-//                     {
-//                         Type = ReferenceType.SecurityScheme,
-//                         Id = "Bearer"
-//                     }
-//                 },
-//                 new string[] {}
-//                 // new List<string>();
-//             }
-//         });
-//     }
-// );
-
-
-//Seed Roles and admin,
-//from WebApplicationExtension.cs
-// await app.SeedDataAsync();
-#endregion 
-
-#region apps
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+builder.Services.AddCors(options =>
 {
+    options.AddPolicy("CorePolicy", policy =>
+    {
+        // Read the live frontend URL from Render's Environment Variables, fallback to localhost for dev
+        var frontendUrl = builder.Configuration["FrontendUrl"] ?? "http://localhost:3000";
 
-    // swagger only in development
-    app.UseSwagger();
-    app.UseSwaggerUI();
+        policy.WithOrigins(frontendUrl, "http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials(); // Critical: SignalR requires AllowCredentials!
+    });
+});
+builder.Services.ConfigureEpplus();
+builder.Services.AddRateLimiting();
 
-    // scalar UI
-    app.MapScalarApiReference();
-    // TODO: check some configure with scalar
-    app.MapOpenApi();
-}
+builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("CloudinarySettings"));
+builder.Services.AddScoped<IPhotoService, PhotoService>();
 
+// Register HttpContextAccessor and CurrentUserService so CQRS handlers can use them
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<SchoolAPI.Application.Common.Interfaces.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
+builder.Services.AddScoped<SchoolAPI.Services.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
 
-app.UseCors("CorePolicy");
+builder.Services.AddHangfireServices(builder.Configuration);
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    var redisConfiguration = builder.Configuration["Redis:Configuration"];
+    if (string.IsNullOrWhiteSpace(redisConfiguration))
+    {
+        throw new InvalidOperationException("Redis configuration is missing. Set 'Redis:Configuration' in configuration or user secrets.");
+    }
 
-// app.UseCors(x => x.AllowAnyHeader().AllowAnyMethod().WithOrigins("http://localhost:4200"));
-#region Angualr
-// app.UseSpa(spa => {
-//     spa.Options.SourcePth = "";
-//     if (app.Environment.IsDevelopment())
-//     {
-//         spa.UseAngularCliServer(npmScript: "serve");   
-//     }
-// });
-#endregion Angular
+    options.Configuration = redisConfiguration;
+    options.InstanceName = "SchoolAPI:";
+});
 
-app.UseHttpsRedirection();
+// Configure Output Caching to use Redis
+builder.Services.AddStackExchangeRedisOutputCache(options =>
+{
+    options.Configuration = builder.Configuration["Redis:Configuration"];
+    options.InstanceName = "SchoolAPI:OutputCache:";
+});
+builder.Services.AddOutputCache();
+
+// Enable response compression to significantly reduce JSON payload sizes over the network
+builder.Services.AddResponseCompression(options => {
+    options.EnableForHttps = true;
+});
+
+builder.Services.AddSignalR();
+
+// Configure Swagger FIRST before other services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "SchoolAPI", Version = "v1" });
+    
+    // Add JWT Bearer authentication
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token.",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+    
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+builder.Services.AddDatabase(builder.Configuration)
+        .AddIdentityServices(builder.Configuration)
+        .AddJwtAuthentication(builder.Configuration)
+        .AddApplicationServices()
+        .AddMediatR(builder.Configuration)
+        .AddFluentValidation();
+        // .AddSwagger(); // Removed - now using direct registration above
+
+// SignalR sends the JWT token in the query string for WebSockets
+// We need to extract it so the .NET backend can authorize the connection
+builder.Services.PostConfigureAll<JwtBearerOptions>(options =>
+{
+    var existingOnMessageReceived = options.Events?.OnMessageReceived;
+    options.Events ??= new JwtBearerEvents();
+    options.Events.OnMessageReceived = async context =>
+    {
+        if (existingOnMessageReceived != null)
+        {
+            await existingOnMessageReceived(context);
+        }
+
+        var accessToken = context.Request.Query["access_token"];
+        var path = context.HttpContext.Request.Path;
+
+        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+        {
+            // Read the token out of the query string
+            context.Token = accessToken;
+        }
+    };
+});
+
+var app = builder.Build();
+
+await DbInitializer.InitializeDatabaseAsync(app);
+
+app.UseForwardedHeaders();
+app.UseSwagger();
+app.UseSwaggerUI();
+
 app.UseRouting();
-app.UseExceptionHandler();
+app.UseCors("CorePolicy");
+app.UseResponseCompression();
+app.UseOutputCache();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
-
-app.Use(async (ctx, next) =>
-{
-    ctx.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    ctx.Response.Headers.Append("X-Frame-Options", "DENY");
-    ctx.Response.Headers.Append("X-Xss-Protection", "1; mode=block");
-    ctx.Response.Headers.Append("Strict-Transport-Security", "max-age=31536000"); // HSTS
-    await next();
-});
-//seem like to mapping 
-
+// Enforce maintenance mode for non-admins
+app.UseMiddleware<MaintenanceModeMiddleware>();
 
 app.MapControllers();
 
-// @Mr.Neil cumming do seeding data base on migration
-// using var scope = app.Services.CreateScope();
+app.MapHub<SchoolAPI.Hubs.DashboardHub>("/hubs/dashboard");
+app.MapHub<SchoolAPI.Hubs.ChatHub>("/hubs/chat");
+app.UseStaticFiles();
 
-// var services = scope.ServiceProvider;
-// try
-// {
-//     var context = services.GetRequiredService<SchoolAPI.Data.SchoolDbContext>();
-//     await context.Database.MigrateAsync();
-//     //todo: create a seed class within static method ("SeedUserAsync")
-//     // await Seed.SeedUserAsync(context);
-// }
-// catch (Exception ex)
-// {
-//     var customLogger = services.GetRequiredService<ILogger<Program>>();
-//     customLogger.LogError(ex, "An error occurred during migration");
-// }
-// style for using minimal API in asp.net core web Api dotnet 10
-// app.MapGet("/minimal-get", () =>
-// {
-//     throw new NotImplementedException();
-// }); 
-#region Testing with c#'s 
-// some c# Vs-Code short-Cut/ Commands
-//  dotnet add migration "Migration_Name"
-//  dotnet ef database update
-// Alt + F12 : Peeking in vs-Code
-// 
-#endregion
+// Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
+using (var scope = app.Services.CreateScope())
+{
+    try
+    {
+        var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
+        if (recurringJobManager != null)
+        {
+            recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
+                "monthly-transaction-report",
+                job => job.GeneratePreviousMonthReportAsync(),
+                Cron.Monthly());
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Could not initialize Hangfire recurring jobs.");
+    }
+}
 
-app.Run();
-// app.RunAsync();
-#endregion
+try
+{
+    await app.RunAsync();
+}
+catch (Exception ex)
+{
+    // Force the error to print directly to the synchronous error stream
+    Console.Error.WriteLine("\n========================================================");
+    Console.Error.WriteLine("❌ FATAL STARTUP ERROR DETECTED!");
+    Console.Error.WriteLine("========================================================");
+    Console.Error.WriteLine(ex.ToString());
+    Console.Error.WriteLine("========================================================\n");
+    
+    Log.CloseAndFlush(); // Ensure Serilog flushes its buffer to the console
+    await Task.Delay(2000); // Give Render's log drain 2 seconds to capture the output before the container dies
+    
+    throw;
+}

@@ -1,0 +1,151 @@
+.enhanced-admin {
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+.admin-header .icon {
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+}
+.admin-header h2 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+}
+.admin-header button.primary {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.admin-header button.primary:hover {
+  background: #1e40af;
+}
+
+.admin-table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 1rem;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+}
+.admin-table th, .admin-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+.admin-table th {
+  background: #f3f4f6;
+  font-weight: 600;
+}
+.admin-table tr:nth-child(even) {
+  background: #f9fafb;
+}
+.role-badge {
+  display: inline-block;
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 12px;
+  padding: 0.2rem 0.7rem;
+  margin-right: 0.3rem;
+  font-size: 0.95em;
+}
+.edit {
+  background: #fbbf24;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 0.3rem 0.8rem;
+  margin-right: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.edit:hover {
+  background: #f59e42;
+}
+.danger {
+  background: #ef4444;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.danger:hover {
+  background: #b91c1c;
+}
+.empty-message {
+  text-align: center;
+  color: #888;
+  padding: 2rem 0;
+}
+
+// Modal form styles
+.user-form-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.user-form-card {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  padding: 2rem 2.5rem;
+  min-width: 340px;
+  position: relative;
+  z-index: 1001;
+}
+.user-form-card h3 {
+  margin-top: 0;
+  margin-bottom: 1.2rem;
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+.form-group {
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+}
+.form-group label {
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+.form-group input {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  font-size: 1rem;
+}
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+.form-actions button {
+  min-width: 90px;
+}
+.modal-backdrop {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.18);
+  z-index: 1000;
+}
