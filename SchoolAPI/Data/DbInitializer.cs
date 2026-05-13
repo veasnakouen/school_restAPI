@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using SchoolAPI.Constant;
 using SchoolAPI.Entities;
+using System.Security.Claims;
 using System.Text.Json;
 
 namespace SchoolAPI.Data;
@@ -109,6 +110,33 @@ public static class DbInitializer
             {
                 var errors = string.Join(", ", result.Errors.Select(e => e.Description));
                 logger.LogWarning("Failed to create {Role} user. Reasons: {Errors}", role, errors);
+            }
+        }
+    }
+
+    private static async Task AssignRolePermissionsAsync(SchoolDbContext context, RoleManager<AppRole> roleManager)
+    {
+        var permissions = await context.Permissions.Select(p => p.Name).ToListAsync();
+
+        await EnsureRolePermissionsAsync(roleManager, "Admin", permissions);
+        await EnsureRolePermissionsAsync(roleManager, "SuperAdmin", permissions);
+        await EnsureRolePermissionsAsync(roleManager, "DataEntry", Permissions.GetDefaultPermissionsForRole("DataEntry"));
+        await EnsureRolePermissionsAsync(roleManager, "Teacher", Permissions.GetDefaultPermissionsForRole("Teacher"));
+        await EnsureRolePermissionsAsync(roleManager, "Inventory", Permissions.GetDefaultPermissionsForRole("Inventory"));
+        await EnsureRolePermissionsAsync(roleManager, "InventoryViewer", Permissions.GetDefaultPermissionsForRole("InventoryViewer"));
+    }
+
+    private static async Task EnsureRolePermissionsAsync(RoleManager<AppRole> roleManager, string roleName, IEnumerable<string> permissions)
+    {
+        var role = await roleManager.FindByNameAsync(roleName);
+        if (role == null) return;
+
+        var existingClaims = await roleManager.GetClaimsAsync(role);
+        foreach (var permission in permissions.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!existingClaims.Any(x => x.Type == Permissions.ClaimType && x.Value == permission))
+            {
+                await roleManager.AddClaimAsync(role, new Claim(Permissions.ClaimType, permission));
             }
         }
     }
