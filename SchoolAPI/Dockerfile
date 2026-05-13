@@ -19,7 +19,7 @@ WORKDIR /app
 ENV DOTNET_gcServer=0
 
 # Install native dependencies and default fonts required by QuestPDF (SkiaSharp) on Linux
-RUN apt-get update && apt-get install -y fontconfig libfontconfig1 fonts-liberation && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y fontconfig libfontconfig1 fonts-liberation libgdiplus libc6-dev libfreetype6 libexpat1 && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /app/publish .
 EXPOSE 8080

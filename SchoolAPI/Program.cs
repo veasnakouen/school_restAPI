@@ -241,5 +241,5 @@ catch (Exception ex)
     Log.CloseAndFlush(); // Ensure Serilog flushes its buffer to the console
     await Task.Delay(2000); // Give Render's log drain 2 seconds to capture the output before the container dies
     
-    throw;
+    Environment.Exit(1);
 }
