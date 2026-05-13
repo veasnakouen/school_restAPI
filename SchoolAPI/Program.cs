@@ -232,4 +232,5 @@ try
 catch (Exception ex)
 {
     app.Logger.LogCritical(ex, "\n❌ FATAL STARTUP ERROR: The application crashed. Please check your Database and Redis Environment Variables in Render!\n");
+    throw; // Re-throw the error so the server properly crashes and shows the stack trace
 }

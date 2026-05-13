@@ -52,3 +52,5 @@ SchoolAPI/secrets.json
 SchoolAPI/obj/Debug/net10.0/apphost.exe
 .gitignore
 SchoolAPI/obj/Debug/net10.0/apphost.exe
+render.yaml
+.gitignore
