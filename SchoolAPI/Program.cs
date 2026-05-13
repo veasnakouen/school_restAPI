@@ -231,6 +231,15 @@ try
 }
 catch (Exception ex)
 {
-    app.Logger.LogCritical(ex, "\n❌ FATAL STARTUP ERROR: The application crashed. Please check your Database and Redis Environment Variables in Render!\n");
-    throw; // Re-throw the error so the server properly crashes and shows the stack trace
+    // Force the error to print directly to the synchronous error stream
+    Console.Error.WriteLine("\n========================================================");
+    Console.Error.WriteLine("❌ FATAL STARTUP ERROR DETECTED!");
+    Console.Error.WriteLine("========================================================");
+    Console.Error.WriteLine(ex.ToString());
+    Console.Error.WriteLine("========================================================\n");
+    
+    Log.CloseAndFlush(); // Ensure Serilog flushes its buffer to the console
+    await Task.Delay(2000); // Give Render's log drain 2 seconds to capture the output before the container dies
+    
+    throw;
 }
