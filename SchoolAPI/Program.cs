@@ -68,7 +68,9 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("CorePolicy", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true) // Dynamically allow your React/Angular ports
+        // In production, replace this with your specific Netlify frontend URL
+        // For development, you can keep it more open or add multiple origins.
+        policy.WithOrigins("https://your-netlify-app-name.netlify.app", "http://localhost:3000")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials(); // Critical: SignalR requires AllowCredentials!

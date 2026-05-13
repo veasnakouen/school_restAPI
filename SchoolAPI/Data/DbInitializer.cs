@@ -25,10 +25,11 @@ public static class DbInitializer
             // WARNING: This completely deletes the database on startup to guarantee a clean slate.
             // Use this just once to fix the schema, then comment it out!
             // await context.Database.EnsureDeletedAsync();
-
-            // This automatically creates all tables based on your DbSets.
-            // You DO NOT need to run 'dotnet ef migrations add' while using EnsureCreatedAsync!
-            await context.Database.EnsureCreatedAsync();
+            
+            // In Production, we use MigrateAsync() to apply pending EF Core migrations.
+            // This ensures the database schema is always up-to-date with the code.
+            // In Development, EnsureCreatedAsync() can be faster if you don't use migrations.
+            await context.Database.MigrateAsync();
 
             // Call all your seeders sequentially
             await SeedPermissionsAsync(context);
