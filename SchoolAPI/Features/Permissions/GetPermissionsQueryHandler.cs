@@ -18,14 +18,16 @@ namespace SchoolAPI.Application.Features.Permissions.GetAll
 
         public async Task<Result<List<PermissionDto>>> Handle(GetPermissionsQuery request, CancellationToken cancellationToken)
         {
-            var permissions = await _context.Permissions.AsNoTracking().OrderBy(p => p.Name)
+            var dbPermissions = await _context.Permissions.AsNoTracking().OrderBy(p => p.Name).ToListAsync(cancellationToken);
+
+            var permissions = dbPermissions
                 .Select(p => new PermissionDto
                 {
                     Value = p.Name,
                     Type = p.Name.Contains('.') ? p.Name.Split('.')[0] : "general",
                     Description = CreateDescription(p.Name)
                 })
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return Result<List<PermissionDto>>.Success(permissions);
         }

@@ -297,10 +297,10 @@ public class DbInitialize
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // This error is not critical, as the row might just be empty.
-                // Console.WriteLine($"Info: Skipping lookup on Row {row.RowNumber()} - {ex.Message}");
+                // Console.WriteLine($"Info: Skipping lookup on Row {row.RowNumber()}");
             }
         }
 
