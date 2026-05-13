@@ -4,11 +4,8 @@ WORKDIR /src
 # Copy csproj and restore as distinct layers
 COPY *.csproj ./
 RUN dotnet restore
-
 # Copy everything else and build
 COPY . ./
-
-# Publish the application
 RUN dotnet publish -c Release -o /app/publish
 
 # Stage 2: Serve the application
