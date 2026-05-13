@@ -27,10 +27,35 @@ namespace SchoolAPI.Extensions
     {
         private const string BearerScheme = "Bearer";
 
+        private static string GetValidConnectionString(IConfiguration configuration)
+        {
+            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new InvalidOperationException("Default connection string is missing.");
+
+            // Convert Render's 'postgres://' URL into a standard ADO.NET connection string
+            if (connectionString.StartsWith("postgres://", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.StartsWith("postgresql://", StringComparison.OrdinalIgnoreCase))
+            {
+                var uri = new Uri(connectionString);
+                var userInfo = uri.UserInfo.Split(':');
+                
+                var host = uri.Host;
+                var port = uri.IsDefaultPort ? 5432 : uri.Port;
+                var database = uri.AbsolutePath.TrimStart('/');
+                var username = userInfo.Length > 0 ? userInfo[0] : "";
+                var password = userInfo.Length > 1 ? userInfo[1] : "";
+                
+                return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=True;";
+            }
+
+            return connectionString;
+        }
+
         // 🔧 Add Database/DbContext :register the connection string 
         public static IServiceCollection AddDatabase(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var connectionString = GetValidConnectionString(configuration);
             services.AddDbContext<SchoolDbContext>(options =>
                 options.UseNpgsql(connectionString)
                 );
@@ -194,11 +219,7 @@ namespace SchoolAPI.Extensions
 
         public static IServiceCollection AddHangfireServices(this IServiceCollection services, IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException("Default connection string is missing. Hangfire requires a PostgreSQL connection string.");
-            }
+            var connectionString = GetValidConnectionString(configuration);
 
             services.AddHangfire(config =>
             {
