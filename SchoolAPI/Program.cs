@@ -207,11 +207,21 @@ app.UseStaticFiles();
 // Use the injected IRecurringJobManager instead of the static class to avoid JobStorage.Current initialization errors
 using (var scope = app.Services.CreateScope())
 {
-    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-    recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
-        "monthly-transaction-report",
-        job => job.GeneratePreviousMonthReportAsync(),
-        Cron.Monthly());
+    try
+    {
+        var recurringJobManager = scope.ServiceProvider.GetService<IRecurringJobManager>();
+        if (recurringJobManager != null)
+        {
+            recurringJobManager.AddOrUpdate<IMonthlyTransactionReportJob>(
+                "monthly-transaction-report",
+                job => job.GeneratePreviousMonthReportAsync(),
+                Cron.Monthly());
+        }
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Could not initialize Hangfire recurring jobs.");
+    }
 }
 
 await app.RunAsync();
