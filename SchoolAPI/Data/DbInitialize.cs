@@ -50,39 +50,6 @@ public class DbInitialize
             return;
         }
 
-        // --- AUTOMATIC PYTHON CLEANING ---
-        try
-        {
-            var scriptPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "clean_excel.py");
-            var dirtyExcelPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Fix asset & Inventory List 2008-2025១.xlsx");
-            var cleanExcelPath = Path.Combine(Directory.GetCurrentDirectory(), "Data", "inventory.xlsx");
-
-            // Only attempt to run the script if the Python file and the messy Excel file exist
-            if (File.Exists(scriptPath) && File.Exists(dirtyExcelPath))
-            {
-                Console.WriteLine("\n🐍 Running Python script to clean the dirty Excel file...");
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "python", // Uses the python executable from your system environment
-                    Arguments = $"\"{scriptPath}\" \"{dirtyExcelPath}\" \"{cleanExcelPath}\"",
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
-
-                using var process = Process.Start(psi);
-                process?.WaitForExit();
-                
-                var output = process?.StandardOutput.ReadToEnd();
-                if (!string.IsNullOrWhiteSpace(output)) Console.WriteLine(output);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"\n⚠️ Warning: Failed to execute python cleaning script automatically: {ex.Message}\n");
-        }
-
         var fileName = "inventory.xlsx";
         var possiblePaths = new[]
         {
