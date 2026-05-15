@@ -756,6 +756,23 @@ export const Products: React.FC = () => {
     setImagePreview(null);
   };
 
+  const handleInstantRemoveImage = async () => {
+    if (!selectedProduct?.id) return;
+    setIsSaving(true);
+    try {
+      await api.deleteProductImage(selectedProduct.id);
+      setSelectedProduct(p => p ? { ...p, imageUrl: null } : null);
+      setImagePreview(null);
+      setImageFile(null);
+      showToast('Image removed successfully!', 'success');
+      await loadProducts();
+    } catch (err: any) {
+      showToast('Failed to remove image.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -792,8 +809,20 @@ export const Products: React.FC = () => {
       const canvas = document.createElement('canvas');
       const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
       const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-      canvas.width = cropWidth;
-      canvas.height = cropHeight;
+      
+      // Calculate high-resolution dimensions, capped to prevent massive payloads
+      const MAX_SIZE = 1200;
+      let finalWidth = cropWidth * scaleX;
+      let finalHeight = cropHeight * scaleY;
+      
+      if (finalWidth > MAX_SIZE || finalHeight > MAX_SIZE) {
+        const ratio = Math.min(MAX_SIZE / finalWidth, MAX_SIZE / finalHeight);
+        finalWidth *= ratio;
+        finalHeight *= ratio;
+      }
+
+      canvas.width = finalWidth;
+      canvas.height = finalHeight;
       const ctx = canvas.getContext('2d');
 
       if (ctx) {
@@ -805,8 +834,8 @@ export const Products: React.FC = () => {
           cropHeight * scaleY,
           0,
           0,
-          cropWidth,
-          cropHeight
+          finalWidth,
+          finalHeight
         );
 
         canvas.toBlob((blob) => {
@@ -816,7 +845,7 @@ export const Products: React.FC = () => {
             setImagePreview(URL.createObjectURL(blob));
             setCropModalOpen(false);
           }
-        }, 'image/jpeg', 1);
+        }, 'image/jpeg', 0.8);
       }
     } else {
       setCropModalOpen(false);
