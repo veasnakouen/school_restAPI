@@ -182,7 +182,7 @@ let envUrl = import.meta.env?.VITE_API_URL || (typeof process !== 'undefined' &&
 
 if (!envUrl) {
   console.warn("⚠️ NO API URL PROVIDED! Falling back to localhost. Please set VITE_API_URL in Netlify.");
-  envUrl = `http://${window.location.hostname}:5001`;
+  envUrl = 'http://localhost:5001';
 }
 
 // Ensure we don't accidentally double up on '/api' or trailing slashes from the .env file

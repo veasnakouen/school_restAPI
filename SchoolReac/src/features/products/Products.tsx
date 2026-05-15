@@ -423,8 +423,8 @@ export const Products: React.FC = () => {
     setActiveActionProduct(product);
   };
 
-  const handleCloseActionMenu = (event?: React.MouseEvent) => {
-    if (event) event.stopPropagation();
+  const handleCloseActionMenu = (event?: any) => {
+    if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
     setActionMenuAnchorEl(null);
     setActiveActionProduct(null);
   };
@@ -1156,7 +1156,7 @@ export const Products: React.FC = () => {
 
         {/* Advanced Filters Accordion */}
         <Accordion elevation={0} sx={{ borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'divider', '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'grey.50' }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'background.default' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <FilterListIcon fontSize="small" color="action" />
               <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">Advanced Filters</Typography>
@@ -1165,7 +1165,7 @@ export const Products: React.FC = () => {
               )}
             </Box>
           </AccordionSummary>
-          <AccordionDetails sx={{ bgcolor: 'grey.50', p: { xs: 2, md: 3 } }}>
+          <AccordionDetails sx={{ bgcolor: 'background.default', p: { xs: 2, md: 3 } }} >
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6} md={4} lg={3}>
                 <FormControl size="small" fullWidth>
@@ -1647,9 +1647,9 @@ export const Products: React.FC = () => {
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
                         </Box>
-                        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'center', bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
-                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', maxWidth: 140, bgcolor: 'grey.200' }}>
-                            <ImageIcon sx={{ fontSize: { xs: 32, sm: 48 }, color: 'grey.400' }} />
+                        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'center', bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
+                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', maxWidth: 140, bgcolor: 'action.hover' }}>
+                            <ImageIcon sx={{ fontSize: { xs: 32, sm: 48 }, color: 'text.disabled' }} />
                           </Avatar>
                         </Box>
                         <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 }, pb: 1 }}>
@@ -1736,24 +1736,24 @@ export const Products: React.FC = () => {
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
-        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) handleOpenModal('view', activeActionProduct); }}>
+        <MenuItem onClick={(e) => { e.stopPropagation(); handleCloseActionMenu(); if (activeActionProduct) handleOpenModal('view', activeActionProduct); }}>
           <ListItemIcon><VisibilityIcon fontSize="small" color="info" /></ListItemIcon>
           <ListItemText>View Details</ListItemText>
         </MenuItem>
-        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) openTransferModal(activeActionProduct); }}>
+        <MenuItem onClick={(e) => { e.stopPropagation(); handleCloseActionMenu(); if (activeActionProduct) openTransferModal(activeActionProduct); }}>
           <ListItemIcon><SwapHorizIcon fontSize="small" color="secondary" /></ListItemIcon>
           <ListItemText>Transfer Dept</ListItemText>
         </MenuItem>
-        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) openWriteOffModal(activeActionProduct); }}>
+        <MenuItem onClick={(e) => { e.stopPropagation(); handleCloseActionMenu(); if (activeActionProduct) openWriteOffModal(activeActionProduct); }}>
           <ListItemIcon><ReportProblemIcon fontSize="small" color="warning" /></ListItemIcon>
           <ListItemText>Write-Off (Broken/Lost)</ListItemText>
         </MenuItem>
         <Divider />
-        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) handleOpenModal('edit', activeActionProduct); }}>
+        <MenuItem onClick={(e) => { e.stopPropagation(); handleCloseActionMenu(); if (activeActionProduct) handleOpenModal('edit', activeActionProduct); }}>
           <ListItemIcon><EditIcon fontSize="small" color="primary" /></ListItemIcon>
           <ListItemText>Edit Product</ListItemText>
         </MenuItem>
-        <MenuItem onClick={(e) => { e.stopPropagation(); if (activeActionProduct) setProductToDelete(activeActionProduct); }}>
+        <MenuItem onClick={(e) => { e.stopPropagation(); handleCloseActionMenu(); if (activeActionProduct) setProductToDelete(activeActionProduct); }}>
           <ListItemIcon><DeleteIcon fontSize="small" color="error" /></ListItemIcon>
           <ListItemText sx={{ color: 'error.main' }}>Delete Product</ListItemText>
         </MenuItem>
@@ -1786,8 +1786,8 @@ export const Products: React.FC = () => {
             <Grid item xs={12} md={4}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ position: 'relative', width: '100%', maxWidth: 160, mx: 'auto', aspectRatio: '1 / 1' }}>
-                  <Avatar src={imagePreview || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'grey.200' }}>
-                    <ImageIcon sx={{ fontSize: 40, color: 'grey.500' }} />
+                  <Avatar src={imagePreview || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
+                    <ImageIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
                   </Avatar>
                   {isSaving && (
                     <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, borderRadius: 1 }}>
@@ -2279,8 +2279,8 @@ export const Products: React.FC = () => {
                 <Grid item xs={12} sm={5}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     <Box sx={{ position: 'relative', width: '100%', maxWidth: 220, mx: 'auto', aspectRatio: '1 / 1' }}>
-                      <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'grey.200' }}>
-                        <BrokenImageIcon sx={{ fontSize: 60, color: 'grey.400' }} />
+                      <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
+                        <BrokenImageIcon sx={{ fontSize: 60, color: 'text.disabled' }} />
                       </Avatar>
                       {isSaving && (
                         <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, borderRadius: 1 }}>
@@ -2362,7 +2362,7 @@ export const Products: React.FC = () => {
       {/* Image Crop Modal */}
       <Dialog open={cropModalOpen} onClose={() => setCropModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Crop Image</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', justifyContent: 'center', bgcolor: 'grey.200' }}>
+        <DialogContent dividers sx={{ display: 'flex', justifyContent: 'center', bgcolor: 'background.default' }}>
           {cropImgSrc && (
             <ReactCrop
               crop={crop}
