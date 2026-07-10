@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using SchoolAPI.Constant;
+using SchoolAPI.Application.Common.Interfaces;
 using SchoolAPI.Entities;
 using System.Text.Json;
 
@@ -16,36 +17,61 @@ public static class DbInitializer
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<SchoolDbContext>>();
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<AppUser>>();
         var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<AppRole>>();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IApplicationDbContext>();
 
         try
         {
             logger.LogInformation("Initializing and ensuring database exists...");
-
-            // 🚀 RAPID DEVELOPMENT MODE:
-            // WARNING: This completely deletes the database on startup to guarantee a clean slate.
-            // Use this just once to fix the schema, then comment it out!
-            // await context.Database.EnsureDeletedAsync();
-            
-            // In Production, we use MigrateAsync() to apply pending EF Core migrations.
-            // This ensures the database schema is always up-to-date with the code.
-            // In Development, EnsureCreatedAsync() can be faster if you don't use migrations.
-            await context.Database.MigrateAsync();
-
-            // Call all your seeders sequentially
-            await SeedPermissionsAsync(context);
-            await SeedRolesAndUsersAsync(userManager, roleManager, logger);
-            await SeedClassesAsync(context);
-            await SeedStudentsAsync(context);
-            // await SeedInventoryDataAsync(context); // Commented out to prevent fake data
-            
-            logger.LogInformation("Starting Excel data import...");
-            // DbInitialize.SeedExcelData(context);
+            await ExecuteWithRetryAsync(async () =>
+            {
+                // 🚀 RAPID DEVELOPMENT MODE:
+                // WARNING: This completely deletes the database on startup to guarantee a clean slate.
+                // Use this just once to fix the schema, then comment it out!
+                // await context.Database.EnsureDeletedAsync();
+                
+                // In Production, we use MigrateAsync() to apply pending EF Core migrations.
+                // This ensures the database schema is always up-to-date with the code.
+                // In Development, EnsureCreatedAsync() can be faster if you don't use migrations.
+                await context.Database.MigrateAsync();
+    
+                // Call all your seeders sequentially
+                await SeedPermissionsAsync(context);
+                await SeedRolesAndUsersAsync(userManager, roleManager, dbContext, logger);
+                await SeedClassesAsync(context);
+                await SeedStudentsAsync(context);
+                // await SeedInventoryDataAsync(context); // Commented out to prevent fake data
+                
+                logger.LogInformation("Starting Excel data import...");
+                // DbInitialize.SeedExcelData(context);
+            }, logger);
 
             logger.LogInformation("Database initialized and seeded successfully.");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred while seeding the database.");
+        }
+    }
+    
+    private static async Task ExecuteWithRetryAsync(Func<Task> operation, ILogger logger, int maxRetries = 5, int delaySeconds = 5)
+    {
+        for (int i = 0; i < maxRetries; i++)
+        {
+            try
+            {
+                await operation();
+                return; // Success
+            }
+            catch (Exception ex)
+            {
+                if (i == maxRetries - 1)
+                {
+                    logger.LogCritical(ex, "Database operation failed after {MaxRetries} retries. Aborting application startup.", maxRetries);
+                    throw; // Re-throw the last exception
+                }
+                logger.LogWarning(ex, "Database operation failed. Retrying in {DelaySeconds} seconds... (Attempt {CurrentAttempt}/{MaxRetries})", delaySeconds, i + 1, maxRetries);
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+            }
         }
     }
 
@@ -68,7 +94,7 @@ public static class DbInitializer
         await context.SaveChangesAsync();
     }
 
-    private static async Task SeedRolesAndUsersAsync(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, ILogger logger)
+    private static async Task SeedRolesAndUsersAsync(UserManager<AppUser> userManager, RoleManager<AppRole> roleManager, IApplicationDbContext context, ILogger logger)
     {
         // 1. Seed Default Roles
         var roles = new[] { "SuperAdmin", "Admin", "User", "DataEntry", "Teacher", "Inventory", "InventoryViewer" };
@@ -81,28 +107,39 @@ public static class DbInitializer
         }
 
         // 2. Seed Default Users
-        await CreateUserWithRoleAsync(userManager, "superadmin", "superadmin@school.com", "Super Administrator", "Admin123!", "SuperAdmin", logger);
-        await CreateUserWithRoleAsync(userManager, "admin", "admin@school.com", "System Administrator", "Admin123!", "Admin", logger);
-        await CreateUserWithRoleAsync(userManager, "inventory", "inventory@school.com", "Inventory Manager", "Password123!", "Inventory", logger);
-        await CreateUserWithRoleAsync(userManager, "viewer", "viewer@school.com", "Inventory Viewer", "Password123!", "InventoryViewer", logger);
+        await CreateUserWithRoleAsync(userManager, context, "superadmin", "superadmin@school.com", "Super Administrator", "Pa$$w0rd!", "SuperAdmin", logger);
+        await CreateUserWithRoleAsync(userManager, context, "admin", "admin@school.com", "System Administrator", "Pa$$w0rd!", "Admin", logger);
+        await CreateUserWithRoleAsync(userManager, context, "inventory", "inventory@school.com", "Inventory Manager", "Pa$$w0rd!", "Inventory", logger);
+        await CreateUserWithRoleAsync(userManager, context, "viewer", "viewer@school.com", "Inventory Viewer", "Pa$$w0rd!", "InventoryViewer", logger);
     }
 
-    private static async Task CreateUserWithRoleAsync(UserManager<AppUser> userManager, string userName, string email, string fullName, string password, string role, ILogger logger)
+    private static async Task CreateUserWithRoleAsync(UserManager<AppUser> userManager, IApplicationDbContext context, string userName, string email, string fullName, string password, string role, ILogger logger)
     {
         if (await userManager.FindByEmailAsync(email) == null)
         {
+            // Create a corresponding Person record for operational tracking
+            var person = new Person
+            {
+                FullName = fullName,
+                Email = email,
+                IsActive = true
+            };
+            context.Persons.Add(person);
+
             var adminUser = new AppUser
             {
                 UserName = userName,
                 Email = email,
                 FullName = fullName,
-                EmailConfirmed = true
+                EmailConfirmed = true,
+                PersonId = person.Id // Link the AppUser to the new Person
             };
 
             var result = await userManager.CreateAsync(adminUser, password);
             if (result.Succeeded)
             {
                 await userManager.AddToRoleAsync(adminUser, role);
+                await context.SaveChangesAsync(CancellationToken.None);
                 logger.LogInformation("{Role} user created successfully.", role);
             }
             else

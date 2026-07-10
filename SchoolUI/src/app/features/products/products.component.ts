@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { ProductApiService } from '../../core/services/product-api.service';
@@ -12,18 +12,19 @@ import { catchError } from 'rxjs/operators';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as ExcelJS from 'exceljs';
-import { PaginationComponent } from '../../core/interceptors/pagination.component';
 import * as signalR from '@microsoft/signalr';
-import { TableModule } from 'primeng/table';
+import { Table, TableModule } from 'primeng/table';
 import { BadgeModule } from 'primeng/badge';
 import { ButtonModule } from 'primeng/button';
 import { DialogModule } from 'primeng/dialog';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { TooltipModule } from 'primeng/tooltip';
 import { ToastModule } from 'primeng/toast';
-import { ConfirmationService, MessageService, SharedModule } from 'primeng/api';
+import { ConfirmationService, MenuItem, MessageService, SharedModule } from 'primeng/api';
 import { InputTextModule } from 'primeng/inputtext';
+import { PaginatorModule } from 'primeng/paginator';
 import { PopoverModule } from 'primeng/popover';
+import { Menu, MenuModule } from 'primeng/menu';
 
 export interface ExtendedProductDto extends ProductDto {
   qualityId?: string | null;
@@ -35,7 +36,7 @@ export interface ExtendedProductDto extends ProductDto {
 @Component({
   selector: 'app-products',
   standalone: true,
-  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginationComponent, TableModule, BadgeModule, ButtonModule, DialogModule, ProgressBarModule, TooltipModule, ToastModule, InputTextModule, SharedModule, PopoverModule],
+  imports: [CommonModule, FormsModule, ScrollAnimateDirective, PaginatorModule, TableModule, BadgeModule, ButtonModule, DialogModule, ProgressBarModule, TooltipModule, ToastModule, InputTextModule, SharedModule, PopoverModule, MenuModule],
   template: `
     <section scrollAnimate animateVariant="fade-up" class="app-shell-panel space-y-5 p-5 lg:p-6">
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -61,54 +62,68 @@ export interface ExtendedProductDto extends ProductDto {
       </div>
 
       <div class="flex flex-col gap-4">
-        <!-- Filters Grid -->
-        <div class="flex flex-wrap gap-3 bg-gray-50/50 p-4 rounded-xl border border-gray-200">
-          <div class="min-w-[180px] flex-1 sm:min-w-[200px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Search</label>
-            <div class="relative">
-              <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-              <input [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Search products..." class="w-full rounded-md border border-gray-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+        <!-- Primary Search Bar & Filter Toggle -->
+        <div class="flex flex-col sm:flex-row gap-3 items-center w-full bg-base-200/50 p-4 rounded-xl border border-base-200">
+          <div class="relative flex-1 w-full">
+            <i class="pi pi-search absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40"></i>
+            <input [(ngModel)]="search" (ngModelChange)="onSearchChange()" placeholder="Search by name, code, or description..." class="w-full bg-base-100 text-base-content rounded-md border border-base-300 px-3 py-2 pl-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
           </div>
+          <div class="flex items-center gap-2 w-full sm:w-auto">
+            @if (activeFilterCount > 0) {
+              <button class="btn btn-ghost btn-sm text-base-content/60" (click)="clearFilters()">Clear</button>
+            }
+            <button class="btn btn-outline btn-sm bg-base-100" (click)="showFilters = !showFilters">
+              <i class="pi" [ngClass]="showFilters ? 'pi-filter-slash' : 'pi-filter'"></i> Filters
+              @if (activeFilterCount - (search ? 1 : 0) > 0) {
+                <p-badge [value]="(activeFilterCount - (search ? 1 : 0)).toString()" severity="info" styleClass="ml-1"></p-badge>
+              }
+            </button>
+          </div>
+        </div>
+
+        <!-- Advanced Filters Accordion -->
+        @if (showFilters) {
+          <div class="flex flex-wrap gap-3 bg-base-200/50 p-4 rounded-xl border border-base-200 animate-in fade-in slide-in-from-top-2 duration-300">
           <div class="min-w-[140px] flex-1 sm:min-w-[160px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Category</label>
-            <select [(ngModel)]="filterCategory" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">All</option>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-base-content/60">Category</label>
+            <select [(ngModel)]="filterCategory" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-base-300 bg-base-100 text-base-content px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">All Categories</option>
               @for (cat of categories; track cat.id) { <option [value]="cat.name">{{ cat.name }}</option> }
             </select>
           </div>
           <div class="min-w-[140px] flex-1 sm:min-w-[160px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Department</label>
-            <select [(ngModel)]="filterDepartment" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">All</option>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-base-content/60">Department</label>
+            <select [(ngModel)]="filterDepartment" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-base-300 bg-base-100 text-base-content px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">All Depts</option>
               @for (dept of departments; track dept.id) { <option [value]="dept.name">{{ dept.name }}</option> }
             </select>
           </div>
           <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Condition</label>
-            <select [(ngModel)]="filterQuality" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">All</option>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-base-content/60">Condition</label>
+            <select [(ngModel)]="filterQuality" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-base-300 bg-base-100 text-base-content px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">All Conditions</option>
               @for (q of qualities; track q.id) { <option [value]="q.name">{{ q.name }}</option> }
             </select>
           </div>
           <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Acquisition</label>
-            <select [(ngModel)]="filterPurchaseType" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">All</option>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-base-content/60">Acquisition</label>
+            <select [(ngModel)]="filterPurchaseType" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-base-300 bg-base-100 text-base-content px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">All Acquisitions</option>
               <option value="Purchased">Purchased</option>
               <option value="Donated">Donated</option>
             </select>
           </div>
           <div class="min-w-[120px] flex-1 sm:min-w-[140px]">
-            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">Price</label>
-            <select [(ngModel)]="filterPrice" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-              <option value="">All</option>
+            <label class="mb-1 block text-xs font-semibold uppercase tracking-wider text-base-content/60">Price</label>
+            <select [(ngModel)]="filterPrice" (ngModelChange)="onFilterChange()" class="w-full rounded-md border border-base-300 bg-base-100 text-base-content px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">All Prices</option>
               <option value="under100">Under $100</option>
               <option value="equal100">Exactly $100</option>
               <option value="over100">Over $100</option>
             </select>
           </div>
         </div>
+        }
 
         <!-- Toolbar -->
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 py-2">
@@ -116,10 +131,23 @@ export interface ExtendedProductDto extends ProductDto {
             @if (selectedProducts.size > 0) {
               <p-button label="Delete Selected ({{ selectedProducts.size }})" icon="pi pi-trash" severity="danger" (onClick)="confirmBulkDelete()"></p-button>
             }
+            @if (isImporting && importStatusMessage) {
+            <div class="flex flex-col justify-center gap-1.5 hidden sm:flex w-64 bg-blue-50 px-3 py-2 rounded-md border border-blue-100">
+              <div class="flex items-center justify-between text-xs font-semibold text-blue-700">
+                <span class="flex items-center gap-1.5 truncate" [title]="importStatusMessage"><i class="pi pi-spin pi-spinner text-[10px]"></i> {{ importStatusMessage }}</span>
+                <span>{{ importProgress | number:'1.0-0' }}%</span>
+              </div>
+              <p-progressBar [value]="importProgress" [showValue]="false" [style]="{'height': '6px'}"></p-progressBar>
+              </div>
+            }
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <p-button label="Columns" icon="pi pi-sliders-h" severity="secondary" [outlined]="true" (onClick)="columnPanel.toggle($event)"></p-button>
             <p-button label="Export" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="exportPanel.toggle($event)"></p-button>
+            <div class="relative overflow-hidden inline-block rounded-md">
+              <p-button [label]="isImporting ? 'Importing...' : 'Import'" [icon]="isImporting ? 'pi pi-spin pi-spinner' : 'pi pi-upload'" severity="secondary" [outlined]="true" [disabled]="isImporting"></p-button>
+              <input type="file" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" accept=".xlsx, .xls, .csv" (change)="handleImportExcel($event)" [disabled]="isImporting" title="Import from Excel/CSV" />
+            </div>
             <p-button label="Add Product" icon="pi pi-plus" (onClick)="openCreateModal()"></p-button>
 
             <p-popover #columnPanel>
@@ -146,7 +174,7 @@ export interface ExtendedProductDto extends ProductDto {
                 </button>
                 <div class="border-t border-base-200 my-1"></div>
                 <button class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-md transition-colors text-sm w-full text-left" (click)="printProducts(); exportPanel.hide()">
-                  <i class="pi pi-print text-gray-600"></i> Print
+                    <i class="pi pi-print text-base-content/60"></i> Print
                 </button>
               </div>
             </p-popover>
@@ -155,7 +183,7 @@ export interface ExtendedProductDto extends ProductDto {
 
         <!-- Table -->
         <div class="my-6 rounded-lg border border-base-300 bg-base-100 overflow-hidden">
-          <p-table [value]="products" dataKey="id" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
+          <p-table #dt [value]="products" dataKey="id" [loading]="loading" exportFilename="products" [scrollable]="true" scrollHeight="calc(100vh - 340px)" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
             <ng-template pTemplate="header">
               <tr>
                 <th style="width: 3rem">
@@ -184,7 +212,7 @@ export interface ExtendedProductDto extends ProductDto {
             <ng-template pTemplate="body" let-product>
               <tr>
                 <td>
-                  <input type="checkbox" [checked]="selectedProducts.has(product.id!)" (change)="toggleSelection(product.id!)" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-600" />
+                  <input type="checkbox" [checked]="selectedProducts.has(product.id!)" (change)="toggleSelection(product.id!)" class="h-4 w-4 rounded border-base-300 text-primary focus:ring-primary" />
                 </td>
                 @if (visibleColumns.has('name')) { <td class="font-medium">{{ product.name }}</td> }
                 @if (visibleColumns.has('codeNumber')) { <td>{{ product.codeNumber || '-' }}</td> }
@@ -213,24 +241,31 @@ export interface ExtendedProductDto extends ProductDto {
                 @if (visibleColumns.has('price')) { <td>{{ product.price ? '$' + (product.price | number:'1.2-2') : '-' }}</td> }
                 @if (visibleColumns.has('description')) { <td class="whitespace-normal max-w-[200px] truncate" [pTooltip]="product.description || ''" tooltipPosition="top">{{ product.description || '-' }}</td> }
                 <td class="text-center whitespace-nowrap">
-                  <p-button icon="pi pi-eye" [rounded]="true" [text]="true" severity="info" (onClick)="openViewModal(product)" pTooltip="View"></p-button>
-                  <p-button icon="pi pi-arrow-right-arrow-left" [rounded]="true" [text]="true" severity="success" (onClick)="openTransferModal(product)" pTooltip="Transfer"></p-button>
-                  <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="warn" (onClick)="openEditModal(product)" pTooltip="Edit"></p-button>
-                  <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" (onClick)="confirmDelete(product)" pTooltip="Delete"></p-button>
+                  <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showActionMenu(actionMenu, $event, product)"></p-button>
                 </td>
               </tr>
             </ng-template>
             <ng-template pTemplate="emptymessage">
               <tr>
-                <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-gray-500">No products match your search.</td>
+                <td [attr.colspan]="visibleColumnCount" class="py-10 text-center text-base-content/60">No products match your search.</td>
               </tr>
             </ng-template>
           </p-table>
         </div>
 
-        <app-pagination [totalItems]="totalItems" [pageSize]="pageSize" [currentPage]="currentPage" (pageChange)="goToPage($event)" (pageSizeChange)="onPageSizeChange($event)"></app-pagination>
+        <p-paginator 
+          (onPageChange)="onPageChange($event)" 
+          [first]="(currentPage - 1) * pageSize" 
+          [rows]="pageSize" 
+          [totalRecords]="totalItems" 
+          [rowsPerPageOptions]="[10, 20, 50, 100]"
+          [showCurrentPageReport]="true"
+          currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries">
+        </p-paginator>
       </div>
     </section>
+
+    <p-menu #actionMenu [model]="menuItems" [popup]="true"></p-menu>
 
     <!-- Create/Edit Modal -->
     <p-dialog [header]="isEditing ? 'Edit Product' : 'Create New Product'" [(visible)]="isFormModalVisible" [modal]="true" [dismissableMask]="true" [style]="{width: '100%', maxWidth: '800px'}">
@@ -240,18 +275,18 @@ export interface ExtendedProductDto extends ProductDto {
           <!-- Left: Product Name & Code Number -->
           <div class="md:col-span-2 space-y-4">
             <div class="flex flex-col w-full">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Product Name <span class="text-red-500">*</span></span></label>
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Product Name <span class="text-error">*</span></span></label>
               <input pInputText type="text" [(ngModel)]="selectedProduct.name" name="name" required placeholder="e.g. Laptop Dell XPS 15" class="w-full" />
             </div>
             <div class="flex flex-col w-full mt-4">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Code Number</span></label>
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Code Number</span></label>
               <input pInputText type="text" [(ngModel)]="selectedProduct.codeNumber" name="codeNumber" placeholder="e.g. PROD-001" class="w-full" />
             </div>
           </div>
 
           <!-- Right: Image Upload Area -->
           <div class="flex flex-col items-center gap-3">
-            <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-500 transition-colors cursor-pointer flex items-center justify-center" (click)="triggerImageUpload()">
+            <div class="relative w-full max-w-[160px] mx-auto aspect-square rounded-xl overflow-hidden border-2 border-dashed border-base-300 bg-base-200 hover:border-primary transition-colors cursor-pointer flex items-center justify-center" (click)="triggerImageUpload()">
               @if (imagePreview) {
                 <img [src]="imagePreview" alt="Product preview" loading="lazy" class="w-full h-full object-cover" />
                 <div class="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -259,14 +294,14 @@ export interface ExtendedProductDto extends ProductDto {
                   <p-button icon="pi pi-trash" [rounded]="true" severity="danger" (onClick)="$event.stopPropagation(); removeImage()" pTooltip="Remove Image"></p-button>
                 </div>
               } @else {
-                <div class="flex flex-col items-center text-gray-400">
+                <div class="flex flex-col items-center text-base-content/40">
                   <i class="pi pi-image text-3xl mb-2"></i>
                   <span class="text-sm font-medium">Upload Image</span>
                 </div>
               }
               @if (imageLoading) {
                 <div class="absolute inset-0 bg-white/80 flex items-center justify-center">
-                  <i class="pi pi-spin pi-spinner text-2xl text-blue-600"></i>
+                  <i class="pi pi-spin pi-spinner text-2xl text-primary"></i>
                 </div>
               }
             </div>
@@ -274,19 +309,19 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
         </div>
 
-        <div class="border-t border-gray-200 my-4"></div>
+        <div class="border-t border-base-200 my-4"></div>
 
         <!-- Classification Grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="flex flex-col w-full">
-            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Category</span></label>
+            <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Category</span></label>
             <div class="relative">
               <input pInputText [ngModel]="selectedProduct.categoryName" (ngModelChange)="onAutocompleteInput('category', $event)" name="categoryName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('category', selectedProduct.categoryName || '')" (blur)="hideSuggestionsDelayed('category')" (keydown.enter)="onAutocompleteEnter('category', $event)" autocomplete="off" />
-              <i *ngIf="selectedProduct.categoryName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')"></i>
+              <i *ngIf="selectedProduct.categoryName" class="pi pi-times absolute right-3 top-[10px] text-base-content/40 hover:text-base-content/70 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('category', '')"></i>
               @if (showSuggestions['category'] && (filteredSuggestions['category']?.length ?? 0) > 0) {
-                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                <ul class="absolute z-50 w-full bg-base-100 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-base-200" (mousedown)="cancelHideSuggestions()">
                   @for (s of filteredSuggestions['category']; track s.name) {
-                    <li (mousedown)="selectSuggestion('category', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                    <li (mousedown)="selectSuggestion('category', s)" class="p-2 hover:bg-base-200 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-success ml-1">(Add new)</span> }</li>
                   }
                 </ul>
               }
@@ -294,14 +329,14 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <div class="flex flex-col w-full">
-            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Brand</span></label>
+            <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Brand</span></label>
             <div class="relative">
               <input pInputText [ngModel]="selectedProduct.brandName" (ngModelChange)="onAutocompleteInput('brand', $event)" name="brandName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('brand', selectedProduct.brandName || '')" (blur)="hideSuggestionsDelayed('brand')" (keydown.enter)="onAutocompleteEnter('brand', $event)" autocomplete="off" />
-              <i *ngIf="selectedProduct.brandName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')"></i>
+              <i *ngIf="selectedProduct.brandName" class="pi pi-times absolute right-3 top-[10px] text-base-content/40 hover:text-base-content/70 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('brand', '')"></i>
               @if (showSuggestions['brand'] && (filteredSuggestions['brand']?.length ?? 0) > 0) {
-                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                <ul class="absolute z-50 w-full bg-base-100 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-base-200" (mousedown)="cancelHideSuggestions()">
                   @for (s of filteredSuggestions['brand']; track s.name) {
-                    <li (mousedown)="selectSuggestion('brand', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                    <li (mousedown)="selectSuggestion('brand', s)" class="p-2 hover:bg-base-200 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-success ml-1">(Add new)</span> }</li>
                   }
                 </ul>
               }
@@ -309,14 +344,14 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <div class="flex flex-col w-full">
-            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Department</span></label>
+            <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Department</span></label>
             <div class="relative">
               <input pInputText [ngModel]="selectedProduct.departmentName" (ngModelChange)="onAutocompleteInput('department', $event)" name="departmentName" class="w-full pr-8" placeholder="Select or type..." (focus)="filterSuggestions('department', selectedProduct.departmentName || '')" (blur)="hideSuggestionsDelayed('department')" (keydown.enter)="onAutocompleteEnter('department', $event)" autocomplete="off" />
-              <i *ngIf="selectedProduct.departmentName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')"></i>
+              <i *ngIf="selectedProduct.departmentName" class="pi pi-times absolute right-3 top-[10px] text-base-content/40 hover:text-base-content/70 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('department', '')"></i>
               @if (showSuggestions['department'] && (filteredSuggestions['department']?.length ?? 0) > 0) {
-                <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                <ul class="absolute z-50 w-full bg-base-100 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-base-200" (mousedown)="cancelHideSuggestions()">
                   @for (s of filteredSuggestions['department']; track s.name) {
-                    <li (mousedown)="selectSuggestion('department', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                    <li (mousedown)="selectSuggestion('department', s)" class="p-2 hover:bg-base-200 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-success ml-1">(Add new)</span> }</li>
                   }
                 </ul>
               }
@@ -324,7 +359,7 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <div class="flex flex-col w-full">
-            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Quality/Condition</span></label>
+            <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Quality/Condition</span></label>
             <select [(ngModel)]="selectedProduct.qualityId" (ngModelChange)="onQualityChange($event)" name="quality" class="p-inputtext p-component w-full py-2 appearance-none">
               <option [ngValue]="null">Select condition...</option>
               @for (q of qualities; track q.id) {
@@ -334,39 +369,39 @@ export interface ExtendedProductDto extends ProductDto {
           </div>
 
           <div class="flex flex-col w-full">
-            <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Price <span class="text-red-500">*</span></span></label>
+            <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Price <span class="text-error">*</span></span></label>
             <input pInputText type="number" [(ngModel)]="selectedProduct.price" name="price" required class="w-full" step="0.01" min="0" placeholder="0.00" />
           </div>
         </div>
 
         <!-- Vehicle Specific Fields (Only shows if Motorbike or Car) -->
         @if (isVehicleCategory) {
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50/50 p-4 rounded-xl border border-gray-200 mt-4">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-base-200/50 p-4 rounded-xl border border-base-200 mt-4">
             <div class="flex flex-col w-full">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Year</span></label>
-              <input pInputText type="date" [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'" (ngModelChange)="onYearChange($event)" name="year" class="w-full bg-white" [max]="todayString" />
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Year</span></label>
+              <input pInputText type="date" [ngModel]="selectedProduct.year | date:'yyyy-MM-dd'" (ngModelChange)="onYearChange($event)" name="year" class="w-full bg-base-100" [max]="todayString" />
             </div>
             <div class="flex flex-col w-full">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Plate Number</span></label>
-              <input pInputText type="text" [(ngModel)]="selectedProduct.plateNumber" name="plateNumber" class="w-full bg-white" placeholder="e.g. 1A-1234" />
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Plate Number</span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.plateNumber" name="plateNumber" class="w-full bg-base-100" placeholder="e.g. 1A-1234" />
             </div>
             <div class="flex flex-col w-full">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Engine/Serial #</span></label>
-              <input pInputText type="text" [(ngModel)]="selectedProduct.engineNumber" name="engineNumber" class="w-full bg-white" />
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Engine/Serial #</span></label>
+              <input pInputText type="text" [(ngModel)]="selectedProduct.engineNumber" name="engineNumber" class="w-full bg-base-100" />
             </div>
           </div>
         }
 
         <div class="flex flex-col w-full mt-4">
-          <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Description & Attributes</span></label>
+          <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Description & Attributes</span></label>
           <textarea pInputText [(ngModel)]="selectedProduct.description" name="description" rows="3" class="w-full" placeholder="Product details, specs, etc."></textarea>
         </div>
 
         <!-- Stock Acquisition -->
-        <div class="flex items-center text-sm font-semibold text-gray-400 my-4 before:flex-1 before:border-t before:border-gray-200 before:mr-4 after:flex-1 after:border-t after:border-gray-200 after:ml-4">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50/30 p-4 rounded-xl border border-gray-200">
+        <div class="flex items-center text-sm font-semibold text-base-content/40 my-4 before:flex-1 before:border-t before:border-base-200 before:mr-4 after:flex-1 after:border-t after:border-base-200 after:ml-4">{{ isEditing ? 'Purchase Information' : 'Initial Stock / Acquisition' }}</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-base-200/30 p-4 rounded-xl border border-base-200">
             <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-              <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Acquisition Type</span></label>
+              <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Acquisition Type</span></label>
               <select [(ngModel)]="selectedProduct.purchaseType" name="purchaseType" class="p-inputtext p-component w-full py-2 appearance-none" [disabled]="disablePurchaseFields">
                 <option [ngValue]="null">None (Just setup product catalog)</option>
                 <option value="Purchased">Purchased</option>
@@ -376,18 +411,18 @@ export interface ExtendedProductDto extends ProductDto {
 
             @if (selectedProduct.purchaseType && selectedProduct.purchaseType !== 'None') {
               <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Initial Quantity <span class="text-red-500">*</span></span></label>
-                <input pInputText type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="w-full bg-white" [disabled]="disablePurchaseFields" />
+                <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Initial Quantity <span class="text-error">*</span></span></label>
+                <input pInputText type="number" [(ngModel)]="selectedProduct.initialQuantity" name="initialQuantity" min="1" required class="w-full bg-base-100" [disabled]="disablePurchaseFields" />
               </div>
               <div class="flex flex-col w-full">
-                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Responsible Person</span></label>
+                <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Responsible Person</span></label>
                 <div class="relative">
-                  <input pInputText [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="w-full bg-white pr-8" placeholder="Select or type..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
-                  <i *ngIf="selectedProduct.responsiblePerson" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')"></i>
+                  <input pInputText [ngModel]="selectedProduct.responsiblePerson" (ngModelChange)="onAutocompleteInput('person', $event)" name="responsiblePerson" class="w-full bg-base-100 pr-8" placeholder="Select or type..." (focus)="filterSuggestions('person', selectedProduct.responsiblePerson || '')" (blur)="hideSuggestionsDelayed('person')" (keydown.enter)="onAutocompleteEnter('person', $event)" autocomplete="off" />
+                  <i *ngIf="selectedProduct.responsiblePerson" class="pi pi-times absolute right-3 top-[10px] text-base-content/40 hover:text-base-content/70 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('person', '')"></i>
                   @if (showSuggestions['person'] && (filteredSuggestions['person']?.length ?? 0) > 0) {
-                    <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                    <ul class="absolute z-50 w-full bg-base-100 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-base-200" (mousedown)="cancelHideSuggestions()">
                       @for (s of filteredSuggestions['person']; track s.fullName) {
-                        <li (mousedown)="selectSuggestion('person', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.fullName }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                        <li (mousedown)="selectSuggestion('person', s)" class="p-2 hover:bg-base-200 cursor-pointer text-sm">{{ s.fullName }} @if (s.isNew) { <span class="text-xs text-success ml-1">(Add new)</span> }</li>
                       }
                     </ul>
                   }
@@ -397,41 +432,41 @@ export interface ExtendedProductDto extends ProductDto {
             
             @if (selectedProduct.purchaseType === 'Purchased') {
               <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Supplier Name</span></label>
+                <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Supplier Name</span></label>
                 <div class="relative">
-                  <input pInputText [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="w-full bg-white pr-8" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
-                  <i *ngIf="selectedProduct.supplierName" class="pi pi-times absolute right-3 top-[10px] text-gray-400 hover:text-gray-700 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [class.pointer-events-none]="disablePurchaseFields"></i>
+                  <input pInputText [ngModel]="selectedProduct.supplierName" (ngModelChange)="onAutocompleteInput('supplier', $event)" name="supplierName" class="w-full bg-base-100 pr-8" placeholder="e.g. ABC Tech" (focus)="filterSuggestions('supplier', selectedProduct.supplierName || '')" (blur)="hideSuggestionsDelayed('supplier')" (keydown.enter)="onAutocompleteEnter('supplier', $event)" autocomplete="off" [disabled]="disablePurchaseFields" />
+                  <i *ngIf="selectedProduct.supplierName" class="pi pi-times absolute right-3 top-[10px] text-base-content/40 hover:text-base-content/70 cursor-pointer" (mousedown)="$event.preventDefault(); onAutocompleteInput('supplier', '')" [class.pointer-events-none]="disablePurchaseFields"></i>
                   @if (showSuggestions['supplier'] && (filteredSuggestions['supplier']?.length ?? 0) > 0) {
-                    <ul class="absolute z-50 w-full bg-white shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-gray-200" (mousedown)="cancelHideSuggestions()">
+                    <ul class="absolute z-50 w-full bg-base-100 shadow-lg rounded-lg mt-1 max-h-60 overflow-y-auto border border-base-200" (mousedown)="cancelHideSuggestions()">
                       @for (s of filteredSuggestions['supplier']; track s.name) {
-                        <li (mousedown)="selectSuggestion('supplier', s)" class="p-2 hover:bg-gray-50 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-green-600 ml-1">(Add new)</span> }</li>
+                        <li (mousedown)="selectSuggestion('supplier', s)" class="p-2 hover:bg-base-200 cursor-pointer text-sm">{{ s.name }} @if (s.isNew) { <span class="text-xs text-success ml-1">(Add new)</span> }</li>
                       }
                     </ul>
                   }
                 </div>
               </div>
               <div class="flex flex-col w-full">
-                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Voucher Number</span></label>
-                <input pInputText [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="w-full bg-white" placeholder="e.g. INV-12345" />
+                <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Voucher Number</span></label>
+                <input pInputText [(ngModel)]="selectedProduct.voucherNumber" name="voucherNumber" class="w-full bg-base-100" placeholder="e.g. INV-12345" />
               </div>
               
               <div class="col-span-1 sm:col-span-2 mt-2">
                 <div class="flex flex-col gap-2">
                   <div class="flex justify-between items-center">
-                    <span class="font-semibold text-gray-700 text-sm">Contact Info</span>
+                    <span class="font-semibold text-base-content/90 text-sm">Contact Info</span>
                     <p-button size="small" label="+ Add Contact" severity="secondary" [outlined]="true" (onClick)="addContact()" [disabled]="disablePurchaseFields"></p-button>
                   </div>
                   @for (contact of contacts; track $index; let i = $index) {
                     <div class="flex flex-wrap sm:flex-nowrap gap-2 items-center">
-                      <select [ngModel]="getContactSelectValue(contact.type)" (ngModelChange)="onContactTypeChange(contact, $event)" [name]="'contactTypeSelect_' + i" class="p-inputtext p-component w-full sm:w-32 py-2 appearance-none bg-white" [disabled]="disablePurchaseFields">
+                      <select [ngModel]="getContactSelectValue(contact.type)" (ngModelChange)="onContactTypeChange(contact, $event)" [name]="'contactTypeSelect_' + i" class="p-inputtext p-component w-full sm:w-32 py-2 appearance-none bg-base-100" [disabled]="disablePurchaseFields">
                         <option value="Phone">Phone</option>
                         <option value="Email">Email</option>
                         <option value="Other">Other...</option>
                       </select>
                       @if (!isPredefinedContactType(contact.type) && getContactSelectValue(contact.type) === 'Other') {
-                        <input pInputText [(ngModel)]="contact.type" (ngModelChange)="updateSupplierContact()" [name]="'customContactType_' + i" placeholder="Custom Label" class="w-full sm:w-40 bg-white" [disabled]="disablePurchaseFields" />
+                        <input pInputText [(ngModel)]="contact.type" (ngModelChange)="updateSupplierContact()" [name]="'customContactType_' + i" placeholder="Custom Label" class="w-full sm:w-40 bg-base-100" [disabled]="disablePurchaseFields" />
                       }
-                      <input pInputText [(ngModel)]="contact.value" (ngModelChange)="updateSupplierContact()" [name]="'contactValue_' + i" [placeholder]="contact.type === 'Email' ? 'e.g. mail@example.com' : 'e.g. 012 345 678'" class="w-full flex-1 bg-white" [disabled]="disablePurchaseFields" />
+                      <input pInputText [(ngModel)]="contact.value" (ngModelChange)="updateSupplierContact()" [name]="'contactValue_' + i" [placeholder]="contact.type === 'Email' ? 'e.g. mail@example.com' : 'e.g. 012 345 678'" class="w-full flex-1 bg-base-100" [disabled]="disablePurchaseFields" />
                       @if (contacts.length > 1) {
                         <p-button icon="pi pi-times" severity="danger" [text]="true" [rounded]="true" (onClick)="removeContact(i)" [disabled]="disablePurchaseFields"></p-button>
                       }
@@ -443,13 +478,13 @@ export interface ExtendedProductDto extends ProductDto {
             
             @if (selectedProduct.purchaseType === 'Donated') {
               <div class="flex flex-col w-full" [class.opacity-70]="disablePurchaseFields">
-                <label class="py-2"><span class="font-semibold text-gray-700 text-sm">Donor Name</span></label>
-                <input pInputText [(ngModel)]="selectedProduct.donorName" name="donorName" class="w-full bg-white" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
+                <label class="py-2"><span class="font-semibold text-base-content/90 text-sm">Donor Name</span></label>
+                <input pInputText [(ngModel)]="selectedProduct.donorName" name="donorName" class="w-full bg-base-100" [disabled]="disablePurchaseFields" placeholder="e.g. John Doe" />
               </div>
             }
         </div>
 
-        <div class="flex justify-end gap-2 mt-6 border-t border-gray-200 pt-4 w-full">
+        <div class="flex justify-end gap-2 mt-6 border-t border-base-200 pt-4 w-full">
           <p-button label="Cancel" severity="secondary" [text]="true" (onClick)="closeModal()"></p-button>
           <p-button [label]="isEditing ? 'Save Changes' : 'Create Product'" icon="pi pi-check" type="submit" [disabled]="!isProductFormValid || isUploading || imageLoading" [loading]="isUploading || imageLoading"></p-button>
         </div>
@@ -601,6 +636,8 @@ export interface ExtendedProductDto extends ProductDto {
   `
 })
 export class ProductsComponent implements OnInit, OnDestroy {
+  @ViewChild('dt') table!: Table;
+
   private readonly api = inject(ProductApiService);
   private readonly categoryApi = inject(CategoryApiService);
   private readonly cdr = inject(ChangeDetectorRef);
@@ -608,8 +645,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
   
-  // Fallback strictly to localhost for dev, but use your secure backend URL in production!
-  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) ? 'http://localhost:5001' : 'https://school-api-xyz.onrender.com'; // <-- IMPORTANT: Replace with your actual Render API URL!
+  // Use an empty string for local dev so the Angular Proxy catches the request!
+  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) ? '' : 'https://school-api-xyz.onrender.com'; // <-- IMPORTANT: Replace with your actual Render API URL!
   private readonly apiUrl = `${this.baseUrl}/api/inventory/products`;
 
   protected products: ExtendedProductDto[] = [];
@@ -618,6 +655,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected errorMessage = '';
   protected search = '';
   protected years: number[] = Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - i);
+
+  protected menuItems: MenuItem[] = [];
 
   // Lookups
   protected brands: BrandDto[] = [];
@@ -681,7 +720,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
         return parseInt(saved, 10);
       }
     }
-      return 10; // Default page size
+      return 20; // Default page size
   }
 
   // Sorting states
@@ -694,6 +733,19 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected filterQuality = '';
   protected filterPurchaseType = '';
   protected filterPrice = '';
+
+  protected showFilters = false;
+
+  protected get activeFilterCount(): number {
+    let count = 0;
+    if (this.search) count++;
+    if (this.filterCategory) count++;
+    if (this.filterDepartment) count++;
+    if (this.filterQuality) count++;
+    if (this.filterPurchaseType) count++;
+    if (this.filterPrice) count++;
+    return count;
+  }
 
   private lookupCache = new Map<string, string>();
 
@@ -808,6 +860,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
   protected importStatusMessage = '';
   private hubConnection: signalR.HubConnection | null = null;
   private signalRTimeoutId: any;
+  private lastProgressUpdate = 0;
 
   protected purchaseHistory: ProductPurchaseHistoryDto[] = [];
   protected historyLoading = false;
@@ -850,12 +903,17 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.hubConnection.on('ImportProgress', (progress: number, message: string) => {
       this.importProgress = progress;
       this.importStatusMessage = message;
-      this.cdr.detectChanges();
+      
+      const now = Date.now();
+      if (now - this.lastProgressUpdate > 150) { // Throttle UI updates to max ~6fps to prevent browser freeze
+        this.cdr.detectChanges();
+        this.lastProgressUpdate = now;
+      }
     });
 
     this.hubConnection.on('ImportCompleted', (result: any) => {
       this.isImporting = false;
-      this.importProgress = 0;
+      this.importProgress = 100;
       if (result.errors && result.errors.length > 0) {
         this.showMessage('warning', 'Import Partially Successful', `Imported ${result.importedCount} products. Encountered ${result.errors.length} row errors.`);
         this.importErrors = result.errors;
@@ -914,6 +972,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
         console.error('Error loading lookups:', err);
         this.lookupsLoading = false;
         this.showMessage('error', 'Lookup Error', 'Failed to load dropdown data. Some fields may not have suggestions.');
+        this.cdr.detectChanges();
       }
     });
   }
@@ -989,7 +1048,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
     });
 
     this.http.get<any>(this.apiUrl, { params }).pipe(
-      finalize(() => this.loading = false)
+      finalize(() => {
+        this.loading = false;
+        this.cdr.detectChanges();
+      })
     ).subscribe({
       next: (result) => {
         if (result) {
@@ -1059,21 +1121,16 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.selectedProducts.has(productId) ? this.selectedProducts.delete(productId) : this.selectedProducts.add(productId);
   }
 
-  protected goToPage(page: number | string): void {
-    const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
-    if (pageNum >= 1 && pageNum <= this.totalPages && pageNum !== this.currentPage) {
-      this.currentPage = pageNum;
-      this.loadProducts();
+  protected onPageChange(event: any): void {
+    this.currentPage = (event.page ?? 0) + 1;
+    const newPageSize = event.rows ?? 20;
+    
+    if (this.pageSize !== newPageSize) {
+      this.pageSize = newPageSize;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(this.PAGE_SIZE_STORAGE_KEY, this.pageSize.toString());
+      }
     }
-  }
-
-  protected onPageSizeChange(value: number | string): void {
-    this.pageSize = typeof value === 'string' ? parseInt(value, 10) : value;
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(this.PAGE_SIZE_STORAGE_KEY, this.pageSize.toString());
-    }
-    this.currentPage = 1;
-    this.totalPages = Math.ceil(this.totalItems / this.pageSize);
     this.loadProducts();
   }
 
@@ -1147,6 +1204,28 @@ export class ProductsComponent implements OnInit, OnDestroy {
       this.currentPage = 1;
       this.loadProducts();
     }, 300);
+  }
+
+  protected clearFilters(): void {
+    this.search = '';
+    this.filterCategory = '';
+    this.filterDepartment = '';
+    this.filterQuality = '';
+    this.filterPurchaseType = '';
+    this.filterPrice = '';
+    this.currentPage = 1;
+    this.loadProducts();
+  }
+
+  protected showActionMenu(menu: Menu, event: MouseEvent, product: ExtendedProductDto): void {
+    event.stopPropagation();
+    this.menuItems = [
+      { label: 'View Details', icon: 'pi pi-eye', command: () => this.openViewModal(product) },
+      { label: 'Transfer', icon: 'pi pi-arrow-right-arrow-left', command: () => this.openTransferModal(product) },
+      { label: 'Edit', icon: 'pi pi-pencil', command: () => this.openEditModal(product) },
+      { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.confirmDelete(product) }
+    ];
+    menu.toggle(event);
   }
 
   protected openCreateModal(): void {
@@ -1866,8 +1945,11 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   private getGroupedExportRows(activeColumns: any[], isCsv: boolean, isExcel: boolean): any[] {
-    // Sort products by name to group them together for subtotals
-    const sortedProducts = [...this.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    // Wire up to PrimeNG's internal table state (respecting applied filters/sorts)
+    const tableData = this.table ? (this.table.filteredValue || this.table.value) : this.products;
+
+    // Sort table data by name to group them together for subtotals
+    const sortedProducts = [...tableData].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     const rows: any[] = [];
     let currentName = '';
     let subTotal = 0;
@@ -1939,7 +2021,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected async exportToExcel(): Promise<void> {
-    if (this.products.length === 0) return;
+    // tableData is implicitly handled by getGroupedExportRows
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Products');
@@ -1974,13 +2056,13 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 
   protected exportToCSV(): void {
-    if (this.products.length === 0) return;
+    // tableData is implicitly handled by getGroupedExportRows
 
     const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
     const headers = activeColumns.map(col => col.label);
     
     // CSV Rows
-    const rows = this.products.map(p => 
+    const rows = this.getGroupedExportRows(activeColumns, true, false).map(p => 
       activeColumns.map(col => this.escapeCsvValue(this.getColumnValue(p, col.id, true)))
     );
 
@@ -2008,7 +2090,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 // Export pdf
   protected exportToPDF(): void {
-    if (this.products.length === 0) return;
+    const tableData = this.table ? (this.table.filteredValue || this.table.value) : this.products;
+    if (!tableData || tableData.length === 0) return;
 
     const doc = new jsPDF();
     
@@ -2025,10 +2108,10 @@ export class ProductsComponent implements OnInit, OnDestroy {
     
     const activeColumns = this.availableColumns.filter(col => this.visibleColumns.has(col.id));
     const headers = activeColumns.map(col => col.label);
+    const rowsData = this.getGroupedExportRows(activeColumns, false, false);
 
-      const rowsData = this.getGroupedExportRows(activeColumns, false, false);
     // Table
-      const tableData = rowsData.map(r => 
+      const pdfTableData = rowsData.map(r => 
         activeColumns.map(col => r[col.id] != null ? String(r[col.id]) : '')
     );
 
@@ -2041,7 +2124,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
     autoTable(doc, {
       startY: filterInfo ? 35 : 30,
       head: [headers],
-      body: tableData,
+      body: pdfTableData,
       theme: 'striped',
       headStyles: {
         fillColor: [59, 130, 246],
@@ -2075,7 +2158,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.text(
-        `Total Products: ${this.products.length}`,
+        `Total Products: ${tableData.length}`,
         14,
         doc.internal.pageSize.height - 10
       );
@@ -2086,7 +2169,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
   }
 // print
   protected printProducts(): void {
-    if (this.products.length === 0) return;
+    const tableData = this.table ? (this.table.filteredValue || this.table.value) : this.products;
+    if (!tableData || tableData.length === 0) return;
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -2131,7 +2215,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
             </tr>
           </thead>
           <tbody>
-              ${rowsData.map(r => `
+              ${rowsData.map((r: any) => `
                 <tr style="${r._isSubtotal || r._isTotal ? 'font-weight: bold; background-color: #e5e7eb;' : ''}">
                   ${activeColumns.map(col => `<td ${col.id === 'price' ? 'style="text-align: right;"' : ''}>${r[col.id] != null ? String(r[col.id]) : ''}</td>`).join('')}
                 </tr>
@@ -2139,7 +2223,7 @@ export class ProductsComponent implements OnInit, OnDestroy {
           </tbody>
         </table>
         <div class="footer">
-          Total Products: ${this.products.length} | Generated: ${new Date().toLocaleString()}
+          Total Products: ${tableData.length} | Generated: ${new Date().toLocaleString()}
         </div>
         <script>
           window.onload = function() {

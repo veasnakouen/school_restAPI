@@ -23,6 +23,10 @@ import { InputTextModule } from 'primeng/inputtext';
 import { DatePickerModule } from 'primeng/datepicker';
 import { TooltipModule } from 'primeng/tooltip';
 
+import { Menu, MenuModule } from 'primeng/menu';
+import { MenuItem } from 'primeng/api';
+
+
 export interface OutReachDto {
   id?: string;
   firstName?: string;
@@ -31,6 +35,7 @@ export interface OutReachDto {
   contact?: string;
   imageUrl?: string | null;
 }
+
 
 export interface InterventionDto {
   id?: string;
@@ -42,7 +47,7 @@ export interface InterventionDto {
 }
 
 interface ActivityEntry {
-  tone: 'success' | 'error' | 'info';
+  tone: 'success' | 'error' | 'info' | 'warning';
   message: string;
   time: string;
 }
@@ -50,7 +55,7 @@ interface ActivityEntry {
 @Component({
   selector: 'app-api-console',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, ScrollAnimateDirective, TableModule, DialogModule, ButtonModule, BadgeModule, InputTextModule, DatePickerModule, TooltipModule],
+  imports: [CommonModule, ReactiveFormsModule, ScrollAnimateDirective, TableModule, DialogModule, ButtonModule, BadgeModule, InputTextModule, DatePickerModule, TooltipModule, MenuModule],
   template: `
     <div class="space-y-6 lg:space-y-8">
       
@@ -114,7 +119,7 @@ interface ActivityEntry {
             </div>
             
             <div class="overflow-x-auto rounded-2xl border border-base-200">
-              <p-table #dtClasses [value]="classes" [globalFilterFields]="['className', 'id']" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+              <p-table #dtClasses [value]="classes" [globalFilterFields]="['className', 'id']" [paginator]="true" [rows]="10" [rowsPerPageOptions]="[5, 10, 25, 50, 100]" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
                 <ng-template pTemplate="header">
                   <tr>
                     <th>Name</th>
@@ -128,8 +133,7 @@ interface ActivityEntry {
                     <td class="font-mono text-xs text-base-content/60">{{ item.id }}</td>
                     <td class="text-right whitespace-nowrap">
                       <div class="flex justify-end gap-1">
-                        <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info" pTooltip="Edit" tooltipPosition="top" (onClick)="editClass(item)"></p-button>
-                        <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" tooltipPosition="top" (onClick)="deleteClass(item.id, item.className)"></p-button>
+                        <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showMenu(actionMenu, $event, 'class', item)"></p-button>
                       </div>
                     </td>
                   </tr>
@@ -156,13 +160,18 @@ interface ActivityEntry {
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button class="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:bg-base-200" (click)="loadStudents()"><i class="pi pi-refresh"></i> Refresh</button>
+                  <button class="btn btn-outline btn-sm rounded-xl shadow-sm relative overflow-hidden" [disabled]="isImporting">
+                    @if (isImporting) { <span class="loading loading-spinner loading-sm"></span> } @else { <i class="pi pi-upload"></i> }
+                    Import
+                    <input type="file" class="absolute inset-0 opacity-0 cursor-pointer" accept=".xlsx, .xls, .csv" (change)="handleImportStudents($event)" [disabled]="isImporting" />
+                  </button>
                   <button class="btn btn-primary btn-sm rounded-xl shadow-sm" (click)="openStudentModal()"><i class="pi pi-plus"></i> Add Student</button>
                 </div>
               </div>
             </div>
 
             <div class="overflow-x-auto rounded-2xl border border-base-200">
-              <p-table #dtStudents [value]="students" [globalFilterFields]="['engFirstName', 'engLastName', 'khFirstName', 'khLastName', 'gender']" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+              <p-table #dtStudents [value]="students" [globalFilterFields]="['engFirstName', 'engLastName', 'khFirstName', 'khLastName', 'gender']" [paginator]="true" [rows]="10" [rowsPerPageOptions]="[5, 10, 25, 50, 100]" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
                 <ng-template pTemplate="header">
                   <tr>
                     <th>Name (EN)</th>
@@ -201,9 +210,7 @@ interface ActivityEntry {
                     </td>
                     <td class="text-right whitespace-nowrap">
                       <div class="flex justify-end gap-1">
-                        <p-button [icon]="item.isActive !== false ? 'pi pi-ban' : 'pi pi-check-circle'" [rounded]="true" [text]="true"ot ="item.isActive !== false ? 'warning' : 'success'" [pTooltip]="item.isActive !== false ? 'Deactivate' : 'Activate'" tooltipPosition="top" (onClick)="toggleStudentStatus(item)"></p-button>
-                        <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info" pTooltip="Edit" tooltipPosition="top" (onClick)="editStudent(item)"></p-button>
-                        <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" tooltipPosition="top" (onClick)="deleteStudent(item.id, item.engFirstName, item.engLastName)"></p-button>
+                        <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showMenu(actionMenu, $event, 'student', item)"></p-button>
                       </div>
                     </td>
                   </tr>
@@ -236,7 +243,7 @@ interface ActivityEntry {
             </div>
 
             <div class="overflow-x-auto rounded-2xl border border-base-200">
-              <p-table #dtOutreaches [value]="outreaches" [globalFilterFields]="['firstName', 'lastName', 'nickName', 'contact']" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+              <p-table #dtOutreaches [value]="outreaches" [globalFilterFields]="['firstName', 'lastName', 'nickName', 'contact']" [paginator]="true" [rows]="10" [rowsPerPageOptions]="[5, 10, 25, 50, 100]" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
                 <ng-template pTemplate="header">
                   <tr>
                     <th>Name</th>
@@ -267,8 +274,7 @@ interface ActivityEntry {
                     <td>{{ item.contact || '-' }}</td>
                     <td class="text-right whitespace-nowrap">
                       <div class="flex justify-end gap-1">
-                        <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info" pTooltip="Edit" tooltipPosition="top" (onClick)="editOutreach(item)"></p-button>
-                        <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" tooltipPosition="top" (onClick)="deleteOutreach(item.id, item.firstName + ' ' + item.lastName)"></p-button>
+                        <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showMenu(actionMenu, $event, 'outreach', item)"></p-button>
                       </div>
                     </td>
                   </tr>
@@ -301,7 +307,7 @@ interface ActivityEntry {
             </div>
 
             <div class="overflow-x-auto rounded-2xl border border-base-200">
-              <p-table #dtInterventions [value]="interventions" [globalFilterFields]="['studentName', 'status', 'notes']" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+              <p-table #dtInterventions [value]="interventions" [globalFilterFields]="['studentName', 'status', 'notes']" [paginator]="true" [rows]="10" [rowsPerPageOptions]="[5, 10, 25, 50, 100]" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
                 <ng-template pTemplate="header">
                   <tr>
                     <th>Student</th>
@@ -319,8 +325,7 @@ interface ActivityEntry {
                     <td class="max-w-[200px] truncate" [pTooltip]="item.notes" tooltipPosition="top">{{ item.notes || '-' }}</td>
                     <td class="text-right whitespace-nowrap">
                       <div class="flex justify-end gap-1">
-                        <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info" pTooltip="Edit" tooltipPosition="top" (onClick)="editIntervention(item)"></p-button>
-                        <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" tooltipPosition="top" (onClick)="deleteIntervention(item.id)"></p-button>
+                        <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showMenu(actionMenu, $event, 'intervention', item)"></p-button>
                       </div>
                     </td>
                   </tr>
@@ -347,13 +352,18 @@ interface ActivityEntry {
                 </div>
                 <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button class="btn btn-ghost btn-sm rounded-xl text-base-content/70 hover:bg-base-200" (click)="loadProducts()"><i class="pi pi-refresh"></i> Refresh</button>
+                  <button class="btn btn-outline btn-sm rounded-xl shadow-sm relative overflow-hidden" [disabled]="isImporting">
+                    @if (isImporting) { <span class="loading loading-spinner loading-sm"></span> } @else { <i class="pi pi-upload"></i> }
+                    Import
+                    <input type="file" class="absolute inset-0 opacity-0 cursor-pointer" accept=".xlsx, .xls, .csv" (change)="handleImportProducts($event)" [disabled]="isImporting" />
+                  </button>
                   <button class="btn btn-primary btn-sm rounded-xl shadow-sm" (click)="openProductModal()"><i class="pi pi-plus"></i> Add Product</button>
                 </div>
               </div>
             </div>
 
-            <div class="overflow-x-auto rounded-2xl border border-base-200">
-              <p-table #dtProducts [value]="products" [globalFilterFields]="['name', 'codeNumber', 'brandName', 'categoryName']" [paginator]="true" [rows]="10" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
+            <div class="overflow-hidden rounded-2xl border border-base-200">
+              <p-table #dtProducts [value]="products" [globalFilterFields]="['name', 'codeNumber', 'brandName', 'categoryName']" [paginator]="true" [rows]="20" [rowsPerPageOptions]="[10, 20, 50, 100]" [showCurrentPageReport]="true" currentPageReportTemplate="Showing {first} to {last} of {totalRecords} entries" [scrollable]="true" scrollHeight="calc(100vh - 350px)" styleClass="p-datatable-sm p-datatable-striped [&_th]:!bg-base-200/50">
                 <ng-template pTemplate="header">
                   <tr>
                     <th>Name</th>
@@ -372,8 +382,7 @@ interface ActivityEntry {
                     <td class="text-base-content/80">{{ item.categoryName || '-' }}</td>
                     <td class="text-right whitespace-nowrap">
                       <div class="flex justify-end gap-1">
-                        <p-button icon="pi pi-pencil" [rounded]="true" [text]="true" severity="info" pTooltip="Edit" tooltipPosition="top" (onClick)="editProduct(item)"></p-button>
-                        <p-button icon="pi pi-trash" [rounded]="true" [text]="true" severity="danger" pTooltip="Delete" tooltipPosition="top" (onClick)="deleteProduct(item.id || '', item.name)"></p-button>
+                        <p-button icon="pi pi-ellipsis-v" [rounded]="true" [text]="true" (click)="showMenu(actionMenu, $event, 'product', item)"></p-button>
                       </div>
                     </td>
                   </tr>
@@ -438,6 +447,7 @@ interface ActivityEntry {
                      [ngClass]="{
                        'border-l-4 border-l-success': entry.tone === 'success',
                        'border-l-4 border-l-error': entry.tone === 'error',
+                       'border-l-4 border-l-warning': entry.tone === 'warning',
                        'border-l-4 border-l-info': entry.tone === 'info'
                      }">
                   <div class="flex items-start justify-between gap-3 mb-2">
@@ -446,12 +456,14 @@ interface ActivityEntry {
                          [ngClass]="{
                            'pi-check-circle text-success': entry.tone === 'success',
                            'pi-times-circle text-error': entry.tone === 'error',
+                           'pi-exclamation-triangle text-warning': entry.tone === 'warning',
                            'pi-info-circle text-info': entry.tone === 'info'
                          }"></i>
                       <span class="font-semibold text-sm capitalize"
                             [ngClass]="{
                               'text-success': entry.tone === 'success',
                               'text-error': entry.tone === 'error',
+                              'text-warning': entry.tone === 'warning',
                               'text-info': entry.tone === 'info'
                             }">{{ entry.tone }}</span>
                     </div>
@@ -712,6 +724,23 @@ interface ActivityEntry {
       </form>
     </p-dialog>
 
+    <p-menu #actionMenu [model]="menuItems" [popup]="true"></p-menu>
+
+    <!-- View Details Modal -->
+    <p-dialog [(visible)]="isViewModalVisible" [header]="viewItemTitle" [modal]="true" [dismissableMask]="true" [style]="{width: '500px'}">
+      <div class="flex flex-col gap-3 py-4">
+        @for (data of viewItemData; track data.label) {
+          <div class="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 border-b border-base-200 pb-2 last:border-0">
+            <span class="text-sm font-semibold text-base-content/60 w-1/3 shrink-0">{{ data.label }}</span>
+            <span class="text-sm font-medium text-base-content whitespace-pre-wrap">{{ data.value }}</span>
+          </div>
+        }
+      </div>
+      <div class="flex justify-end pt-4 mt-2 border-t border-base-200">
+        <button class="btn btn-ghost" type="button" (click)="isViewModalVisible = false">Close</button>
+      </div>
+    </p-dialog>
+
     <!-- Delete Confirmation Modal -->
     <dialog id="delete-modal" class="modal modal-bottom sm:modal-middle">
       <div class="modal-box max-w-md py-6">
@@ -826,6 +855,10 @@ export class ApiConsoleComponent implements OnInit {
 
   protected activeTab: 'classes' | 'students' | 'outreaches' | 'interventions' | 'products' | 'reports' | 'activity' = 'classes';
   
+  protected isViewModalVisible = false;
+  protected viewItemTitle = '';
+  protected viewItemData: { label: string, value: any }[] = [];
+
   protected isClassModalVisible = false;
   protected isStudentModalVisible = false;
   protected isProductModalVisible = false;
@@ -853,11 +886,13 @@ export class ApiConsoleComponent implements OnInit {
   protected brandOptions: LookupOption[] = [];
   protected activityLog: ActivityEntry[] = [];
   protected statusMessage = 'Ready';
+  protected menuItems: MenuItem[] = [];
   protected busyClass = false;
   protected busyStudent = false;
   protected busyOutreach = false;
   protected busyIntervention = false;
   protected busyProduct = false;
+  protected isImporting = false;
   protected reloadTrigger = 0; // Increment to force reload
 
   // Delete confirmation modal properties
@@ -866,10 +901,114 @@ export class ApiConsoleComponent implements OnInit {
   protected deleteItemId: string | null = null;
   protected deleteItemTypeEnum: 'class' | 'student' | 'outreach' | 'product' | 'intervention' | null = null;
   protected deletingInProgress = false;
-  protected statusTone: 'success' | 'error' | 'info' = 'info';
+  protected statusTone: 'success' | 'error' | 'info' | 'warning' = 'info';
 
   ngOnInit(): void {
     this.refreshAll();
+  }
+
+  protected showMenu(menu: Menu, event: MouseEvent, type: string, item: any): void {
+    event.stopPropagation();
+
+    switch (type) {
+        case 'class':
+            this.menuItems = [
+                { label: 'View Details', icon: 'pi pi-eye', command: () => this.viewItemDetails(type, item) },
+                { label: 'Edit', icon: 'pi pi-pencil', command: () => this.editClass(item) },
+                { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.deleteClass(item.id, item.className) }
+            ];
+            break;
+        case 'student':
+            this.menuItems = [
+                { label: 'View Details', icon: 'pi pi-eye', command: () => this.viewItemDetails(type, item) },
+                { 
+                    label: item.isActive !== false ? 'Deactivate' : 'Activate', 
+                    icon: item.isActive !== false ? 'pi pi-ban' : 'pi pi-check-circle', 
+                    styleClass: item.isActive !== false ? 'text-warning' : 'text-success',
+                    command: () => this.toggleStudentStatus(item) 
+                },
+                { label: 'Edit', icon: 'pi pi-pencil', command: () => this.editStudent(item) },
+                { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.deleteStudent(item.id, item.engFirstName, item.engLastName) }
+            ];
+            break;
+        case 'outreach':
+            this.menuItems = [
+                { label: 'View Details', icon: 'pi pi-eye', command: () => this.viewItemDetails(type, item) },
+                { label: 'Edit', icon: 'pi pi-pencil', command: () => this.editOutreach(item) },
+                { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.deleteOutreach(item.id, item.firstName + ' ' + item.lastName) }
+            ];
+            break;
+        case 'intervention':
+            this.menuItems = [
+                { label: 'View Details', icon: 'pi pi-eye', command: () => this.viewItemDetails(type, item) },
+                { label: 'Edit', icon: 'pi pi-pencil', command: () => this.editIntervention(item) },
+                { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.deleteIntervention(item.id) }
+            ];
+            break;
+        case 'product':
+            this.menuItems = [
+                { label: 'View Details', icon: 'pi pi-eye', command: () => this.viewItemDetails(type, item) },
+                { label: 'Edit', icon: 'pi pi-pencil', command: () => this.editProduct(item) },
+                { label: 'Delete', icon: 'pi pi-trash', styleClass: 'text-error', command: () => this.deleteProduct(item.id || '', item.name) }
+            ];
+            break;
+    }
+    menu.toggle(event);
+  }
+
+  protected viewItemDetails(type: string, item: any): void {
+    this.viewItemData = [];
+    switch (type) {
+      case 'class':
+        this.viewItemTitle = 'Class Details';
+        this.viewItemData = [
+          { label: 'Class ID', value: item.id },
+          { label: 'Class Name', value: item.className }
+        ];
+        break;
+      case 'student':
+        this.viewItemTitle = 'Student Details';
+        this.viewItemData = [
+          { label: 'Name (EN)', value: `${item.engFirstName || ''} ${item.engLastName || ''}`.trim() || '-' },
+          { label: 'Name (KH)', value: `${item.khFirstName || ''} ${item.khLastName || ''}`.trim() || '-' },
+          { label: 'Gender', value: item.gender || '-' },
+          { label: 'Date of Birth', value: item.dateOfBirth ? new Date(item.dateOfBirth).toLocaleDateString() : '-' },
+          { label: 'Assigned Class', value: this.getClassName(item.classId) || '-' },
+          { label: 'Outreach Worker', value: this.getOutreachName(item.outReachId) || '-' },
+          { label: 'Status', value: item.isActive !== false ? 'Active' : 'Inactive' }
+        ];
+        break;
+      case 'outreach':
+        this.viewItemTitle = 'Outreach Worker Details';
+        this.viewItemData = [
+          { label: 'Full Name', value: `${item.firstName || ''} ${item.lastName || ''}`.trim() || '-' },
+          { label: 'Nickname', value: item.nickName || '-' },
+          { label: 'Contact', value: item.contact || '-' }
+        ];
+        break;
+      case 'intervention':
+        this.viewItemTitle = 'Intervention Details';
+        this.viewItemData = [
+          { label: 'Target Student', value: this.getStudentName(item.studentId) || '-' },
+          { label: 'Status', value: item.status || '-' },
+          { label: 'Date Reported', value: item.dateReported ? new Date(item.dateReported).toLocaleDateString() : '-' },
+          { label: 'Case Notes', value: item.notes || '-' }
+        ];
+        break;
+      case 'product':
+        this.viewItemTitle = 'Product Details';
+        this.viewItemData = [
+          { label: 'Product Name', value: item.name || '-' },
+          { label: 'Code Number', value: item.codeNumber || '-' },
+          { label: 'Category', value: item.categoryName || '-' },
+          { label: 'Brand', value: item.brandName || '-' },
+          { label: 'Condition', value: item.quality || '-' },
+          { label: 'Price', value: item.price != null ? `$${Number(item.price).toFixed(2)}` : '-' },
+          { label: 'Description', value: item.description || '-' }
+        ];
+        break;
+    }
+    this.isViewModalVisible = true;
   }
 
   protected openClassModal() {
@@ -1016,7 +1155,7 @@ export class ApiConsoleComponent implements OnInit {
         if (this.selectedImage && studentId) {
           const formData = new FormData();
           formData.append('file', this.selectedImage);
-          this.http.post(`http://localhost:5001/api/Student/${studentId}/image`, formData).subscribe();
+          this.http.post(`/api/Student/${studentId}/image`, formData).subscribe();
         }
         
         this.cancelEditStudent();
@@ -1030,7 +1169,7 @@ export class ApiConsoleComponent implements OnInit {
           if (this.selectedImage && studentId) {
             const formData = new FormData();
             formData.append('file', this.selectedImage);
-            this.http.post(`http://localhost:5001/api/Student/${studentId}/image`, formData).subscribe();
+            this.http.post(`/api/Student/${studentId}/image`, formData).subscribe();
           }
           this.cancelEditStudent();
           this.loadStudents();
@@ -1125,8 +1264,8 @@ export class ApiConsoleComponent implements OnInit {
     payload.contact = formValue.contact?.trim() || null;
 
     const obs$ = this.editingOutreachId
-      ? this.http.put(`http://localhost:5001/api/outreach/${this.editingOutreachId}`, payload)
-      : this.http.post('http://localhost:5001/api/outreach', payload);
+      ? this.http.put(`/api/outreach/${this.editingOutreachId}`, payload)
+      : this.http.post('/api/outreach', payload);
 
     obs$.pipe(
       finalize(() => {
@@ -1142,7 +1281,7 @@ export class ApiConsoleComponent implements OnInit {
           if (this.selectedImage && outreachId) {
             const formData = new FormData();
             formData.append('file', this.selectedImage);
-            this.http.post(`http://localhost:5001/api/outreach/${outreachId}/image`, formData).subscribe();
+            this.http.post(`/api/outreach/${outreachId}/image`, formData).subscribe();
           }
           this.cancelEditOutreach();
           this.loadOutreaches();
@@ -1157,7 +1296,7 @@ export class ApiConsoleComponent implements OnInit {
             if (this.selectedImage && outreachId) {
               const formData = new FormData();
               formData.append('file', this.selectedImage);
-              this.http.post(`http://localhost:5001/api/outreach/${outreachId}/image`, formData).subscribe();
+              this.http.post(`/api/outreach/${outreachId}/image`, formData).subscribe();
             }
             this.cancelEditOutreach();
             this.loadOutreaches();
@@ -1217,8 +1356,8 @@ export class ApiConsoleComponent implements OnInit {
     if (this.editingInterventionId) payload.id = this.editingInterventionId;
 
     const obs$ = this.editingInterventionId
-      ? this.http.put(`http://localhost:5001/api/interventions/${this.editingInterventionId}`, payload)
-      : this.http.post('http://localhost:5001/api/interventions', payload);
+      ? this.http.put(`/api/interventions/${this.editingInterventionId}`, payload)
+      : this.http.post('/api/interventions', payload);
 
     obs$.pipe(
       finalize(() => {
@@ -1374,6 +1513,70 @@ export class ApiConsoleComponent implements OnInit {
     this.openDeleteModal();
   }
 
+  protected handleImportProducts(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.isImporting = true;
+    this.announce(`Uploading ${file.name} for import...`, 'info');
+    this.cdr.detectChanges();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<any>('/api/inventory/products/import', formData).subscribe({
+      next: (result) => {
+        this.isImporting = false;
+        input.value = '';
+        if (result && result.errors && result.errors.length > 0) {
+          this.announce(`Import completed with ${result.errors.length} errors. Imported ${result.importedCount} products.`, 'error');
+        } else {
+          this.announce(`Successfully imported products!`, 'success');
+        }
+        this.loadProducts();
+      },
+      error: (err) => {
+        this.isImporting = false;
+        input.value = '';
+        this.announce(this.extractMessage(err, 'Failed to import products.'), 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  protected handleImportStudents(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    this.isImporting = true;
+    this.announce(`Uploading ${file.name} for student import...`, 'info');
+    this.cdr.detectChanges();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.http.post<any>('/api/Student/import', formData).subscribe({
+      next: (result) => {
+        this.isImporting = false;
+        input.value = '';
+        if (result && result.errors && result.errors.length > 0) {
+          this.announce(`Import completed with ${result.errors.length} errors. Imported ${result.importedCount} students.`, 'warning');
+        } else {
+          this.announce(`Successfully imported students!`, 'success');
+        }
+        this.loadStudents();
+      },
+      error: (err) => {
+        this.isImporting = false;
+        input.value = '';
+        this.announce(this.extractMessage(err, 'Failed to import students.'), 'error');
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
   protected downloadMonthlyPdf(): void {
     const selectedDate = this.reportForm.getRawValue().monthYear as Date;
     if (!selectedDate) return;
@@ -1471,7 +1674,7 @@ export class ApiConsoleComponent implements OnInit {
   }
 
   protected loadOutreaches(): void {
-    this.http.get<any>('http://localhost:5001/api/outreach').pipe(
+    this.http.get<any>('/api/outreach').pipe(
       catchError(() => of({ items: [] })),
       finalize(() => { 
         setTimeout(() => this.cdr.detectChanges()); 
@@ -1484,7 +1687,7 @@ export class ApiConsoleComponent implements OnInit {
   }
 
   protected loadInterventions(): void {
-    this.http.get<InterventionDto[]>('http://localhost:5001/api/interventions').pipe(
+    this.http.get<InterventionDto[]>('/api/interventions').pipe(
       catchError(() => of([] as InterventionDto[])),
       finalize(() => { 
         setTimeout(() => this.cdr.detectChanges()); 
@@ -1677,7 +1880,7 @@ export class ApiConsoleComponent implements OnInit {
   }
 
   private performDeleteOutreach(id: string): void {
-    this.http.delete(`http://localhost:5001/api/outreach/${id}`).subscribe({
+    this.http.delete(`/api/outreach/${id}`).subscribe({
       next: () => {
         this.announce('Outreach worker deleted.', 'success');
         this.closeDeleteModal();
@@ -1697,7 +1900,7 @@ export class ApiConsoleComponent implements OnInit {
   }
 
   private performDeleteIntervention(id: string): void {
-    this.http.delete(`http://localhost:5001/api/interventions/${id}`).subscribe({
+    this.http.delete(`/api/interventions/${id}`).subscribe({
       next: () => {
         this.announce('Intervention deleted.', 'success');
         this.closeDeleteModal();

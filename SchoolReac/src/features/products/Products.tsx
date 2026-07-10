@@ -76,7 +76,7 @@ export const Products: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(parseInt(searchParams.get('page') || '1', 10) - 1);
   const [pageSize, setPageSize] = useState(() => {
     const saved = localStorage.getItem('products_page_size');
-    return saved ? parseInt(saved, 10) : 10;
+    return saved ? parseInt(saved, 10) : 20;
   });
   const [sortBy, setSortBy] = useState<keyof api.ProductDto>('createdDate');
   const [isAscending, setIsAscending] = useState(false); // false = descending (newest first)
@@ -1691,7 +1691,7 @@ export const Products: React.FC = () => {
         {/* Pagination */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', borderTop: '1px solid', borderColor: 'divider' }}>
           <TablePagination
-            rowsPerPageOptions={[5, 10, 25, 50, 100]}
+            rowsPerPageOptions={[10, 20, 50, 100]}
             component="div"
             count={totalItems}
             rowsPerPage={pageSize}

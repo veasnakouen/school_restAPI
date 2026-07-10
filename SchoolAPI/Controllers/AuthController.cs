@@ -136,15 +136,7 @@ public class AuthController : BaseController
         // Check if user is locked out
         if (await _userManager.IsLockedOutAsync(user))
         {
-            // DEV WORKAROUND: Automatically unlock the admin account to regain access
-            if (user.Email?.ToLower() == "admin@school.com")
-            {
-                await _userManager.SetLockoutEndDateAsync(user, null);
-            }
-            else
-            {
-                return Unauthorized("Account is locked out. Please try again later.");
-            }
+            return Unauthorized("Account is locked out. Please try again later.");
         }
 
         var passwordValid = await _userManager.CheckPasswordAsync(user, request.Password);

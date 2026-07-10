@@ -14,15 +14,18 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Re
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly ITokenService _tokenService;
+    private readonly IApplicationDbContext _context;
     private readonly JwtSettings _jwtSettings;
 
     public RegisterCommandHandler(
         UserManager<AppUser> userManager,
         ITokenService tokenService,
-        IOptions<JwtSettings> jwtSettings)
+        IOptions<JwtSettings> jwtSettings,
+        IApplicationDbContext context)
     {
         _userManager = userManager;
         _tokenService = tokenService;
+        _context = context;
         _jwtSettings = jwtSettings.Value;
     }
 
@@ -45,11 +48,20 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Re
             return Result<RegisterResponse>.Failure("User already exists with this email.");
         }
 
+        // Create a corresponding Person record for operational tracking
+        var person = new Person
+        {
+            FullName = request.FullName,
+            Email = request.Email,
+            IsActive = true
+        };
+
         var user = new AppUser
         {
             UserName = request.Email,
             Email = request.Email,
             FullName = request.FullName,
+            PersonId = person.Id, // Link the AppUser to the new Person
             EmailConfirmed = false // Require email confirmation
         };
 
@@ -59,6 +71,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, Result<Re
             var errors = string.Join("; ", result.Errors.Select(e => e.Description));
             return Result<RegisterResponse>.Failure(errors);
         }
+
+        _context.Persons.Add(person);
+        await _context.SaveChangesAsync(cancellationToken);
 
         // Assign default role if none provided
         var roles = request.Roles ?? new List<string> { Roles.User };
