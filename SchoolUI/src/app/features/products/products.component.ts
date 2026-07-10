@@ -155,7 +155,7 @@ export interface ExtendedProductDto extends ProductDto {
 
         <!-- Table -->
         <div class="my-6 rounded-lg border border-base-300 bg-base-100 overflow-hidden">
-          <p-table [value]="products" dataKey="id" [loading]="loading" [scrollable]="true" [virtualScroll]="true" [virtualScrollItemSize]="46" scrollHeight="calc(100vh - 220px)" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
+          <p-table [value]="products" dataKey="id" [loading]="loading" styleClass="p-datatable-striped p-datatable-sm [&_td]:!px-4 [&_td]:!py-3 [&_th]:!px-4 [&_th]:!py-3" [tableStyle]="{'min-width': '50rem'}">
             <ng-template pTemplate="header">
               <tr>
                 <th style="width: 3rem">
@@ -607,7 +607,9 @@ export class ProductsComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
   private readonly messageService = inject(MessageService);
   private readonly confirmationService = inject(ConfirmationService);
-  private readonly baseUrl = `http://${window.location.hostname}:5001`;
+  
+  // Fallback strictly to localhost for dev, but use your secure backend URL in production!
+  private readonly baseUrl = (typeof window !== 'undefined' && window.location.hostname.includes('localhost')) ? 'http://localhost:5001' : 'https://school-api-xyz.onrender.com'; // <-- IMPORTANT: Replace with your actual Render API URL!
   private readonly apiUrl = `${this.baseUrl}/api/inventory/products`;
 
   protected products: ExtendedProductDto[] = [];
@@ -872,9 +874,6 @@ export class ProductsComponent implements OnInit, OnDestroy {
     });
 
     this.hubConnection.start().catch((err: any) => console.error('SignalR Connection Error: ', err));
-    this.signalRTimeoutId = setTimeout(() => {
-      this.hubConnection?.start().catch((err: any) => console.error('SignalR Connection Error: ', err));
-    }, 50);
   }
 
   protected loadLookups(): void {
@@ -924,56 +923,66 @@ export class ProductsComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.selectedProducts.clear();
 
-    const query: QueryOptions = {
-      pageNumber: this.currentPage,
-      pageSize: this.pageSize
-    };
+      // EXACT query mapping from React's api.getProducts(params)
+      const selectedCats = this.categories.filter(c => this.filterCategory && this.filterCategory.includes(c.name));
+      const categoryIds = selectedCats.map(c => c.id).join(',');
 
-    // Add sorting
-    if (this.sortBy) {
-      query.sortBy = this.sortBy;
-      query.isAscending = this.isAscending;
-    }
+      const selectedDepts = this.departments.filter(d => this.filterDepartment && this.filterDepartment.includes(d.name));
+      const departmentIds = selectedDepts.map(d => d.id).join(',');
 
-    // Find IDs based on selected filter names
-    const selectedCat = this.categories.find(c => c.name === this.filterCategory);
-    const selectedDept = this.departments.find(d => d.name === this.filterDepartment);
-    const selectedQuality = this.qualities.find(q => q.name === this.filterQuality);
+      const selectedQualities = this.qualities.filter(q => this.filterQuality && this.filterQuality.includes(q.name));
+      const qualityIds = selectedQualities.map(q => q.id).join(',');
 
-    if (selectedCat?.id) (query as any).categoryId = selectedCat.id;
-    if (selectedDept?.id) (query as any).departmentId = selectedDept.id;
-    if (selectedQuality?.id) (query as any).qualityId = selectedQuality.id;
-    if (this.filterPurchaseType) (query as any).purchaseType = this.filterPurchaseType;
-
+      let filterOn = undefined;
+      let filterQuery = undefined;
+      
+      let minPrice = undefined;
+      let maxPrice = undefined;
     if (this.filterPrice === 'under100') {
-      (query as any).maxPrice = 99.99;
+        maxPrice = 99.99;
     } else if (this.filterPrice === 'equal100') {
-      (query as any).minPrice = 100;
-      (query as any).maxPrice = 100;
+        minPrice = 100;
+        maxPrice = 100;
     } else if (this.filterPrice === 'over100') {
-      (query as any).minPrice = 100.01;
+        minPrice = 100.01;
     }
 
     // Fallback for free-text filters that don't have IDs
-    if (this.filterCategory && !selectedCat?.id) {
-      query.filterOn = 'categoryName';
-      query.filterQuery = this.filterCategory;
-    } else if (this.filterDepartment && !selectedDept?.id) {
-      query.filterOn = 'departmentName';
-      query.filterQuery = this.filterDepartment;
-    } else if (this.filterQuality && !selectedQuality?.id) {
-      query.filterOn = 'quality';
-      query.filterQuery = this.filterQuality;
-    }
+      const unmappedCategories = this.filterCategory ? this.filterCategory.split(',').filter(name => !selectedCats.find(c => c.name === name)) : [];
+      const unmappedDepartments = this.filterDepartment ? this.filterDepartment.split(',').filter(name => !selectedDepts.find(d => d.name === name)) : [];
+      const unmappedQualities = this.filterQuality ? this.filterQuality.split(',').filter(name => !selectedQualities.find(q => q.name === name)) : [];
 
-    // Add search filter
-    if (this.search && this.search.trim() !== '') {
-      (query as any).name = this.search.trim();
-    }
+      if (unmappedCategories.length > 0) {
+        filterOn = 'categoryName';
+        filterQuery = unmappedCategories.join(',');
+      } else if (unmappedDepartments.length > 0) {
+        filterOn = 'departmentName';
+        filterQuery = unmappedDepartments.join(',');
+      } else if (unmappedQualities.length > 0) {
+        filterOn = 'quality';
+        filterQuery = unmappedQualities.join(',');
+      }
+
+      const query: any = {
+        pageNumber: this.currentPage,
+        pageSize: this.pageSize,
+        sortBy: this.sortBy || undefined,
+        isAscending: this.isAscending,
+        name: (this.search && this.search.trim() !== '') ? this.search.trim() : undefined,
+        categoryId: categoryIds || undefined,
+        departmentId: departmentIds || undefined,
+        qualityId: qualityIds || undefined,
+        purchaseType: this.filterPurchaseType || undefined,
+        minPrice,
+        maxPrice,
+        filterOn,
+        filterQuery
+      };
 
     let params = new HttpParams();
     Object.keys(query).forEach(key => {
-      const val = (query as any)[key];
+        const val = query[key];
+        // Allow booleans (false) and numbers (0), but strictly reject undefined, null, or empty strings
       if (val !== undefined && val !== null && val !== '') {
         params = params.append(key, val.toString());
       }
@@ -984,8 +993,8 @@ export class ProductsComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (result) => {
         if (result) {
-          this.products = result.items || [];
-          this.totalItems = result.totalCount || 0;
+          this.products = result.items || (Array.isArray(result) ? result : []);
+          this.totalItems = result.totalCount || this.products.length || 0;
           this.totalPages = Math.ceil(this.totalItems / this.pageSize);
           this.sortProductsLocally();
         }
