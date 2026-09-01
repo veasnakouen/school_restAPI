@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj": {}
+    "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj": {}
   },
   "projects": {
-    "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj": {
+    "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
+        "projectUniqueName": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj",
         "projectName": "SchoolAPI",
-        "projectPath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
+        "projectPath": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj",
         "packagesPath": "C:\\Users\\K-VeaSna\\.nuget\\packages\\",
-        "outputPath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\obj\\",
+        "outputPath": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages",

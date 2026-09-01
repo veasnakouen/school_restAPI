@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "pNmOuPeGJ2Y=",
+  "dgSpecHash": "986cCRR1yK8=",
   "success": true,
-  "projectFilePath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
+  "projectFilePath": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\automapper\\12.0.1\\automapper.12.0.1.nupkg.sha512",
     "C:\\Users\\K-VeaSna\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.1\\automapper.extensions.microsoft.dependencyinjection.12.0.1.nupkg.sha512",
@@ -98,9 +98,9 @@
       "code": "NU1903",
       "level": "Warning",
       "message": "Package 'AutoMapper' 12.0.1 has a known high severity vulnerability, https://github.com/advisories/GHSA-rvv3-g6hj-g44x",
-      "projectPath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
+      "projectPath": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj",
       "warningLevel": 1,
-      "filePath": "E:\\NexjsAndDotnet\\School\\src\\SchoolAPI\\SchoolAPI.csproj",
+      "filePath": "E:\\NexjsAndDotnet\\School\\src.worktrees\\copilot-worktree-2026-03-27T06-43-12\\SchoolAPI\\SchoolAPI.csproj",
       "libraryId": "AutoMapper",
       "targetGraphs": [
         "net10.0"
