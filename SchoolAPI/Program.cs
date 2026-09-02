@@ -103,11 +103,11 @@ builder.Services.AddHangfireServices(builder.Configuration);
 // });
 
 // Configure Output Caching to use Redis
-builder.Services.AddStackExchangeRedisOutputCache(options =>
-{
-    options.Configuration = builder.Configuration["Redis:Configuration"];
-    options.InstanceName = "SchoolAPI:OutputCache:";
-});
+// builder.Services.AddStackExchangeRedisOutputCache(options =>
+// {
+//     options.Configuration = builder.Configuration["Redis:Configuration"];
+//     options.InstanceName = "SchoolAPI:OutputCache:";
+// });
 builder.Services.AddOutputCache();
 
 // Enable response compression to significantly reduce JSON payload sizes over the network

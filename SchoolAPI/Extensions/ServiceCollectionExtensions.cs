@@ -211,8 +211,8 @@ namespace SchoolAPI.Extensions
             services.AddDistributedMemoryCache();
             
             // These services use IDistributedCache, so they will automatically use the In-Memory cache above!
-            // services.AddSingleton<ICacheStore, RedisCacheStore>(); // (Name says Redis, but it uses whatever IDistributedCache is configured)
-            // services.AddSingleton<ICacheVersionService, CacheVersionService>();
+            services.AddSingleton<ICacheStore, RedisCacheStore>(); // (Name says Redis, but it uses whatever IDistributedCache is configured)
+            services.AddSingleton<ICacheVersionService, CacheVersionService>();
             services.AddScoped<IAssessmentRequestReportService, AssessmentRequestReportService>();
             services.AddScoped<IStudentAssessmentRequestReportService, StudentAssessmentRequestReportService>();
             services.AddScoped<IMonthlyTransactionReportService, MonthlyTransactionReportService>();
