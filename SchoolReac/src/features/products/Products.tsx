@@ -466,9 +466,11 @@ export const Products: React.FC = () => {
   const updateSupplierContact = (currentContacts: { type: string, value: string }[]) => {
     const combined = currentContacts
       .filter(c => c.value.trim() !== '')
-      .map(c => `${c.type || 'Other'}: ${c.value}`)
-      .join(' | ');
-    setSelectedProduct(p => p ? { ...p, supplierContact: combined } : null);
+      .reduce((acc, c) => {
+        acc[c.type || 'Other'] = c.value;
+        return acc;
+      }, {} as Record<string, string>);
+    setSelectedProduct(p => p ? { ...p, supplierContact: Object.keys(combined).length > 0 ? (combined as any) : null } : null);
   };
 
   const handleOpenModal = (mode: 'create' | 'edit' | 'view', product?: api.ProductDto | null) => {
@@ -954,7 +956,7 @@ export const Products: React.FC = () => {
       if (!match) return null;
     }
     return (
-      <Grid item xs={12}>{renderProductField(label, value)}</Grid>
+      <Grid size={{ xs: 12 }}>{renderProductField(label, value)}</Grid>
     );
   };
 
@@ -1197,7 +1199,7 @@ export const Products: React.FC = () => {
           </AccordionSummary>
           <AccordionDetails sx={{ bgcolor: 'background.default', p: { xs: 2, md: 3 } }} >
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <Select
               multiple
@@ -1223,7 +1225,7 @@ export const Products: React.FC = () => {
             </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <Select
               multiple
@@ -1249,7 +1251,7 @@ export const Products: React.FC = () => {
             </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <Select
               multiple
@@ -1275,7 +1277,7 @@ export const Products: React.FC = () => {
             </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <Select
               value={filterPurchaseType}
@@ -1288,7 +1290,7 @@ export const Products: React.FC = () => {
             </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
         <Select
           value={filterGroup}
@@ -1302,33 +1304,33 @@ export const Products: React.FC = () => {
         </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <DatePicker
               label="From Date"
-              slotProps={{ textField: { size: 'small', fullWidth: true, InputLabelProps: { shrink: true } } }}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
               value={filterStartDate ? dayjs(filterStartDate) : null}
               onChange={(newDate: Dayjs | null) => { 
-                setFilterStartDate(newDate ? newDate.format('YYYY-MM-DD') : ''); 
+                setFilterStartDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : ''); 
                 setCurrentPage(0); 
               }}
             />
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <DatePicker
               label="To Date"
-              slotProps={{ textField: { size: 'small', fullWidth: true, InputLabelProps: { shrink: true } } }}
+              slotProps={{ textField: { size: 'small', fullWidth: true } }}
               value={filterEndDate ? dayjs(filterEndDate) : null}
               onChange={(newDate: Dayjs | null) => { 
-                setFilterEndDate(newDate ? newDate.format('YYYY-MM-DD') : ''); 
+                setFilterEndDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : ''); 
                 setCurrentPage(0); 
               }}
             />
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6} md={4} lg={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
             <Select
               value={filterPrice}
@@ -1586,7 +1588,7 @@ export const Products: React.FC = () => {
                           <Typography variant="body2">{product.supplierName || '-'}</Typography>
                           {product.supplierContact && (
                             <Typography variant="caption" color="text.secondary" display="block">
-                              {product.supplierContact}
+                              {typeof product.supplierContact === 'string' ? product.supplierContact : Object.entries(product.supplierContact || {}).map(([k, v]) => `${k}: ${v}`).join(' | ')}
                             </Typography>
                           )}
                         </TableCell>
@@ -1628,7 +1630,7 @@ export const Products: React.FC = () => {
             {loading && products.length === 0 ? (
               <Grid container spacing={{ xs: 1.5, sm: 3 }} columns={60}>
                 {Array.from(new Array(pageSize)).map((_, index) => (
-                  <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={`skel-grid-${index}`}>
+                  <Grid key={`skel-grid-${index}`} size={{ xs: 60, sm: 60 / Math.min(2, gridColumns), md: 60 / Math.min(3, gridColumns), lg: 60 / gridColumns }}>
                     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                       <Skeleton variant="rectangular" sx={{ p: { xs: 1, sm: 2 }, aspectRatio: '1 / 1', maxWidth: 140, mx: 'auto', mt: 2 }} />
                       <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 } }}>
@@ -1661,7 +1663,7 @@ export const Products: React.FC = () => {
                     else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
                   }
                   return (
-                <Grid item xs={60} sm={60 / Math.min(2, gridColumns)} md={60 / Math.min(3, gridColumns)} lg={60 / gridColumns} key={product.id}>
+                <Grid key={product.id} size={{ xs: 60, sm: 60 / Math.min(2, gridColumns), md: 60 / Math.min(3, gridColumns), lg: 60 / gridColumns }}>
                       <Card 
                         sx={{ 
                           height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
@@ -1796,7 +1798,7 @@ export const Products: React.FC = () => {
         <DialogTitle>{modalMode === 'create' ? 'Create New Product' : 'Edit Product'}</DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={3} sx={{ pt: 1 }}>
-            <Grid item xs={12} md={8}>
+            <Grid size={{ xs: 12, md: 8 }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <TextField label="Product Name" value={selectedProduct?.name || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, name: e.target.value } : null)} required fullWidth />
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -1815,7 +1817,7 @@ export const Products: React.FC = () => {
                 <TextField label="Product Specs" value={selectedProduct?.attributes || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, attributes: e.target.value } : null)} multiline rows={3} placeholder="E.g. Dimensions: 10x10, Weight: 1kg" fullWidth />
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                 <Box sx={{ position: 'relative', width: '100%', maxWidth: 160, mx: 'auto', aspectRatio: '1 / 1' }}>
                   <Avatar src={imagePreview || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
@@ -1836,7 +1838,7 @@ export const Products: React.FC = () => {
                 )}
               </Box>
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 freeSolo
                 options={categories}
@@ -1892,7 +1894,7 @@ export const Products: React.FC = () => {
                 )}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 freeSolo
                 options={brands}
@@ -1929,7 +1931,7 @@ export const Products: React.FC = () => {
             </Grid>
             {isVehicleCategory && (
               <>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     label="Plate Number"
                     value={selectedProduct?.plateNumber || ''}
@@ -1937,7 +1939,7 @@ export const Products: React.FC = () => {
                     fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={4}>
+                <Grid size={{ xs: 12, sm: 4 }}>
                   <TextField
                     label="Engine / Serial Number"
                     value={selectedProduct?.engineNumber || ''}
@@ -1945,29 +1947,27 @@ export const Products: React.FC = () => {
                     fullWidth
                   />
                 </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <DatePicker
                     label="Year *"
-                    type="date"
-                    value={selectedProduct?.year ? selectedProduct.year.substring(0, 10) : ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      // val is 'YYYY-MM-DD', backend expects a full DateTime string
-                      setSelectedProduct(p => p ? { ...p, year: val ? `${val}T00:00:00.000Z` : null } : null);
+                    value={selectedProduct?.year ? dayjs(selectedProduct.year) : null}
+                    onChange={(newDate: Dayjs | null) => {
+                      setSelectedProduct(p => p ? { ...p, year: newDate && newDate.isValid() ? `${newDate.format('YYYY-MM-DD')}T00:00:00.000Z` : null } : null);
                     }}
-                    fullWidth
-                    required
-                    error={Boolean(!selectedProduct?.year || (selectedProduct?.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear()))}
-                    helperText={!selectedProduct?.year ? "Year is required for vehicles." : (selectedProduct?.year && new Date(selectedProduct.year).getFullYear() > new Date().getFullYear() ? "Year cannot be in the future." : "")}
-                    InputLabelProps={{ shrink: true }}
-                    inputProps={{
-                      max: new Date().toISOString().split("T")[0], // Sets max date to today
+                    maxDate={dayjs()}
+                    slotProps={{
+                      textField: {
+                        fullWidth: true,
+                        required: true,
+                        error: Boolean(!selectedProduct?.year || (selectedProduct?.year && dayjs(selectedProduct.year).isAfter(dayjs(), 'year'))),
+                        helperText: !selectedProduct?.year ? "Year is required for vehicles." : (selectedProduct?.year && dayjs(selectedProduct.year).isAfter(dayjs(), 'year') ? "Year cannot be in the future." : "")
+                      }
                     }}
                   />
                 </Grid>
               </>
             )}
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 freeSolo
                 options={departments}
@@ -2000,10 +2000,10 @@ export const Products: React.FC = () => {
                 renderInput={(params) => <TextField {...params} label="Department" placeholder="Select or type to create" />}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField label="Price" type="number" value={selectedProduct?.price ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, price: e.target.value ? parseFloat(e.target.value) : null } : null)} required fullWidth />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 freeSolo
                 options={qualities}
@@ -2043,17 +2043,17 @@ export const Products: React.FC = () => {
                 )}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField label="Description" value={selectedProduct?.description || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, description: e.target.value } : null)} multiline rows={4} fullWidth />
             </Grid>
 
             {/* Stock Acquisition / Purchase Information */}
             {(modalMode === 'create' || modalMode === 'edit') && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Divider sx={{ my: 2, color: 'text.secondary' }}>{modalMode === 'edit' ? 'Purchase Information' : 'Initial Stock / Acquisition'}</Divider>
                 <Box sx={{ p: 3, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
                   <Grid container spacing={3}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid size={{ xs: 12, sm: 6 }}>
                       <TextField
                         select
                         label="Acquisition Type"
@@ -2069,24 +2069,24 @@ export const Products: React.FC = () => {
                     </Grid>
                     {selectedProduct?.purchaseType && selectedProduct.purchaseType !== 'None' && (
                       <>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                           <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} inputProps={{ min: 1 }} required fullWidth disabled={disablePurchaseFields} />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
-                          <TextField 
-                            label="Invoice Date" 
-                            type="date" 
-                            value={selectedProduct?.invoiceDate ? selectedProduct.invoiceDate.split('T')[0] : ''} 
-                            onChange={(e) => setSelectedProduct(p => p ? { ...p, invoiceDate: e.target.value ? `${e.target.value}T00:00:00.000Z` : null } : null)} 
-                            fullWidth 
-                            InputLabelProps={{ shrink: true }} 
-                            disabled={disablePurchaseFields} 
+                        <Grid size={{ xs: 12, sm: 4 }}>
+                          <DatePicker
+                            label="Invoice Date"
+                            value={selectedProduct?.invoiceDate ? dayjs(selectedProduct.invoiceDate) : null}
+                            onChange={(newDate: Dayjs | null) => {
+                              setSelectedProduct(p => p ? { ...p, invoiceDate: newDate && newDate.isValid() ? `${newDate.format('YYYY-MM-DD')}T00:00:00.000Z` : null } : null);
+                            }}
+                            disabled={disablePurchaseFields}
+                            slotProps={{ textField: { fullWidth: true } }}
                           />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                           <TextField label="Voucher Number" value={selectedProduct?.voucherNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, voucherNumber: e.target.value } : null)} fullWidth placeholder="e.g. INV-12345" />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                           <Autocomplete
                             freeSolo
                             options={suppliers}
@@ -2122,10 +2122,10 @@ export const Products: React.FC = () => {
                             disabled={disablePurchaseFields}
                           />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                           <TextField label="Donor Name" value={selectedProduct?.donorName || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, donorName: e.target.value } : null)} fullWidth placeholder="e.g. John Doe" disabled={disablePurchaseFields} />
                         </Grid>
-                        <Grid item xs={12} sm={4}>
+                        <Grid size={{ xs: 12, sm: 4 }}>
                           <Autocomplete
                             freeSolo
                             options={persons}
@@ -2178,7 +2178,7 @@ export const Products: React.FC = () => {
                             renderInput={(params) => <TextField {...params} label="Responsible Person" placeholder="Select or type to assign" />}
                           />
                         </Grid>
-                        <Grid item xs={12}>
+                        <Grid size={{ xs: 12 }}>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <Typography variant="body2" fontWeight="bold" color="text.secondary">Contact Info</Typography>
@@ -2237,7 +2237,7 @@ export const Products: React.FC = () => {
 
             {/* Purchase History Table for Edit Modal */}
             {modalMode === 'edit' && purchaseHistory.length > 0 && (
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Divider sx={{ my: 2, color: 'text.secondary' }}>Purchase History</Divider>
                 <TableContainer component={Paper} variant="outlined">
                   <Table size="small">
@@ -2308,7 +2308,7 @@ export const Products: React.FC = () => {
             <DialogContent dividers ref={viewModalContentRef}>
               <Grid container spacing={2}>
                 {showImageInView && (
-                <Grid item xs={12} sm={5}>
+                <Grid size={{ xs: 12, sm: 5 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                     <Box sx={{ position: 'relative', width: '100%', maxWidth: 220, mx: 'auto', aspectRatio: '1 / 1' }}>
                       <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
@@ -2332,7 +2332,7 @@ export const Products: React.FC = () => {
                   </Box>
                 </Grid>
                 )}
-                <Grid item xs={12} sm={showImageInView ? 7 : 12} container spacing={2} alignContent="flex-start">
+                <Grid container spacing={2} alignContent="flex-start" size={{ xs: 12, sm: showImageInView ? 7 : 12 }}>
                   {renderViewField('Item Name', selectedProduct.name)}
                   {renderViewField('Code Number', selectedProduct.codeNumber)}
                   {renderViewField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}

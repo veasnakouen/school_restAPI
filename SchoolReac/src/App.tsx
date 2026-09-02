@@ -39,16 +39,16 @@ const AppContent = () => {
           mode: isDark ? "dark" : "light",
           ...(isDark
             ? {
-                // Palette values for dark mode
-                primary: { main: blue[300] },
-                secondary: { main: orange[400] },
-                background: { default: '#121212', paper: '#1e1e1e' },
-              }
+              // Palette values for dark mode
+              primary: { main: blue[300] },
+              secondary: { main: orange[400] },
+              background: { default: '#121212', paper: '#1e1e1e' },
+            }
             : {
-                // Palette values for light mode
-                primary: { main: blue[700] },
-                secondary: { main: orange[800] },
-              }),
+              // Palette values for light mode
+              primary: { main: blue[700] },
+              secondary: { main: orange[800] },
+            }),
           // Common colors
           error: {
             main: red.A400,
@@ -72,45 +72,45 @@ const AppContent = () => {
         <CssBaseline />
         <GlobalSpinner />
         <ToastContainer />
-      <Routes>
-        <Route
-          element={
-            <RouteErrorBoundary>
-              <Outlet />
-            </RouteErrorBoundary>
-          }
-        >
-          <Route path="/login" element={<LoginPage />} />
+        <Routes>
+          <Route
+            element={
+              <RouteErrorBoundary>
+                <Outlet />
+              </RouteErrorBoundary>
+            }
+          >
+            <Route path="/login" element={<LoginPage />} />
 
-          {/* Authenticated Routes */}
-          <Route element={<AuthGuard />}>
-            <Route element={<AppShell />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/products" element={<Products />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/admin" element={<AdminGuard />}>
-                <Route element={<AdminDashboard />}>
-                  <Route index element={<Navigate to="users" replace />} />
-                  <Route path="users" element={<UserManagement />} />
-                  <Route path="roles" element={<RoleManagement />} />
-                  <Route
-                    path="permissions"
-                    element={<PermissionManagement />}
-                  />
-                  <Route path="settings" element={<SystemSettings />} />
-                  <Route path="lookups" element={<LookupManagement />} />
-                  <Route path="transactions" element={<Transactions />} />
-                  <Route path="write-offs" element={<WriteOffs />} />
+            {/* Authenticated Routes */}
+            <Route element={<AuthGuard />}>
+              <Route element={<AppShell />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/products" element={<Products />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/admin" element={<AdminGuard />}>
+                  <Route element={<AdminDashboard />}>
+                    <Route index element={<Navigate to="users" replace />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="roles" element={<RoleManagement />} />
+                    <Route
+                      path="permissions"
+                      element={<PermissionManagement />}
+                    />
+                    <Route path="settings" element={<SystemSettings />} />
+                    <Route path="lookups" element={<LookupManagement />} />
+                    <Route path="transactions" element={<Transactions />} />
+                    <Route path="write-offs" element={<WriteOffs />} />
+                  </Route>
                 </Route>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
               </Route>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Route>
-          </Route>
 
-          {/* Catch-all route for 404 Not Found */}
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
+            {/* Catch-all route for 404 Not Found */}
+            <Route path="*" element={<NotFound />} />
+          </Route>
+        </Routes>
       </LocalizationProvider>
     </MuiThemeProvider>
   );
@@ -130,4 +130,4 @@ function App() {
   );
 }
 
-export default App;
+export default App; 

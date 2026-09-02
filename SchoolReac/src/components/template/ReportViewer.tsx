@@ -329,7 +329,7 @@ const UniversalReportViewer = ({ data = [], columns: initialColumns = [], title 
           <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2, borderLeft: '4px solid #10b981' }}>
             <Grid container spacing={2} alignItems="center">
               {filters.map((f, i) => (
-                <Grid item xs={12} md={12} key={i}>
+                <Grid key={i} size={{ xs: 12, md: 12 }}>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', p: 2, bgcolor: '#f8fafc', borderRadius: 2 }}>
                     <Select size="small" value={f.key} onChange={e => { const n=[...filters]; n[i].key=e.target.value; n[i].value=''; n[i].operator='contains'; setFilters(n); }} sx={{ minWidth: 140 }}>
                       <MenuItem value="">Select Field</MenuItem>
@@ -351,15 +351,15 @@ const UniversalReportViewer = ({ data = [], columns: initialColumns = [], title 
         <Collapse in={activeTab === 'customize'}>
           <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
             <Grid container spacing={3}>
-              <Grid item xs={12} md={8}>
+              <Grid size={{ xs: 12, md: 8 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Visible Columns</Typography>
                 <Grid container spacing={1}>
                   {columns.map((c, i) => (
-                    <Grid item key={i}><Chip label={c.label} onClick={() => { const n=[...columns]; n[i].visible=!n[i].visible; setColumns(n); }} color={c.visible ? 'primary' : 'default'} variant={c.visible ? 'filled' : 'outlined'} sx={{ cursor: 'pointer' }} /></Grid>
+                    <Grid key={i}><Chip label={c.label} onClick={() => { const n=[...columns]; n[i].visible=!n[i].visible; setColumns(n); }} color={c.visible ? 'primary' : 'default'} variant={c.visible ? 'filled' : 'outlined'} sx={{ cursor: 'pointer' }} /></Grid>
                   ))}
                 </Grid>
               </Grid>
-              <Grid item xs={12} md={4}>
+              <Grid size={{ xs: 12, md: 4 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>View Density</Typography>
                 <Stack direction="row" spacing={1}>
                   {['compact', 'standard', 'comfortable'].map(d => (

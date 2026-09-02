@@ -178,7 +178,7 @@ export const Profile: React.FC = () => {
     <Box sx={{ p: { xs: 2, md: 3 }, maxWidth: 'lg', mx: 'auto' }}>
       <Grid container spacing={3}>
         {/* Profile Info Form */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ boxShadow: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
@@ -274,7 +274,7 @@ export const Profile: React.FC = () => {
         </Grid>
 
         {/* Change Password Form */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ boxShadow: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Typography variant="h5" component="h3" gutterBottom>Change Password</Typography>

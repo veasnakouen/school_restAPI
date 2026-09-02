@@ -25,7 +25,7 @@ export interface CreateProductRequest {
   supplierName?: string | null;
   donorName?: string | null;
   voucherNumber?: string | null;
-  supplierContact?: string | null;
+  supplierContact?: Record<string, string> | null;
   invoiceDate?: string | null;
   responsiblePerson?: string | null;
   responsiblePersonId?: string | null;
@@ -58,7 +58,7 @@ export interface ProductDto {
   supplierName?: string | null;
   donorName?: string | null;
   voucherNumber?: string | null;
-  supplierContact?: string | null;
+  supplierContact?: Record<string, string> | null;
   invoiceDate?: string | null;
   responsiblePerson?: string | null;
   responsiblePersonId?: string | null;

@@ -370,7 +370,7 @@ const App = () => {
         {activeTab === 0 ? (
           <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0' }}>
             <Grid container spacing={3}>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField label="Company Name" fullWidth value={config.companyName} onChange={handleConfigChange('companyName')} margin="normal" InputProps={{ startAdornment: <BusinessIcon sx={{ mr: 1, color: 'text.secondary' }} /> }} />
                 <Box sx={{ mt: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Button variant="outlined" component="label" startIcon={<UploadIcon />} size="small">
@@ -383,14 +383,14 @@ const App = () => {
                 </Box>
                 <TextField label="Report Title" fullWidth value={config.title} onChange={handleConfigChange('title')} margin="normal" InputProps={{ startAdornment: <DocIcon sx={{ mr: 1, color: 'text.secondary' }} /> }} />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid size={{ xs: 12, md: 6 }}>
                 <TextField label="Reporting Period" fullWidth value={config.period} onChange={handleConfigChange('period')} margin="normal" InputProps={{ startAdornment: <DateIcon sx={{ mr: 1, color: 'text.secondary' }} /> }} />
                 <TextField label="Department / Division" fullWidth value={config.department} onChange={handleConfigChange('department')} margin="normal" />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField label="Prepared By / Authorized Signatory" fullWidth value={config.preparedBy} onChange={handleConfigChange('preparedBy')} margin="normal" />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>Visible Columns</Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
@@ -416,10 +416,10 @@ const App = () => {
             {/* Preview Title & Meta */}
             <Typography variant="h4" sx={{ fontWeight: 700, mb: 2, color: '#0f172a' }}>{config.title}</Typography>
             <Grid container spacing={2} sx={{ mb: 4 }}>
-              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Period</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.period}</Typography></Grid>
-              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Department</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.department}</Typography></Grid>
-              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Prepared By</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.preparedBy}</Typography></Grid>
-              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Status</Typography><Chip label="Final Draft" size="small" color="success" sx={{ mt: 0.5 }} /></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Period</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.period}</Typography></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Department</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.department}</Typography></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Prepared By</Typography><Typography variant="body2" sx={{ fontWeight: 600 }}>{config.preparedBy}</Typography></Grid>
+              <Grid size={{ xs: 6, sm: 3 }}><Typography variant="caption" color="text.secondary">Status</Typography><Chip label="Final Draft" size="small" color="success" sx={{ mt: 0.5 }} /></Grid>
             </Grid>
             {/* Preview Table */}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem', marginBottom: 30 }}>
@@ -444,8 +444,8 @@ const App = () => {
             {/* Preview Summary */}
             <Divider sx={{ mb: 3 }} />
             <Grid container spacing={2} sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
-              <Grid item xs={6}><Typography variant="body2" color="text.secondary">Total Records</Typography><Typography variant="h6" sx={{ fontWeight: 700 }}>{data.length}</Typography></Grid>
-              <Grid item xs={6}><Typography variant="body2" color="text.secondary">Grand Total</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#2563eb' }}>${data.reduce((s, r) => s + Number(r.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Typography></Grid>
+              <Grid size={{ xs: 6 }}><Typography variant="body2" color="text.secondary">Total Records</Typography><Typography variant="h6" sx={{ fontWeight: 700 }}>{data.length}</Typography></Grid>
+              <Grid size={{ xs: 6 }}><Typography variant="body2" color="text.secondary">Grand Total</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#2563eb' }}>${data.reduce((s, r) => s + Number(r.amount), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</Typography></Grid>
             </Grid>
             <Box sx={{ mt: 6, display: 'flex', justifyContent: 'space-between' }}>
               <Box><Typography variant="body2" sx={{ mb: 4 }}>Verified By: _______________________</Typography><Typography variant="body2">Signature: _______________________</Typography></Box>

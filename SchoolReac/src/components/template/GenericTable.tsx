@@ -677,7 +677,7 @@ const AdvancedDataTable = ({
               {columns
                 .filter((c) => c.visible)
                 .map((c) => (
-                  <Grid item xs={12} sm={6} key={c.accessor}>
+                  <Grid key={c.accessor} size={{ xs: 12, sm: 6 }}>
                     <Typography variant="caption" color="text.secondary">
                       {c.header}
                     </Typography>
@@ -694,7 +694,7 @@ const AdvancedDataTable = ({
               {columns
                 .filter((c) => c.editable || modalState.mode === "add")
                 .map((c) => (
-                  <Grid item xs={12} key={c.accessor}>
+                  <Grid key={c.accessor} size={{ xs: 12 }}>
                     <TextField
                       label={c.header}
                       fullWidth

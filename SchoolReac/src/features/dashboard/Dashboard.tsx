@@ -389,7 +389,7 @@ export const Dashboard: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Summary Cards */}
-        <Grid item xs={12} sm={6} md={isAdmin ? 3 : 6}>
+        <Grid size={{ xs: 12, sm: 6, md: isAdmin ? 3 : 6 }}>
           <SummaryCard
             title="Total Products"
             value={summary?.totalProducts ?? 0}
@@ -400,7 +400,7 @@ export const Dashboard: React.FC = () => {
         </Grid>
         {isAdmin && (
           <>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <SummaryCard
                 title={`Total Users ${activeUsersCount !== null ? `(${activeUsersCount} Online)` : ''}`}
                 value={summary?.totalUsers ?? 0}
@@ -409,7 +409,7 @@ export const Dashboard: React.FC = () => {
                 loading={loading}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <SummaryCard
                 title="Total Roles"
                 value={summary?.totalRoles ?? 0}
@@ -420,7 +420,7 @@ export const Dashboard: React.FC = () => {
             </Grid>
           </>
         )}
-        <Grid item xs={12} sm={6} md={isAdmin ? 3 : 6}>
+        <Grid size={{ xs: 12, sm: 6, md: isAdmin ? 3 : 6 }}>
           <SummaryCard
             title="Total Categories"
             value={summary?.totalCategories ?? 0}
@@ -433,7 +433,7 @@ export const Dashboard: React.FC = () => {
         {/*  Charts */}
         {(summary || loading) && (
           <>
-            <Grid item xs={12} lg={6}>
+            <Grid size={{ xs: 12, lg: 6 }}>
               <Card sx={{ p: 2, boxShadow: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
                   <Typography variant="h6" sx={{ mb: 0 }}>
@@ -484,7 +484,7 @@ export const Dashboard: React.FC = () => {
               </Box>
               </Card>
             </Grid>
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid size={{ xs: 12, md: 6, lg: 3 }}>
               <Card sx={{ p: 2, boxShadow: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="h6" gutterBottom>
                   Product Conditions
@@ -517,7 +517,7 @@ export const Dashboard: React.FC = () => {
                 </Box>
               </Card>
             </Grid>
-            <Grid item xs={12} md={6} lg={3}>
+            <Grid size={{ xs: 12, md: 6, lg: 3 }}>
               <Card sx={{ p: 2, boxShadow: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Typography variant="h6" gutterBottom>
                   Products by Category

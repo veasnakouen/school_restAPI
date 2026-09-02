@@ -573,7 +573,7 @@ const Dashboard = () => {
 
       <Container sx={{ py: 4, flexGrow: 1 }}>
         <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               placeholder="Search..."
               fullWidth
@@ -583,7 +583,7 @@ const Dashboard = () => {
               InputProps={{ startAdornment: <SearchIcon color="action" /> }}
             />
           </Grid>
-          <Grid item xs={12} md={6} sx={{ textAlign: { md: "right" } }}>
+          <Grid sx={{ textAlign: { md: "right" } }} size={{ xs: 12, md: 6 }}>
             <Button
               variant="contained"
               startIcon={<AddIcon />}

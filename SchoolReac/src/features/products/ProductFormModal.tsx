@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ProductDto, CategoryDto, CreateProductRequest } from '../../services/api';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs, { Dayjs } from 'dayjs';
 
 interface ProductFormModalProps {
   product: ProductDto | null;
@@ -13,7 +15,7 @@ interface ProductFormModalProps {
 const emptyProduct: ProductDto = {
   id: null, name: '', codeNumber: null, description: null, categoryId: null,
   categoryName: null, brandId: null, brandName: null, price: null, imageUrl: null,
-  quality: null, createdDate: null, updateDate: null, year: null, departmentId: null, 
+  quality: null, createdDate: null, updateDate: null, year: null, departmentId: null,
   departmentName: null, attributes: null, plateNumber: null, engineNumber: null,
   purchaseType: null, initialQuantity: null, supplierName: null, donorName: null, voucherNumber: null,
   supplierContact: null, invoiceDate: null
@@ -25,7 +27,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Local state for dynamic contacts
-  const [contacts, setContacts] = useState<{type: string, value: string}[]>([{ type: 'Phone', value: '' }]);
+  const [contacts, setContacts] = useState<{ type: string, value: string }[]>([{ type: 'Phone', value: '' }]);
 
   const [isDirty, setIsDirty] = useState(false);
   const [showConfirmClose, setShowConfirmClose] = useState(false);
@@ -39,10 +41,10 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
       setFormData({ ...product });
       setImagePreview(product.imageUrl || null);
       if (product.supplierContact) {
-        const parsed = product.supplierContact.split(' | ').map(part => {
-          const [type, ...rest] = part.split(': ');
-          return { type: type || 'Unknown', value: rest.join(': ') || '' };
-        }).filter(c => c.value !== '');
+        // supplierContact is now Record<string, string>
+        const parsed = Object.entries(product.supplierContact).map(([type, value]) => ({
+          type, value
+        })).filter(c => c.value !== '');
         setContacts(parsed.length > 0 ? parsed : [{ type: 'Phone', value: '' }]);
       } else {
         setContacts([{ type: 'Phone', value: '' }]);
@@ -54,7 +56,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
     }
     setImageFile(null);
   }, [product]);
-  
+
   const addContact = () => {
     setContacts([...contacts, { type: 'Phone', value: '' }]);
     setIsDirty(true);
@@ -75,18 +77,20 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
     setIsDirty(true);
   };
 
-  const updateSupplierContact = (currentContacts: {type: string, value: string}[]) => {
+  const updateSupplierContact = (currentContacts: { type: string, value: string }[]) => {
     const combined = currentContacts
       .filter(c => c.value.trim() !== '')
-      .map(c => `${c.type}: ${c.value}`)
-      .join(' | ');
-    setFormData(prev => ({ ...prev, supplierContact: combined }));
+      .reduce((acc, c) => {
+        acc[c.type] = c.value;
+        return acc;
+      }, {} as Record<string, string>);
+    setFormData(prev => ({ ...prev, supplierContact: Object.keys(combined).length > 0 ? combined : null }));
   };
 
   const isVehicleCategory = useMemo(() => {
     const catName = (
-      formData.categoryName || 
-      categories.find(c => c.id === formData.categoryId)?.name || 
+      formData.categoryName ||
+      categories.find(c => c.id === formData.categoryId)?.name ||
       ''
     ).toLowerCase();
     return catName.includes('car') || catName.includes('motor') || catName.includes('moto') || catName.includes('bike') || catName.includes('vehicle');
@@ -96,13 +100,13 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
     setIsDirty(true);
     const target = e.target as HTMLInputElement;
     const name = target.name;
-    
+
     if (name === 'year') {
       const val = target.value;
       setFormData(prev => ({ ...prev, year: val ? `${val}-01-01T00:00:00Z` : null }));
       return;
     }
-    
+
     const value = (target.type === 'number' || name === 'initialQuantity') ? (target.value === '' ? null : parseFloat(target.value)) : target.value;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -272,7 +276,21 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
                     </div>
                     <div className="form-control w-full">
                       <label className="label"><span className="label-text font-semibold">Invoice Date</span></label>
-                      <input type="date" name="invoiceDate" value={formData.invoiceDate ? formData.invoiceDate.split('T')[0] : ''} onChange={handleChange} className="input input-bordered w-full bg-base-100" />
+                      <DatePicker
+                        slotProps={{ textField: { size: 'small', fullWidth: true, className: "bg-base-100" } }}
+                        value={formData.invoiceDate ? dayjs(formData.invoiceDate) : null}
+                        onChange={(newDate: Dayjs | null) => {
+                          setFormData({ ...formData, invoiceDate: newDate && newDate.isValid() ? `${newDate.format('YYYY-MM-DD')}T00:00:00.000Z` : null });
+                        }}
+                      />
+                      {/* <DatePicker
+                        label={"Invoice Date"}
+                        slotProps={{
+                          textField: {
+                            helperText: 'MM/DD/YYYY',
+                          }
+                        }}
+                      /> */}
                     </div>
                     <div className="form-control w-full">
                       <label className="label"><span className="label-text font-semibold">Voucher Number</span></label>
@@ -280,7 +298,7 @@ export const ProductFormModal: React.FC<ProductFormModalProps> = ({ product, cat
                     </div>
                     <div className="form-control w-full"><label className="label"><span className="label-text font-semibold">Supplier Name</span></label><input type="text" name="supplierName" value={formData.supplierName || ''} onChange={handleChange} placeholder="e.g. ABC Tech" className="input input-bordered w-full bg-base-100" /></div>
                     <div className="form-control w-full"><label className="label"><span className="label-text font-semibold">Donor Name</span></label><input type="text" name="donorName" value={formData.donorName || ''} onChange={handleChange} placeholder="e.g. John Doe" className="input input-bordered w-full bg-base-100" /></div>
-                    
+
                     <div className="form-control w-full md:col-span-2">
                       <label className="label">
                         <span className="label-text font-semibold">Contact Info</span>

@@ -146,7 +146,7 @@ export const SystemSettings: React.FC = () => {
       
       <Grid container spacing={3}>
         {/* General Settings Card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%', boxShadow: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>General</Typography>
@@ -184,7 +184,7 @@ export const SystemSettings: React.FC = () => {
         </Grid>
 
         {/* Security & Access Card */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%', boxShadow: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>Security & Access</Typography>

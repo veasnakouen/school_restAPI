@@ -41,20 +41,20 @@ export const DashboardData: React.FC = () => {
 
   return (
     <Grid container spacing={3}>
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <StatCard title="Total Products" value={stats.products} link="/products" linkText="Manage Products" icon={<Inventory2OutlinedIcon fontSize="inherit" />} color="primary.main" loading={false} />
       </Grid>
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <StatCard title="Registered Users" value={stats.users} link="/admin/users" linkText="Manage Users" icon={<PeopleOutlineIcon fontSize="inherit" />} color="secondary.main" loading={false} />
       </Grid>
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <StatCard title="User Roles" value={stats.roles} link="/admin/roles" linkText="Manage Roles" icon={<ShieldOutlinedIcon fontSize="inherit" />} color="success.main" loading={false} />
       </Grid>
 
-      <Grid item xs={12} lg={7}>
+      <Grid size={{ xs: 12, lg: 7 }}>
         <ActivityChart stats={stats} />
       </Grid>
-      <Grid item xs={12} lg={5}>
+      <Grid size={{ xs: 12, lg: 5 }}>
         <Card sx={{ height: '100%' }}>
           <CardContent>
             <Typography variant="h5" component="h2" gutterBottom>Welcome to your Dashboard!</Typography>

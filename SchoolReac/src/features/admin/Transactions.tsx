@@ -5,6 +5,8 @@ import {
 } from '@mui/material';
 import { getTransactions, TransactionDto } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs, { Dayjs } from 'dayjs';
 
 export const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
@@ -108,27 +110,23 @@ export const Transactions: React.FC = () => {
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <TextField
-              type="date"
+            <DatePicker
               label="Start Date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
+              slotProps={{ textField: { size: 'small' } }}
+              value={startDate ? dayjs(startDate) : null}
+              onChange={(newDate: Dayjs | null) => {
+                setStartDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : '');
                 setCurrentPage(0);
               }}
             />
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <TextField
-              type="date"
+            <DatePicker
               label="End Date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
+              slotProps={{ textField: { size: 'small' } }}
+              value={endDate ? dayjs(endDate) : null}
+              onChange={(newDate: Dayjs | null) => {
+                setEndDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : '');
                 setCurrentPage(0);
               }}
             />

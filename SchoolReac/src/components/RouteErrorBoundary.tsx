@@ -7,6 +7,7 @@ interface Props {
 }
 interface State {
   hasError: boolean;
+  error?: Error;
 }
 
 export class RouteErrorBoundary extends Component<Props, State> {
@@ -15,8 +16,8 @@ export class RouteErrorBoundary extends Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -31,6 +32,12 @@ export class RouteErrorBoundary extends Component<Props, State> {
           <Typography variant="h5" color="error">
             Something went wrong
           </Typography>
+          <Typography variant="body1" sx={{ mt: 2, color: 'text.secondary' }}>
+            {this.state.error?.message}
+          </Typography>
+          <Box sx={{ mt: 2, p: 2, bgcolor: 'background.paper', textAlign: 'left', overflow: 'auto', maxHeight: 400 }}>
+            <pre style={{ fontSize: '0.8rem' }}>{this.state.error?.stack}</pre>
+          </Box>
           <Button onClick={() => window.location.reload()} sx={{ mt: 2 }}>
             Reload Page
           </Button>
