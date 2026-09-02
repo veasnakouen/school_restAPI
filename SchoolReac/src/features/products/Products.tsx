@@ -24,7 +24,8 @@ import 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs, { Dayjs } from 'dayjs';
 
 const ALL_COLUMNS = [
   { id: 'name', label: 'Name' },
@@ -1303,25 +1304,27 @@ export const Products: React.FC = () => {
               </Grid>
               <Grid item xs={12} sm={6} md={4} lg={3}>
                 <FormControl size="small" fullWidth>
-            <TextField
-              type="date"
+            <DatePicker
               label="From Date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              value={filterStartDate}
-              onChange={(e) => { setFilterStartDate(e.target.value); setCurrentPage(0); }}
+              slotProps={{ textField: { size: 'small', fullWidth: true, InputLabelProps: { shrink: true } } }}
+              value={filterStartDate ? dayjs(filterStartDate) : null}
+              onChange={(newDate: Dayjs | null) => { 
+                setFilterStartDate(newDate ? newDate.format('YYYY-MM-DD') : ''); 
+                setCurrentPage(0); 
+              }}
             />
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6} md={4} lg={3}>
                 <FormControl size="small" fullWidth>
-            <TextField
-              type="date"
+            <DatePicker
               label="To Date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              value={filterEndDate}
-              onChange={(e) => { setFilterEndDate(e.target.value); setCurrentPage(0); }}
+              slotProps={{ textField: { size: 'small', fullWidth: true, InputLabelProps: { shrink: true } } }}
+              value={filterEndDate ? dayjs(filterEndDate) : null}
+              onChange={(newDate: Dayjs | null) => { 
+                setFilterEndDate(newDate ? newDate.format('YYYY-MM-DD') : ''); 
+                setCurrentPage(0); 
+              }}
             />
                 </FormControl>
               </Grid>

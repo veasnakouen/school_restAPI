@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { CssBaseline } from '@mui/material';
 import { ThemeProvider as MuiThemeProvider, createTheme } from '@mui/material/styles';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { blue, orange, red, amber, green } from '@mui/material/colors';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { UserManagement } from './features/admin/UserManagement';
@@ -66,9 +68,10 @@ const AppContent = () => {
   );
   return (
     <MuiThemeProvider theme={muiTheme}>
-      <CssBaseline />
-      <GlobalSpinner />
-      <ToastContainer />
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <CssBaseline />
+        <GlobalSpinner />
+        <ToastContainer />
       <Routes>
         <Route
           element={
@@ -108,6 +111,7 @@ const AppContent = () => {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      </LocalizationProvider>
     </MuiThemeProvider>
   );
 };
