@@ -89,17 +89,18 @@ builder.Services.AddScoped<SchoolAPI.Application.Common.Interfaces.ICurrentUserS
 builder.Services.AddScoped<SchoolAPI.Services.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
 
 builder.Services.AddHangfireServices(builder.Configuration);
-builder.Services.AddStackExchangeRedisCache(options =>
-{
-    var redisConfiguration = builder.Configuration["Redis:Configuration"];
-    if (string.IsNullOrWhiteSpace(redisConfiguration))
-    {
-        throw new InvalidOperationException("Redis configuration is missing. Set 'Redis:Configuration' in configuration or user secrets.");
-    }
+// for using with Redis
+// builder.Services.AddStackExchangeRedisCache(options =>
+// {
+//     var redisConfiguration = builder.Configuration["Redis:Configuration"];
+//     if (string.IsNullOrWhiteSpace(redisConfiguration))
+//     {
+//         throw new InvalidOperationException("Redis configuration is missing. Set 'Redis:Configuration' in configuration or user secrets.");
+//     }
 
-    options.Configuration = redisConfiguration;
-    options.InstanceName = "SchoolAPI:";
-});
+//     options.Configuration = redisConfiguration;
+//     options.InstanceName = "SchoolAPI:";
+// });
 
 // Configure Output Caching to use Redis
 builder.Services.AddStackExchangeRedisOutputCache(options =>
