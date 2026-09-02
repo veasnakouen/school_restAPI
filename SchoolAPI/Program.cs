@@ -88,7 +88,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<SchoolAPI.Application.Common.Interfaces.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
 builder.Services.AddScoped<SchoolAPI.Services.ICurrentUserService, SchoolAPI.Services.CurrentUserService>();
 
-builder.Services.AddHangfireServices(builder.Configuration);
+// builder.Services.AddHangfireServices(builder.Configuration);
 // for using with Redis
 // builder.Services.AddStackExchangeRedisCache(options =>
 // {
