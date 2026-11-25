@@ -51,6 +51,7 @@ import {
   TableSortLabel,
   Paper as MuiPaper,
 } from "@mui/material";
+import { SearchField } from "../SearchField";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -313,14 +314,15 @@ const AdvancedDataTable = ({
         </Typography>
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Tooltip title="Search">
-            <TextField
-              size="small"
-              placeholder="Search..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              InputProps={{ startAdornment: <SearchIcon /> }}
-              sx={{ maxWidth: 250 }}
-            />
+            <Box>
+              <SearchField
+                placeholder="Search..."
+                value={search}
+                onChange={(val) => setSearch(val)}
+                onClear={() => setSearch("")}
+                sx={{ maxWidth: 260 }}
+              />
+            </Box>
           </Tooltip>
           <Tooltip title="Columns">
             <Button

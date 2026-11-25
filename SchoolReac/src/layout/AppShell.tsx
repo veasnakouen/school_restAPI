@@ -4,25 +4,26 @@ import { useAuth } from "../auth/AuthContext";
 import { LoadingProvider, useLoading } from '../context/LoadingContext';
 import * as api from '../services/api';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, THEME_ANIMATION_OPTIONS } from '../context/ThemeContext';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { PageTransition, RouteLoadingBar } from '../components/PageTransition';
+import { prefetchRoute } from '../routes/routeLoaders';
 import {
-    AppBar, Box, CssBaseline, Divider, Drawer, IconButton, List,
-    ListItem, ListItemButton, ListItemIcon, ListItemText, Toolbar, Typography,
+    AppBar, Box, Chip, CssBaseline, Divider, Drawer, IconButton, List,
+    ListItem, ListItemButton, ListItemIcon, ListItemText, Stack, Toolbar, Typography,
     Menu, MenuItem, Avatar, Tooltip, useMediaQuery
-    , LinearProgress // Import LinearProgress
 } from '@mui/material';
-import { useTheme as useMuiTheme } from '@mui/material/styles';
+import { useTheme as useMuiTheme, alpha } from '@mui/material/styles';
+import { LayoutGroup, motion } from 'framer-motion';
 import {
     Menu as MenuIcon,
     ChevronLeft as ChevronLeftIcon,
-    ChevronRight as ChevronRightIcon,
     Home as HomeIcon,
     Inventory as InventoryIcon,
     Security as SecurityIcon,
-    Brightness4 as Brightness4Icon,
-    Brightness7 as Brightness7Icon,
     Person as PersonIcon,
-    Logout as LogoutIcon
+    Logout as LogoutIcon,
+    Assessment as AssessmentIcon
 } from '@mui/icons-material';
 
 const drawerWidth = 280;
@@ -31,6 +32,7 @@ const compactDrawerWidth = 88;
 const navigationItems = [
     { label: 'Dashboard', path: '/dashboard', icon: <HomeIcon />, description: 'Summary and quick access', exact: true },
     { label: 'Products', path: '/products', icon: <InventoryIcon />, description: 'Inventory items' },
+    { label: 'Reports', path: '/reports', icon: <AssessmentIcon />, description: 'Custom Excel, PDF & Assessment forms' },
     { label: 'Admin', path: '/admin', icon: <SecurityIcon />, description: 'User, role, and permission management' }
 ];
 
@@ -39,20 +41,25 @@ const pageMetadata: Record<string, { title: string; description: string }> = {
     '/settings': { title: 'Settings', description: 'Customize preferences and appearance' },
 };
 
+const AppLoadingBar: React.FC = () => {
+    const { isLoading } = useLoading();
+    return <RouteLoadingBar loading={isLoading} />;
+};
+
 const AppShellComponent: React.FC = () => {
     const { user, logout } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const muiTheme = useMuiTheme();
     const isLargeScreen = useMediaQuery(muiTheme.breakpoints.up('lg'));
-    const { toggleDarkMode, isDark } = useTheme();
+    const { animationPreset, setAnimationPreset, toggleDarkMode } = useTheme();
 
     // Component state
     const [sidebarOpen, setSidebarOpen] = useLocalStorage('sidebarOpen', window.innerWidth >= 1024);
     const [isCompact, setIsCompact] = useLocalStorage('sidebarCompact', false);
     const [anchorElUser, setAnchorElUser] = useState<null | HTMLElement>(null);
     const [appLogo, setAppLogo] = useState<string | null>(null);
-    const { isLoading, incrementLoading, decrementLoading } = useLoading();
+    const { incrementLoading, decrementLoading } = useLoading();
     const isAdmin = user?.roles?.includes('Admin');
 
     const handleOpenUserMenu = (event: React.MouseEvent<HTMLElement>) => setAnchorElUser(event.currentTarget);
@@ -117,7 +124,7 @@ const AppShellComponent: React.FC = () => {
     const initials = user?.fullName?.charAt(0).toUpperCase() || user?.userName?.charAt(0).toUpperCase() || 'U';
     const currentDrawerWidth = isCompact && isLargeScreen ? compactDrawerWidth : drawerWidth;
 
-    const drawerContent = (
+    const renderDrawerContent = (variant: 'mobile' | 'desktop') => (
       <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <Toolbar
           sx={{
@@ -155,61 +162,90 @@ const AppShellComponent: React.FC = () => {
           )}
         </Toolbar>
         <Divider />
-        <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
-          {navigationItems.map((item) => {
-            if (item.path.startsWith("/admin") && !isAdmin) return null;
+        <LayoutGroup id={`sidebar-nav-${variant}`}>
+          <List sx={{ flexGrow: 1, px: 2, pt: 2 }}>
+            {navigationItems.map((item) => {
+              if (item.path.startsWith("/admin") && !isAdmin) return null;
 
-            const isActive = location.pathname.startsWith(item.path);
-            return (
-              <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
-                <ListItemButton
-                  component={NavLink}
-                  to={item.path}
-                  end={item.exact}
-                  onClick={() => !isLargeScreen && setSidebarOpen(false)}
-                  sx={{
-                    minHeight: 48,
-                    justifyContent:
-                      isCompact && isLargeScreen ? "center" : "initial",
-                    px: 2.5,
-                    borderRadius: 2,
-                    ...(isActive && {
-                      bgcolor: "primary.main",
-                      color: "primary.contrastText",
-                      "&:hover": { bgcolor: "primary.dark" },
-                      "& .MuiListItemIcon-root": { color: "inherit" },
-                    }),
-                  }}
-                >
-                  <ListItemIcon
+              const isActive = location.pathname.startsWith(item.path);
+              return (
+                <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
+                  <ListItemButton
+                    component={NavLink}
+                    to={item.path}
+                    end={item.exact}
+                    onMouseEnter={() => prefetchRoute(item.path)}
+                    onFocus={() => prefetchRoute(item.path)}
+                    onClick={() => !isLargeScreen && setSidebarOpen(false)}
                     sx={{
-                      minWidth: 0,
-                      mr: isCompact && isLargeScreen ? 0 : 2,
-                      justifyContent: "center",
-                      color: isActive ? "inherit" : "primary.main",
+                      position: "relative",
+                      overflow: "visible",
+                      minHeight: 48,
+                      justifyContent:
+                        isCompact && isLargeScreen ? "center" : "initial",
+                      px: 2.5,
+                      borderRadius: 2,
+                      color: isActive ? "primary.contrastText" : "text.primary",
+                      transition: "color 200ms ease, background-color 200ms ease",
+                      "& .MuiListItemIcon-root": {
+                        transition: "transform 180ms ease, color 200ms ease",
+                      },
+                      "&:hover": {
+                        bgcolor: isActive ? "transparent" : "action.hover",
+                        "& .MuiListItemIcon-root": {
+                          transform: "translateX(2px) scale(1.08)",
+                        },
+                      },
                     }}
                   >
-                    {item.icon}
-                  </ListItemIcon>
-                  {!(isCompact && isLargeScreen) && (
-                    <ListItemText
-                      primary={item.label}
-                      secondary={item.description}
-                      primaryTypographyProps={{
-                        fontWeight: isActive ? "bold" : "medium",
-                        fontSize: "0.875rem",
+                    {isActive && (
+                      <Box
+                        component={motion.span}
+                        layoutId={`sidebar-active-pill-${variant}`}
+                        transition={{ type: "spring", stiffness: 600, damping: 38, mass: 0.65 }}
+                        sx={{
+                          position: "absolute",
+                          inset: 0,
+                          borderRadius: 2,
+                          bgcolor: "primary.main",
+                          boxShadow: `0 4px 14px ${alpha(muiTheme.palette.primary.main, 0.34)}`,
+                          zIndex: 0,
+                        }}
+                      />
+                    )}
+                    <ListItemIcon
+                      sx={{
+                        position: "relative",
+                        zIndex: 1,
+                        minWidth: 0,
+                        mr: isCompact && isLargeScreen ? 0 : 2,
+                        justifyContent: "center",
+                        color: isActive ? "inherit" : "primary.main",
                       }}
-                      secondaryTypographyProps={{
-                        fontSize: "0.7rem",
-                        color: isActive ? "inherit" : "text.secondary",
-                      }}
-                    />
-                  )}
-                </ListItemButton>
-              </ListItem>
-            );
-          })}
-        </List>
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    {!(isCompact && isLargeScreen) && (
+                      <ListItemText
+                        primary={item.label}
+                        secondary={item.description}
+                        sx={{ position: "relative", zIndex: 1 }}
+                        primaryTypographyProps={{
+                          fontWeight: isActive ? "bold" : "medium",
+                          fontSize: "0.875rem",
+                        }}
+                        secondaryTypographyProps={{
+                          fontSize: "0.7rem",
+                          color: isActive ? "inherit" : "text.secondary",
+                        }}
+                      />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </LayoutGroup>
         <Divider />
         <Box sx={{ p: 2, display: { xs: "none", lg: "block" } }}>
           <ListItemButton
@@ -220,7 +256,13 @@ const AppShellComponent: React.FC = () => {
             }}
           >
             <ListItemIcon sx={{ minWidth: 0, mr: isCompact ? 0 : 2 }}>
-              {isCompact ? <ChevronRightIcon /> : <ChevronLeftIcon />}
+              <motion.span
+                animate={{ rotate: isCompact ? 180 : 0 }}
+                transition={{ type: "spring", stiffness: 360, damping: 28 }}
+                style={{ display: "inline-flex" }}
+              >
+                <ChevronLeftIcon />
+              </motion.span>
             </ListItemIcon>
             {!isCompact && (
               <ListItemText
@@ -272,11 +314,7 @@ const AppShellComponent: React.FC = () => {
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Tooltip title={isDark ? "Switch to light mode" : "Switch to dark mode"}>
-                            <IconButton onClick={toggleDarkMode} color="inherit">
-                                {isDark ? <Brightness7Icon sx={{ color: 'warning.main' }} /> : <Brightness4Icon sx={{ color: 'info.main' }} />}
-                            </IconButton>
-                        </Tooltip>
+                        <ThemeToggle />
                         <Tooltip title="Open settings">
                             <IconButton onClick={handleOpenUserMenu} sx={{ p: 0, ml: 1 }}>
                                 <Avatar src={user?.imageUrl} sx={{ width: 36, height: 36, bgcolor: 'primary.main' }}>
@@ -299,15 +337,36 @@ const AppShellComponent: React.FC = () => {
                                 <Typography textAlign="center">Profile</Typography>
                             </MenuItem>
                             <Divider />
+                            <Box sx={{ px: 2, py: 1.25, maxWidth: 250 }}>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 0.75 }}>
+                                    Theme Transition Effect
+                                </Typography>
+                                <Stack direction="row" useFlexGap spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+                                    {THEME_ANIMATION_OPTIONS.map((opt) => (
+                                        <Chip
+                                            key={opt.id}
+                                            size="small"
+                                            label={opt.label}
+                                            color={animationPreset === opt.id ? 'primary' : 'default'}
+                                            variant={animationPreset === opt.id ? 'filled' : 'outlined'}
+                                            onClick={(e) => {
+                                                setAnimationPreset(opt.id);
+                                                toggleDarkMode(e, opt.id);
+                                            }}
+                                            sx={{ fontSize: '0.72rem', height: 24 }}
+                                        />
+                                    ))}
+                                </Stack>
+                            </Box>
+                            <Divider />
                             <MenuItem onClick={handleLogout}>
                                 <ListItemIcon><LogoutIcon fontSize="small" color="error" /></ListItemIcon>
                                 <Typography textAlign="center" color="error">Sign out</Typography>
                             </MenuItem>
                         </Menu>
-                        {/* Animated Progress Bar */}
-                        {isLoading && <LinearProgress sx={{ position: 'absolute', bottom: 0, left: 0, right: 0 }} />}
                     </Box>
                 </Toolbar>
+                <AppLoadingBar />
             </AppBar>
 
             {/* Sidebar */}
@@ -328,7 +387,7 @@ const AppShellComponent: React.FC = () => {
                         },
                     }}
                 >
-                    {drawerContent}
+                    {renderDrawerContent('mobile')}
                 </Drawer>
 
                 {/* Desktop Drawer */}
@@ -349,7 +408,7 @@ const AppShellComponent: React.FC = () => {
                         },
                     }}
                 >
-                    {drawerContent}
+                    {renderDrawerContent('desktop')}
                 </Drawer>
             </Box>
 
@@ -367,7 +426,9 @@ const AppShellComponent: React.FC = () => {
                 }}
             >
                 <Box sx={{ maxWidth: 1520, width: '100%', mx: 'auto', flexGrow: 1 }}>
-                    <Outlet />
+                    <PageTransition pageKey={location.pathname.startsWith('/admin') ? '/admin' : location.pathname}>
+                        <Outlet />
+                    </PageTransition>
                 </Box>
                 <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 4, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                     @By : IT Mloptapang (React - MUI)

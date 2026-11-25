@@ -7,6 +7,7 @@ import { getTransactions, TransactionDto } from '../../services/api';
 import { useToast } from '../../context/ToastContext';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs, { Dayjs } from 'dayjs';
+import { SearchField } from '../../components/SearchField';
 
 export const Transactions: React.FC = () => {
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
@@ -84,13 +85,18 @@ export const Transactions: React.FC = () => {
 
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
         <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
+          <SearchField
             label="Search Transactions"
-            variant="outlined"
-            size="small"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: { xs: '100%', sm: 300 } }}
+            onChange={(val) => {
+              setSearchQuery(val);
+              setCurrentPage(0);
+            }}
+            onClear={() => {
+              setSearchQuery('');
+              setCurrentPage(0);
+            }}
+            sx={{ width: { xs: '100%', sm: 320 } }}
             placeholder="Search by product, donor, or department..."
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>

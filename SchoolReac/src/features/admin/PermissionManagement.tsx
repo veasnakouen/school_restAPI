@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import * as api from '../../services/api';
-import { Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, TablePagination, CircularProgress, Alert, TableSortLabel } from '@mui/material';
+import { Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, TablePagination, CircularProgress, Alert, TableSortLabel } from '@mui/material';
+import { SearchField } from '../../components/SearchField';
 
 export const PermissionManagement: React.FC = () => {
   const [permissions, setPermissions] = useState<api.PermissionDto[]>([]);
@@ -91,13 +92,12 @@ export const PermissionManagement: React.FC = () => {
 
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
         <Box sx={{ p: 2 }}>
-          <TextField
+          <SearchField
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            onChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            onClear={() => { setSearchQuery(''); setCurrentPage(1); }}
             placeholder="Search permissions..."
-            variant="outlined"
-            size="small"
-            sx={{ width: { xs: '100%', sm: 300 } }}
+            sx={{ width: { xs: '100%', sm: 320 } }}
           />
         </Box>
         <TableContainer>

@@ -6,6 +6,7 @@ using SchoolAPI.Application.Common.Models;
 using SchoolAPI.Contracts;
 using SchoolAPI.Entities;
 using SchoolAPI.Extensions;
+using SchoolAPI.Helpers;
 
 namespace SchoolAPI.Application.Features.Products.GetAll;
 
@@ -91,6 +92,8 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
                 query = query.Where(p => string.IsNullOrWhiteSpace(p.CodeNumber));
             }
         }
+
+        query = VehicleFilterHelper.ApplyProductVehicleFilter(query, request.VehicleType);
         
         // Fallback for free-text filters from frontend
         if (!string.IsNullOrWhiteSpace(request.FilterOn) && !string.IsNullOrWhiteSpace(request.FilterQuery))
@@ -176,6 +179,7 @@ public class GetAllProductsQueryHandler : IRequestHandler<GetAllProductsQuery, R
                 ResponsiblePerson = latestPI != null && latestPI.ResponsiblePerson != null ? latestPI.ResponsiblePerson.FullName : null,
                 PurchaseType = latestPI != null && latestPI.Purchase != null ? latestPI.Purchase.AcquisitionType : null,
                 VoucherNumber = latestPI != null && latestPI.Purchase != null ? latestPI.Purchase.VoucherNumber : null,
+                InvoiceDate = latestPI != null && latestPI.Purchase != null ? latestPI.Purchase.InvoiceDate.ToString("o") : null,
                 DonorName = latestPI != null && latestPI.Purchase != null && latestPI.Purchase.Notes != null ? latestPI.Purchase.Notes.Replace("Donated by: ", "") : null,
                 InitialQuantity = latestPI != null ? (int?)latestPI.Quantity : null,
                 SupplierName = latestPI != null && latestPI.Purchase != null && latestPI.Purchase.Supplier != null ? latestPI.Purchase.Supplier.Name : null,

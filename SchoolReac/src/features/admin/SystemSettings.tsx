@@ -122,9 +122,16 @@ export const SystemSettings: React.FC = () => {
       }));
       showToast('System settings saved successfully', 'success');
       
-      // Dispatch a custom event so other components (like Sidebar/Navbar) can instantly reload the logo
+      // Dispatch a custom event so other components (like Sidebar/Navbar & Report Builder) can instantly reload branding
+      const nextSiteName = updatedSettings.siteName || settings.siteName;
+      if (nextSiteName) {
+        document.title = nextSiteName;
+      }
       window.dispatchEvent(new CustomEvent('brandingUpdated', { 
-        detail: { logoBase64: updatedSettings.logoBase64 || settings.logoBase64 } 
+        detail: {
+          logoBase64: updatedSettings.logoBase64 || settings.logoBase64,
+          siteName: nextSiteName,
+        } 
       }));
     } catch (err: any) {
       showToast(err.response?.data?.title || 'Failed to save system settings.', 'error');
@@ -160,7 +167,8 @@ export const SystemSettings: React.FC = () => {
                   </Button>
                 </Box>
                 <TextField
-                  label="Site Name"
+                  label="Organization / System Name"
+                  helperText="Shown in browser tab title and default report headers (e.g. Document Header & Logo)."
                   value={settings.siteName}
                   onChange={(e) => handleChange('siteName', e.target.value)}
                   fullWidth

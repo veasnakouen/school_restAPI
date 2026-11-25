@@ -5,6 +5,8 @@ import { useAuth } from '../../auth/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Checkbox, CircularProgress, FormControlLabel, IconButton, InputAdornment, Link, TextField, Typography } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
+import { ThemeToggle } from '../../components/ThemeToggle';
+import { PageTransition } from '../../components/PageTransition';
 
 // Define a type for our form values for better type safety
 type LoginFormValues = {
@@ -65,10 +67,16 @@ export const LoginPage: React.FC = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        position: "relative",
         p: 4,
       }}
     >
-      <Card sx={{ maxWidth: 400, width: "100%", boxShadow: 3 }}>
+      <Box sx={{ position: "absolute", top: 20, right: 20 }}>
+        <ThemeToggle />
+      </Box>
+      <PageTransition pageKey="login">
+        <Box sx={{ display: "flex", justifyContent: "center" }}>
+          <Card sx={{ maxWidth: 400, width: "100%", boxShadow: 3, borderRadius: 3 }}>
         <CardContent sx={{ p: 4 }}>
           <Typography variant="h4" component="h2" align="center" gutterBottom>
             Login
@@ -167,6 +175,8 @@ export const LoginPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+        </Box>
+      </PageTransition>
     </Box>
   );
 };

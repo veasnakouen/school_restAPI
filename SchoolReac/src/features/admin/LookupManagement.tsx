@@ -3,6 +3,7 @@ import { Box, Typography, Select, MenuItem, FormControl, InputLabel, Button, Tab
 import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { useToast } from '../../context/ToastContext';
 import * as api from '../../services/api';
+import { SearchField } from '../../components/SearchField';
 
 type LookupType = 'Categories' | 'Brands' | 'Departments' | 'Qualities' | 'Suppliers' | 'Persons';
 
@@ -189,15 +190,19 @@ export const LookupManagement: React.FC = () => {
           </Select>
         </FormControl>
 
-        <TextField
+        <SearchField
           label={`Search ${activeType}`}
-          variant="outlined"
+          size="medium"
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
+          onChange={(val) => {
+            setSearchQuery(val);
             setPage(0);
           }}
-          sx={{ flexGrow: 1, maxWidth: 400 }}
+          onClear={() => {
+            setSearchQuery('');
+            setPage(0);
+          }}
+          sx={{ flexGrow: 1, maxWidth: 420 }}
           placeholder="Search by name, email, or contact info..."
         />
       </Box>

@@ -12,4 +12,6 @@ public class MonthlyTransactionReportRow
     public string Resource { get; set; } = string.Empty;
     public int Quantity { get; set; }
     public decimal TotalCost { get; set; }
+    public string? PlateNumber { get; set; }
+    public string? EngineNumber { get; set; }
 }

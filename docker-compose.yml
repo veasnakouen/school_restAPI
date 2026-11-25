@@ -1,25 +1,30 @@
-version: '3.8'
-
 services:
   db:
-    image: postgres:latest
+    image: postgres:16-alpine
+    restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5433}:5432"
     environment:
       - POSTGRES_DB=${DB_NAME:-SchoolDb}
       - POSTGRES_USER=${DB_USER:-schooluser}
       - POSTGRES_PASSWORD=${DB_PASSWORD:-schoolpass123}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-schooluser} -d ${DB_NAME:-SchoolDb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
-      context: ./SchoolApi
+      context: ./SchoolAPI
       dockerfile: Dockerfile
     ports:
       - "5001:8080" # Maps port 5001 on your host to 8080 in the container
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${DB_NAME:-SchoolDb};Username=${DB_USER:-schooluser};Password=${DB_PASSWORD:-schoolpass123};

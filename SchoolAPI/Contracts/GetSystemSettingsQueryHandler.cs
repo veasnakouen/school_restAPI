@@ -21,7 +21,7 @@ public class GetSystemSettingsQueryHandler : IRequestHandler<GetSystemSettingsQu
         
         if (settings == null)
         {
-            return Result<SystemSettingsDto>.Success(new SystemSettingsDto { SiteName = "School Management System", ContactEmail = "admin@school.com", AllowRegistration = true, DefaultToDarkMode = false });
+            return Result<SystemSettingsDto>.Success(new SystemSettingsDto { SiteName = "Inventory Management System", ContactEmail = "admin@inventory.local", AllowRegistration = true, DefaultToDarkMode = false });
         }
 
         return Result<SystemSettingsDto>.Success(new SystemSettingsDto

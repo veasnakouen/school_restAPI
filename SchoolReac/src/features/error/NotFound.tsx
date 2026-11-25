@@ -1,20 +1,52 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
+import { Box, Button, Stack, Typography } from '@mui/material';
+import { Home as HomeIcon } from '@mui/icons-material';
+import { PageTransition } from '../../components/PageTransition';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 export const NotFound: React.FC = () => {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-base-200 text-base-content">
-      <div className="text-center">
-        <h1 className="text-9xl font-black text-primary opacity-20">404</h1>
-        <p className="text-2xl font-bold tracking-tight sm:text-4xl">Uh-oh!</p>
-        <p className="mt-4 text-base-content/70">We can't find that page.</p>
-        <Link
-          to="/dashboard"
-          className="mt-6 btn btn-primary"
-        >
-          Go back home
-        </Link>
-      </div>
-    </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: 'background.default',
+        color: 'text.primary',
+        position: 'relative',
+        px: 3,
+      }}
+    >
+      <Box sx={{ position: 'absolute', top: 20, right: 20 }}>
+        <ThemeToggle />
+      </Box>
+      <PageTransition pageKey="not-found">
+        <Stack spacing={2} sx={{ textAlign: 'center', alignItems: 'center' }}>
+          <Typography
+            variant="h1"
+            sx={{ fontSize: { xs: '5rem', sm: '7.5rem' }, fontWeight: 900, opacity: 0.16, lineHeight: 1 }}
+          >
+            404
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            Page not found
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            We can&apos;t find the page you&apos;re looking for.
+          </Typography>
+          <Button
+            component={RouterLink}
+            to="/dashboard"
+            variant="contained"
+            startIcon={<HomeIcon />}
+            sx={{ mt: 1 }}
+          >
+            Go back home
+          </Button>
+        </Stack>
+      </PageTransition>
+    </Box>
   );
 };

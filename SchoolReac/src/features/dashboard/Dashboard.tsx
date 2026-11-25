@@ -251,9 +251,14 @@ export const Dashboard: React.FC = () => {
       }
     };
     
-    void fetchDashboardData(); // Call once on mount
+    void fetchDashboardData(); // Call when selectedMonth or admin flag changes
+    const handleRefresh = () => void fetchDashboardData(true);
+    window.addEventListener('dashboardRefreshRequested', handleRefresh);
+    return () => window.removeEventListener('dashboardRefreshRequested', handleRefresh);
+  }, [showToast, isAdmin, selectedMonth]);
 
-    // Setup SignalR WebSockets connection to listen for real-time updates
+  useEffect(() => {
+    // Persistent SignalR connection across month switches; only connects once per Dashboard mount
     const connection = new signalR.HubConnectionBuilder()
       .withUrl(`${api.BASE_URL}/hubs/dashboard`, {
         accessTokenFactory: () => localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken') || ''
@@ -262,7 +267,8 @@ export const Dashboard: React.FC = () => {
       .build();
 
     connection.on('DashboardUpdated', () => {
-      void fetchDashboardData(true);
+      api.invalidateApiCache('products', 'transactions', 'categories', 'users', 'roles');
+      window.dispatchEvent(new CustomEvent('dashboardRefreshRequested'));
     });
 
     connection.on('ProductStockUpdated', (message: string, type: 'success' | 'info' | 'warning' | 'error') => {
@@ -271,12 +277,9 @@ export const Dashboard: React.FC = () => {
 
     connection.on('ActiveUsersUpdated', (count: number) => {
       setActiveUsersCount(count);
-      // Optional: showToast(`${count} users currently online`, 'info');
     });
 
     let isMounted = true;
-    
-    // Delay the connection slightly to completely bypass React 18 Strict Mode's rapid mount/unmount cycle
     const timeoutId = setTimeout(() => {
       if (isMounted) {
         connection.start().catch((err: any) => {
@@ -290,7 +293,7 @@ export const Dashboard: React.FC = () => {
       clearTimeout(timeoutId);
       void connection.stop();
     };
-  }, [showToast, isAdmin, selectedMonth]); // Dependencies: showToast, isAdmin, selectedMonth
+  }, [showToast]);
 
 
   const handleBarMouseDown = (e: React.MouseEvent) => {

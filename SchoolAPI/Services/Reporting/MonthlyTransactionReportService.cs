@@ -6,6 +6,8 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SchoolAPI.Contracts.Reports;
 using SchoolAPI.Data;
+using SchoolAPI.Entities;
+using SchoolAPI.Helpers;
 using System.Drawing;
 
 namespace SchoolAPI.Services.Reporting;
@@ -21,20 +23,38 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
         _environment = environment;
     }
 
-    public Task<string> GenerateMonthlyTransactionsPdfAsync(int year, int month, CancellationToken cancellationToken = default)
+    public Task<string> GenerateMonthlyTransactionsPdfAsync(
+        int year,
+        int month,
+        string? departmentId = null,
+        string? transactionType = null,
+        string? search = null,
+        string? vehicleType = null,
+        CancellationToken cancellationToken = default)
     {
-        return GenerateMonthlyTransactionsReportAsync(year, month, ReportFormat.Pdf, cancellationToken);
+        return GenerateMonthlyTransactionsReportAsync(year, month, ReportFormat.Pdf, departmentId, transactionType, search, vehicleType, cancellationToken);
     }
 
-    public Task<string> GenerateMonthlyTransactionsExcelAsync(int year, int month, CancellationToken cancellationToken = default)
+    public Task<string> GenerateMonthlyTransactionsExcelAsync(
+        int year,
+        int month,
+        string? departmentId = null,
+        string? transactionType = null,
+        string? search = null,
+        string? vehicleType = null,
+        CancellationToken cancellationToken = default)
     {
-        return GenerateMonthlyTransactionsReportAsync(year, month, ReportFormat.Excel, cancellationToken);
+        return GenerateMonthlyTransactionsReportAsync(year, month, ReportFormat.Excel, departmentId, transactionType, search, vehicleType, cancellationToken);
     }
 
     private async Task<string> GenerateMonthlyTransactionsReportAsync(
         int year,
         int month,
         ReportFormat format,
+        string? departmentId,
+        string? transactionType,
+        string? search,
+        string? vehicleType,
         CancellationToken cancellationToken = default)
     {
         if (year < 2000 || month is < 1 or > 12)
@@ -45,7 +65,7 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
         var monthStart = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
         var nextMonthStart = monthStart.AddMonths(1);
 
-        var rows = await _context.Transactions
+        var query = _context.Transactions
             .AsNoTracking()
             .Include(transaction => transaction.Product)
             .Include(transaction => transaction.Donor)
@@ -53,12 +73,59 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
             .Include(transaction => transaction.Responser)
             .Where(transaction => transaction.CreatedDate.HasValue
                 && transaction.CreatedDate.Value >= monthStart
-                && transaction.CreatedDate.Value < nextMonthStart)
+                && transaction.CreatedDate.Value < nextMonthStart);
+
+        var filterParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(departmentId))
+        {
+            var deptIds = departmentId.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
+            query = query.Where(t => deptIds.Contains(t.DepartmentId));
+            var deptNames = await _context.Departments
+                .AsNoTracking()
+                .Where(d => deptIds.Contains(d.Id))
+                .Select(d => d.Name)
+                .ToListAsync(cancellationToken);
+            if (deptNames.Count > 0) filterParts.Add($"Department: {string.Join(", ", deptNames)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(transactionType) &&
+            !transactionType.Equals("All", StringComparison.OrdinalIgnoreCase) &&
+            Enum.TryParse<TransactionType>(transactionType.Trim(), true, out var parsedType))
+        {
+            query = query.Where(t => t.TransactionType == parsedType);
+            filterParts.Add($"Type: {parsedType}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(t =>
+                EF.Functions.ILike(t.Product.ProductName, term) ||
+                (t.Product.CodeNumber != null && EF.Functions.ILike(t.Product.CodeNumber, term)) ||
+                EF.Functions.ILike(t.ProviderName, term) ||
+                EF.Functions.ILike(t.Donor.Name, term) ||
+                EF.Functions.ILike(t.Department.Name, term) ||
+                EF.Functions.ILike(t.Resource, term));
+            filterParts.Add($"Search: {search.Trim()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(vehicleType))
+        {
+            query = VehicleFilterHelper.ApplyTransactionVehicleFilter(query, vehicleType);
+            var vehicleLabel = VehicleFilterHelper.FormatVehicleFilterLabel(vehicleType);
+            if (!string.IsNullOrEmpty(vehicleLabel)) filterParts.Add($"Fleet: {vehicleLabel}");
+        }
+
+        var filterSummary = filterParts.Count > 0 ? string.Join(" | ", filterParts) : "All Departments · All Types";
+
+        var rows = await query
             .OrderBy(transaction => transaction.CreatedDate)
             .Select(transaction => new MonthlyTransactionReportRow
             {
                 TransactionDate = transaction.CreatedDate ?? DateTime.UtcNow,
                 ProductName = transaction.Product.ProductName,
+                PlateNumber = transaction.Product.PlateNumber,
+                EngineNumber = transaction.Product.EngineNumber,
                 TransactionType = transaction.TransactionType.ToString(),
                 DonorName = transaction.Donor.Name,
                 DepartmentName = transaction.Department.Name,
@@ -70,22 +137,26 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
             })
             .ToListAsync(cancellationToken);
 
+        bool includeVehicleColumns = !string.IsNullOrWhiteSpace(vehicleType)
+            || rows.Any(r => !string.IsNullOrWhiteSpace(r.PlateNumber) || !string.IsNullOrWhiteSpace(r.EngineNumber));
+
         var outputDirectory = Path.Combine(_environment.ContentRootPath, "Reports", "Generated");
         Directory.CreateDirectory(outputDirectory);
 
-        var outputFileName = $"monthly-transactions-{year:D4}-{month:D2}.{GetFileExtension(format)}";
+        var suffix = filterParts.Count > 0 ? $"-filtered-{Guid.NewGuid():N}" : "";
+        var outputFileName = $"monthly-transactions-{year:D4}-{month:D2}{suffix}.{GetFileExtension(format)}";
         var outputPath = Path.Combine(outputDirectory, outputFileName);
 
         var bytes = format == ReportFormat.Pdf
-            ? BuildPdf(rows, monthStart, nextMonthStart)
-            : BuildExcel(rows, monthStart, nextMonthStart);
+            ? BuildPdf(rows, monthStart, nextMonthStart, filterSummary, includeVehicleColumns)
+            : BuildExcel(rows, monthStart, nextMonthStart, filterSummary, includeVehicleColumns);
 
         await File.WriteAllBytesAsync(outputPath, bytes, cancellationToken);
 
         return outputPath;
     }
 
-    private static byte[] BuildPdf(IReadOnlyCollection<MonthlyTransactionReportRow> rows, DateTime monthStart, DateTime nextMonthStart)
+    private static byte[] BuildPdf(IReadOnlyCollection<MonthlyTransactionReportRow> rows, DateTime monthStart, DateTime nextMonthStart, string filterSummary, bool includeVehicleColumns)
     {
         var document = Document.Create(container =>
         {
@@ -102,21 +173,29 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
                     column.Item().Column(header =>
                     {
                         header.Item().AlignCenter().Text("Monthly Transactions Report").FontSize(18).Bold();
-                        header.Item().AlignCenter().Text($"Period: {monthStart:yyyy-MM-dd} to {nextMonthStart.AddDays(-1):yyyy-MM-dd}").FontSize(10).FontColor(Colors.Grey.Darken2);
+                        header.Item().AlignCenter().Text($"Period: {monthStart:yyyy-MM-dd} to {nextMonthStart.AddDays(-1):yyyy-MM-dd}  |  {filterSummary}").FontSize(10).FontColor(Colors.Grey.Darken2);
                         header.Item().AlignCenter().Text($"Generated On: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss 'UTC'}").FontSize(9).FontColor(Colors.Grey.Darken1);
                     });
 
                     column.Item().Table(table =>
                     {
+                        uint totalCols = includeVehicleColumns ? 11u : 9u;
+                        uint labelSpan = totalCols - 1;
+
                         table.ColumnsDefinition(columns =>
                         {
-                            columns.RelativeColumn(1.3f);
-                            columns.RelativeColumn(1.8f);
-                            columns.RelativeColumn(1.1f);
-                            columns.RelativeColumn(1.6f);
-                            columns.RelativeColumn(1.4f);
                             columns.RelativeColumn(1.2f);
-                            columns.RelativeColumn(1.9f);
+                            columns.RelativeColumn(1.7f);
+                            if (includeVehicleColumns)
+                            {
+                                columns.RelativeColumn(1.1f);
+                                columns.RelativeColumn(1.3f);
+                            }
+                            columns.RelativeColumn(1.0f);
+                            columns.RelativeColumn(1.5f);
+                            columns.RelativeColumn(1.3f);
+                            columns.RelativeColumn(1.1f);
+                            columns.RelativeColumn(1.8f);
                             columns.RelativeColumn(0.8f);
                             columns.RelativeColumn(1.0f);
                         });
@@ -125,6 +204,11 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
                         {
                             header.Cell().Element(HeaderCellStyle).Text("Date");
                             header.Cell().Element(HeaderCellStyle).Text("Product");
+                            if (includeVehicleColumns)
+                            {
+                                header.Cell().Element(HeaderCellStyle).Text("Plate #");
+                                header.Cell().Element(HeaderCellStyle).Text("Engine/Serial #");
+                            }
                             header.Cell().Element(HeaderCellStyle).Text("Type");
                             header.Cell().Element(HeaderCellStyle).Text("Donor");
                             header.Cell().Element(HeaderCellStyle).Text("Department");
@@ -136,7 +220,7 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
 
                         if (rows.Count == 0)
                         {
-                            table.Cell().ColumnSpan(9).Element(CellBodyStyle).AlignCenter().Text("No transactions found for the selected period.");
+                            table.Cell().ColumnSpan(totalCols).Element(CellBodyStyle).AlignCenter().Text("No transactions found for the selected period.");
                             return;
                         }
 
@@ -144,6 +228,11 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
                         {
                             table.Cell().Element(CellBodyStyle).Text(row.TransactionDate.ToString("yyyy-MM-dd"));
                             table.Cell().Element(CellBodyStyle).Text(row.ProductName);
+                            if (includeVehicleColumns)
+                            {
+                                table.Cell().Element(CellBodyStyle).Text(string.IsNullOrWhiteSpace(row.PlateNumber) ? "-" : row.PlateNumber);
+                                table.Cell().Element(CellBodyStyle).Text(string.IsNullOrWhiteSpace(row.EngineNumber) ? "-" : row.EngineNumber);
+                            }
                             table.Cell().Element(CellBodyStyle).Text(row.TransactionType);
                             table.Cell().Element(CellBodyStyle).Text(row.DonorName);
                             table.Cell().Element(CellBodyStyle).Text(row.DepartmentName);
@@ -153,7 +242,7 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
                             table.Cell().Element(CellBodyStyle).AlignRight().Text(row.TotalCost.ToString("C2"));
                         }
 
-                        table.Cell().ColumnSpan(8).Element(CellBodyStyle).AlignRight().Text("Grand Total").SemiBold();
+                        table.Cell().ColumnSpan(labelSpan).Element(CellBodyStyle).AlignRight().Text("Grand Total").SemiBold();
                         table.Cell().Element(CellBodyStyle).AlignRight().Text(rows.Sum(x => x.TotalCost).ToString("C2")).SemiBold();
                     });
                 });
@@ -165,27 +254,30 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
         return stream.ToArray();
     }
 
-    private static byte[] BuildExcel(IReadOnlyCollection<MonthlyTransactionReportRow> rows, DateTime monthStart, DateTime nextMonthStart)
+    private static byte[] BuildExcel(IReadOnlyCollection<MonthlyTransactionReportRow> rows, DateTime monthStart, DateTime nextMonthStart, string filterSummary, bool includeVehicleColumns)
     {
         using var package = new ExcelPackage();
         var worksheet = package.Workbook.Worksheets.Add("Monthly Transactions");
 
-        worksheet.Cells["A1:I1"].Merge = true;
+        var headers = includeVehicleColumns
+            ? new[] { "Date", "Product", "Plate #", "Engine/Serial #", "Type", "Donor", "Department", "Responser", "Provider / Resource", "Qty", "Total" }
+            : new[] { "Date", "Product", "Type", "Donor", "Department", "Responser", "Provider / Resource", "Qty", "Total" };
+
+        worksheet.Cells[1, 1, 1, headers.Length].Merge = true;
         worksheet.Cells["A1"].Value = "Monthly Transactions Report";
         worksheet.Cells["A1"].Style.Font.Bold = true;
         worksheet.Cells["A1"].Style.Font.Size = 16;
         worksheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
-        worksheet.Cells["A2:I2"].Merge = true;
-        worksheet.Cells["A2"].Value = $"Period: {monthStart:yyyy-MM-dd} to {nextMonthStart.AddDays(-1):yyyy-MM-dd}";
+        worksheet.Cells[2, 1, 2, headers.Length].Merge = true;
+        worksheet.Cells["A2"].Value = $"Period: {monthStart:yyyy-MM-dd} to {nextMonthStart.AddDays(-1):yyyy-MM-dd} | {filterSummary}";
         worksheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
-        worksheet.Cells["A3:I3"].Merge = true;
+        worksheet.Cells[3, 1, 3, headers.Length].Merge = true;
         worksheet.Cells["A3"].Value = $"Generated On: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss 'UTC'}";
         worksheet.Cells["A3"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
 
         var headerRow = 5;
-        var headers = new[] { "Date", "Product", "Type", "Donor", "Department", "Responser", "Provider / Resource", "Qty", "Total" };
         for (var columnIndex = 0; columnIndex < headers.Length; columnIndex++)
         {
             worksheet.Cells[headerRow, columnIndex + 1].Value = headers[columnIndex];
@@ -210,23 +302,29 @@ public sealed class MonthlyTransactionReportService : IMonthlyTransactionReportS
             var rowIndex = headerRow + 1;
             foreach (var row in rows)
             {
-                worksheet.Cells[rowIndex, 1].Value = row.TransactionDate.ToString("yyyy-MM-dd");
-                worksheet.Cells[rowIndex, 2].Value = row.ProductName;
-                worksheet.Cells[rowIndex, 3].Value = row.TransactionType;
-                worksheet.Cells[rowIndex, 4].Value = row.DonorName;
-                worksheet.Cells[rowIndex, 5].Value = row.DepartmentName;
-                worksheet.Cells[rowIndex, 6].Value = row.ResponserName;
-                worksheet.Cells[rowIndex, 7].Value = string.Join(" / ", new[] { row.ProviderName, row.Resource }.Where(value => !string.IsNullOrWhiteSpace(value)));
-                worksheet.Cells[rowIndex, 8].Value = row.Quantity;
-                worksheet.Cells[rowIndex, 9].Value = row.TotalCost;
-                worksheet.Cells[rowIndex, 9].Style.Numberformat.Format = "$#,##0.00";
+                int col = 1;
+                worksheet.Cells[rowIndex, col++].Value = row.TransactionDate.ToString("yyyy-MM-dd");
+                worksheet.Cells[rowIndex, col++].Value = row.ProductName;
+                if (includeVehicleColumns)
+                {
+                    worksheet.Cells[rowIndex, col++].Value = string.IsNullOrWhiteSpace(row.PlateNumber) ? "-" : row.PlateNumber;
+                    worksheet.Cells[rowIndex, col++].Value = string.IsNullOrWhiteSpace(row.EngineNumber) ? "-" : row.EngineNumber;
+                }
+                worksheet.Cells[rowIndex, col++].Value = row.TransactionType;
+                worksheet.Cells[rowIndex, col++].Value = row.DonorName;
+                worksheet.Cells[rowIndex, col++].Value = row.DepartmentName;
+                worksheet.Cells[rowIndex, col++].Value = row.ResponserName;
+                worksheet.Cells[rowIndex, col++].Value = string.Join(" / ", new[] { row.ProviderName, row.Resource }.Where(value => !string.IsNullOrWhiteSpace(value)));
+                worksheet.Cells[rowIndex, col++].Value = row.Quantity;
+                worksheet.Cells[rowIndex, col].Value = row.TotalCost;
+                worksheet.Cells[rowIndex, col].Style.Numberformat.Format = "$#,##0.00";
                 rowIndex++;
             }
 
-            worksheet.Cells[rowIndex, 1, rowIndex, 8].Merge = true;
+            worksheet.Cells[rowIndex, 1, rowIndex, headers.Length - 1].Merge = true;
             worksheet.Cells[rowIndex, 1].Value = "Grand Total";
-            worksheet.Cells[rowIndex, 9].Value = rows.Sum(x => x.TotalCost);
-            worksheet.Cells[rowIndex, 9].Style.Numberformat.Format = "$#,##0.00";
+            worksheet.Cells[rowIndex, headers.Length].Value = rows.Sum(x => x.TotalCost);
+            worksheet.Cells[rowIndex, headers.Length].Style.Numberformat.Format = "$#,##0.00";
         }
 
         using (var tableRange = worksheet.Cells[headerRow, 1, worksheet.Dimension.End.Row, headers.Length])

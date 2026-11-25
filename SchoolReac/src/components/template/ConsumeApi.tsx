@@ -50,6 +50,7 @@ import {
   ListItemText,
   Drawer,
 } from "@mui/material";
+import { SearchField } from "../SearchField";
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -574,13 +575,12 @@ const Dashboard = () => {
       <Container sx={{ py: 4, flexGrow: 1 }}>
         <Grid container spacing={3} alignItems="center" sx={{ mb: 3 }}>
           <Grid size={{ xs: 12, md: 6 }}>
-            <TextField
+            <SearchField
               placeholder="Search..."
               fullWidth
-              size="small"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{ startAdornment: <SearchIcon color="action" /> }}
+              onChange={(val) => setSearchQuery(val)}
+              onClear={() => setSearchQuery("")}
             />
           </Grid>
           <Grid sx={{ textAlign: { md: "right" } }} size={{ xs: 12, md: 6 }}>

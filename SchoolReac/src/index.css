@@ -2,6 +2,187 @@
 @tailwind components;
 @tailwind utilities;
 
-/* body{
-    background:linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%)
-} */
+@property --theme-spread {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+/* Base View Transitions setup */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+/* 1. Default Flagship: Soft Feathered Optical Eclipse Bloom from button origin */
+html[data-theme-transition="eclipse-bloom"]::view-transition-old(root) {
+  animation: theme-bloom-old 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+html[data-theme-transition="eclipse-bloom"]::view-transition-new(root) {
+  --theme-spread: 0%;
+  -webkit-mask-image: radial-gradient(
+    circle farthest-corner at var(--theme-x, 90%) var(--theme-y, 5%),
+    #000 calc(var(--theme-spread) - 18%),
+    transparent var(--theme-spread)
+  );
+  mask-image: radial-gradient(
+    circle farthest-corner at var(--theme-x, 90%) var(--theme-y, 5%),
+    #000 calc(var(--theme-spread) - 18%),
+    transparent var(--theme-spread)
+  );
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: theme-eclipse-bloom 620ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 2. Studio Cross-Blur Optical Dissolve */
+html[data-theme-transition="silky-dissolve"]::view-transition-old(root) {
+  animation: theme-dissolve-old 440ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+html[data-theme-transition="silky-dissolve"]::view-transition-new(root) {
+  animation: theme-dissolve-new 460ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 3. Horizontal Center Curtain Shutter */
+html[data-theme-transition="shutter-split"]::view-transition-old(root) {
+  animation: theme-bloom-old 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+html[data-theme-transition="shutter-split"]::view-transition-new(root) {
+  animation: theme-shutter-split 480ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* 4. Diagonal Prism Sweep */
+html[data-theme-transition="diagonal-dark"]::view-transition-old(root),
+html[data-theme-transition="diagonal-light"]::view-transition-old(root) {
+  animation: theme-bloom-old 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+html[data-theme-transition="diagonal-dark"]::view-transition-new(root) {
+  animation: theme-diagonal-dark 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+html[data-theme-transition="diagonal-light"]::view-transition-new(root) {
+  animation: theme-diagonal-light 520ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes theme-eclipse-bloom {
+  from {
+    --theme-spread: 0%;
+  }
+  to {
+    --theme-spread: 122%;
+  }
+}
+
+@keyframes theme-bloom-old {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.88;
+    transform: scale(0.992);
+  }
+}
+
+@keyframes theme-dissolve-old {
+  from {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    filter: blur(6px);
+    transform: scale(0.992);
+  }
+}
+
+@keyframes theme-dissolve-new {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(1.008);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+}
+
+@keyframes theme-shutter-split {
+  from {
+    clip-path: inset(0 50% 0 50%);
+    opacity: 0.75;
+  }
+  to {
+    clip-path: inset(0 0% 0 0%);
+    opacity: 1;
+  }
+}
+
+@keyframes theme-diagonal-dark {
+  from {
+    clip-path: polygon(100% 0%, 100% 0%, 100% 0%);
+  }
+  to {
+    clip-path: polygon(100% 0%, -120% 0%, 100% 220%);
+  }
+}
+
+@keyframes theme-diagonal-light {
+  from {
+    clip-path: polygon(0% 100%, 0% 100%, 0% 100%);
+  }
+  to {
+    clip-path: polygon(0% 100%, 220% 100%, 0% -120%);
+  }
+}
+
+/* Fallback smooth color interpolation for browsers without View Transitions */
+html.theme-transitioning,
+html.theme-transitioning *,
+html.theme-transitioning *::before,
+html.theme-transitioning *::after {
+  transition:
+    background-color 360ms cubic-bezier(0.4, 0, 0.2, 1),
+    color 360ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 360ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 360ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+@keyframes route-bar-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+
+  html.theme-transitioning,
+  html.theme-transitioning *,
+  html.theme-transitioning *::before,
+  html.theme-transitioning *::after {
+    transition: none !important;
+  }
+}

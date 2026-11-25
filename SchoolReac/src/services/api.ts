@@ -26,6 +26,7 @@ export interface CreateProductRequest {
   donorName?: string | null;
   voucherNumber?: string | null;
   supplierContact?: Record<string, string> | null;
+  supplierContactList?: string[] | null;
   invoiceDate?: string | null;
   responsiblePerson?: string | null;
   responsiblePersonId?: string | null;
@@ -59,6 +60,7 @@ export interface ProductDto {
   donorName?: string | null;
   voucherNumber?: string | null;
   supplierContact?: Record<string, string> | null;
+  supplierContactList?: string[] | null;
   invoiceDate?: string | null;
   responsiblePerson?: string | null;
   responsiblePersonId?: string | null;
@@ -166,19 +168,26 @@ export interface QueryOptions {
   departmentId?: string;
   qualityId?: string;
   purchaseType?: string;
+  transactionType?: string;
   filterOn?: string;
   filterQuery?: string;
   productGroup?: string;
+  vehicleType?: string;
   // For date range filtering
   startDate?: string;
   endDate?: string;
   invoiceStartDate?: string;
   invoiceEndDate?: string;
+  minPrice?: number;
+  maxPrice?: number;
 }
 
 // Use environment variable in production, fallback to localhost:5001 in development
 // Assuming Vite setup; use process.env.REACT_APP_API_URL for CRA
-let envUrl = import.meta.env?.VITE_API_URL || (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL);
+let envUrl =
+  import.meta.env?.VITE_API_URL ||
+  import.meta.env?.VITE_API_BASE_URL ||
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.REACT_APP_API_URL;
 
 if (!envUrl) {
   console.warn("⚠️ NO API URL PROVIDED! Falling back to localhost. Please set VITE_API_URL in Netlify.");
@@ -190,7 +199,7 @@ envUrl = envUrl.replace(/\/+$/, '').replace(/\/api$/i, '');
 
 export const BASE_URL = envUrl;
 
-const apiClient :AxiosInstance = axios.create({
+const apiClient: AxiosInstance = axios.create({
   baseURL: `${BASE_URL}/api`, // Your API base URL
   headers: {
     'Accept': 'application/json'
@@ -206,7 +215,7 @@ export const setLoadingCallbacks = (inc: () => void, dec: () => void) => { incre
 
 // Add a request interceptor to include the auth token
 apiClient.interceptors.request.use(
-  (config :InternalAxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     // Get the token from localStorage or sessionStorage
     // Do not add the auth token to the refresh endpoint itself
     if (config.url?.includes('/auth/refresh')) {
@@ -262,9 +271,9 @@ apiClient.interceptors.response.use(
         try {
           const userObj = JSON.parse(userStr);
           isAdmin = userObj.roles?.includes('Admin') || userObj.roles?.includes('SuperAdmin');
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       if (!isAdmin) {
         localStorage.clear();
         sessionStorage.clear();
@@ -356,145 +365,278 @@ apiClient.interceptors.response.use(
   }
 );
 
-// --- Product Management ---
-export const getProducts = (params: QueryOptions): Promise<PagedResult<ProductDto>> => 
-  apiClient.get('/inventory/products', { params }).then(res => res.data);
+// Shared in-memory response + in-flight promise deduplication cache to eliminate redundant API waterfalls during navigation
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
 
-export const exportProductsExcel = (params: QueryOptions): Promise<Blob> => 
+const responseCache = new Map<string, CacheEntry<unknown>>();
+const inFlightRequests = new Map<string, Promise<unknown>>();
+
+const DEFAULT_LOOKUP_TTL_MS = 120_000;
+const DEFAULT_LIST_TTL_MS = 12_000;
+
+function stableKey(prefix: string, params?: unknown): string {
+  if (!params || typeof params !== 'object') return prefix;
+  const entries = Object.entries(params as Record<string, unknown>)
+    .filter(([, v]) => v !== undefined && v !== null && v !== '')
+    .sort(([a], [b]) => a.localeCompare(b));
+  return `${prefix}:${JSON.stringify(entries)}`;
+}
+
+async function cachedGet<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  ttlMs: number = DEFAULT_LOOKUP_TTL_MS
+): Promise<T> {
+  const now = Date.now();
+  const cached = responseCache.get(key) as CacheEntry<T> | undefined;
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+
+  const pending = inFlightRequests.get(key) as Promise<T> | undefined;
+  if (pending) {
+    return pending;
+  }
+
+  const request = fetcher()
+    .then((data) => {
+      responseCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+      return data;
+    })
+    .finally(() => {
+      inFlightRequests.delete(key);
+    });
+
+  inFlightRequests.set(key, request);
+  return request;
+}
+
+export function invalidateApiCache(...prefixes: string[]): void {
+  if (prefixes.length === 0) {
+    responseCache.clear();
+    return;
+  }
+  for (const key of responseCache.keys()) {
+    if (prefixes.some((p) => key === p || key.startsWith(`${p}:`))) {
+      responseCache.delete(key);
+    }
+  }
+}
+
+// --- Product Management ---
+export const getProducts = (params: QueryOptions): Promise<PagedResult<ProductDto>> =>
+  cachedGet(
+    stableKey('products', params),
+    () => apiClient.get('/inventory/products', { params }).then(res => res.data),
+    DEFAULT_LIST_TTL_MS
+  );
+
+export const exportProductsExcel = (params: QueryOptions): Promise<Blob> =>
   apiClient.get('/inventory/products/export', { params, responseType: 'blob' }).then(res => res.data);
 
-export const exportProductsCsv = (params: QueryOptions): Promise<Blob> => 
+export const exportProductsCsv = (params: QueryOptions): Promise<Blob> =>
   apiClient.get('/inventory/products/export/csv', { params, responseType: 'blob' }).then(res => res.data);
 
-export const exportProductsPdf = (params: QueryOptions): Promise<Blob> => 
+export const exportProductsPdf = (params: QueryOptions): Promise<Blob> =>
   apiClient.get('/inventory/products/export/pdf', { params, responseType: 'blob' }).then(res => res.data);
 
-// Simple memory cache for relatively static lookup data to speed up component mounting
-const cache: Record<string, any> = {};
-
-export const getCategories = (): Promise<CategoryDto[]> => 
-  cache['categories'] ? Promise.resolve(cache['categories']) : apiClient.get('/Category').then(res => { cache['categories'] = res.data; return res.data; });
+export const getCategories = (): Promise<CategoryDto[]> =>
+  cachedGet('categories', () => apiClient.get('/Category').then(res => res.data));
 
 export const createCategory = (category: { name: string; description?: string | null }): Promise<CategoryDto> => {
-  delete cache['categories'];
+  invalidateApiCache('categories', 'products');
   return apiClient.post('/Category', category).then(res => res.data);
 };
 
 export const updateCategory = (id: string, category: Partial<CategoryDto>): Promise<CategoryDto> => {
-  delete cache['categories'];
+  invalidateApiCache('categories', 'products');
   return apiClient.put(`/Category/${id}`, category).then(res => res.data);
-}
+};
 
 export const deleteCategory = (id: string): Promise<any> => {
-  delete cache['categories'];
+  invalidateApiCache('categories', 'products');
   return apiClient.delete(`/Category/${id}`).then(res => res.data);
-}
+};
 
-export const getBrands = (): Promise<BrandDto[]> => 
-  cache['brands'] ? Promise.resolve(cache['brands']) : apiClient.get('/Brand').then(res => { cache['brands'] = res.data; return res.data; });
+export const getBrands = (): Promise<BrandDto[]> =>
+  cachedGet('brands', () => apiClient.get('/Brand').then(res => res.data));
 
 export const createBrand = (brand: { name: string }): Promise<BrandDto> => {
-  delete cache['brands'];
+  invalidateApiCache('brands', 'products');
   return apiClient.post('/Brand', brand).then(res => res.data);
 };
 
 export const updateBrand = (id: string, brand: Partial<BrandDto>): Promise<BrandDto> => {
-  delete cache['brands'];
+  invalidateApiCache('brands', 'products');
   return apiClient.put(`/Brand/${id}`, brand).then(res => res.data);
-}
+};
 
 export const deleteBrand = (id: string): Promise<any> => {
-  delete cache['brands'];
+  invalidateApiCache('brands', 'products');
   return apiClient.delete(`/Brand/${id}`).then(res => res.data);
-}
+};
 
 export const getDepartments = (): Promise<DepartmentDto[]> =>
-  cache['departments'] ? Promise.resolve(cache['departments']) : apiClient.get('/Department').then(res => { cache['departments'] = res.data; return res.data; });
+  cachedGet('departments', () => apiClient.get('/Department').then(res => res.data));
 
 export const createDepartment = (department: { name: string, location?: string }): Promise<DepartmentDto> => {
-  delete cache['departments'];
+  invalidateApiCache('departments', 'products', 'transactions');
   return apiClient.post('/Department', department).then(res => res.data);
 };
 
 export const updateDepartment = (id: string, department: Partial<DepartmentDto>): Promise<DepartmentDto> => {
-  delete cache['departments'];
+  invalidateApiCache('departments', 'products', 'transactions');
   return apiClient.put(`/Department/${id}`, department).then(res => res.data);
-}
+};
 
 export const deleteDepartment = (id: string): Promise<any> => {
-  delete cache['departments'];
+  invalidateApiCache('departments', 'products', 'transactions');
   return apiClient.delete(`/Department/${id}`).then(res => res.data);
-}
+};
 
 export const getQualities = (): Promise<QualityDto[]> =>
-  cache['qualities'] ? Promise.resolve(cache['qualities']) : apiClient.get('/Quality').then(res => { cache['qualities'] = res.data; return res.data; });
+  cachedGet('qualities', () => apiClient.get('/Quality').then(res => res.data));
 
 export const createQuality = (quality: { name: string }): Promise<QualityDto> => {
-  delete cache['qualities'];
+  invalidateApiCache('qualities', 'products');
   return apiClient.post('/Quality', quality).then(res => res.data);
 };
 
 export const updateQuality = (id: string, quality: Partial<QualityDto>): Promise<QualityDto> => {
-  delete cache['qualities'];
+  invalidateApiCache('qualities', 'products');
   return apiClient.put(`/Quality/${id}`, quality).then(res => res.data);
-}
+};
 
 export const deleteQuality = (id: string): Promise<any> => {
-  delete cache['qualities'];
+  invalidateApiCache('qualities', 'products');
   return apiClient.delete(`/Quality/${id}`).then(res => res.data);
-}
+};
 
 export const getSuppliers = (): Promise<SupplierDto[]> =>
-  cache['suppliers'] ? Promise.resolve(cache['suppliers']) : apiClient.get('/Supplier').then(res => { cache['suppliers'] = res.data; return res.data; });
+  cachedGet('suppliers', () => apiClient.get('/Supplier').then(res => res.data));
 
 export const createSupplier = (supplier: { name: string; contactInfo?: string[]; address?: string }): Promise<SupplierDto> => {
-  delete cache['suppliers'];
+  invalidateApiCache('suppliers', 'products');
   return apiClient.post('/Supplier', supplier).then(res => res.data);
 };
 
 export const updateSupplier = (id: string, supplier: Partial<SupplierDto>): Promise<SupplierDto> => {
-  delete cache['suppliers'];
+  invalidateApiCache('suppliers', 'products');
   return apiClient.put(`/Supplier/${id}`, supplier).then(res => res.data);
-}
+};
 
 export const deleteSupplier = (id: string): Promise<any> => {
-  delete cache['suppliers'];
+  invalidateApiCache('suppliers', 'products');
   return apiClient.delete(`/Supplier/${id}`).then(res => res.data);
-}
+};
 
 export const getPersons = (): Promise<PersonDto[]> =>
-  cache['persons'] ? Promise.resolve(cache['persons']) : apiClient.get('/Person').then(res => { cache['persons'] = res.data; return res.data; });
+  cachedGet('persons', () => apiClient.get('/Person').then(res => res.data));
 
 export const createPerson = (person: { fullName: string; department?: string; email?: string }): Promise<PersonDto> => {
-  delete cache['persons'];
+  invalidateApiCache('persons', 'products');
   return apiClient.post('/Person', person).then(res => res.data);
 };
 
 export const updatePerson = (id: string, person: Partial<PersonDto>): Promise<PersonDto> => {
-  delete cache['persons'];
+  invalidateApiCache('persons', 'products');
   return apiClient.put(`/Person/${id}`, person).then(res => res.data);
-}
+};
 
 export const deletePerson = (id: string): Promise<any> => {
-  delete cache['persons'];
+  invalidateApiCache('persons', 'products');
   return apiClient.delete(`/Person/${id}`).then(res => res.data);
-}
+};
 
 export const createProduct = (product: CreateProductRequest): Promise<ProductDto> =>
-  apiClient.post('/inventory/products', product).then(res => res.data);
+  apiClient.post('/inventory/products', product).then(res => {
+    invalidateApiCache('products', 'transactions');
+    return res.data;
+  });
 
 export const updateProduct = (id: string, product: Partial<ProductDto>): Promise<ProductDto> =>
-  apiClient.put(`/inventory/products/${id}`, product).then(res => res.data);
+  apiClient.put(`/inventory/products/${id}`, product).then(res => {
+    invalidateApiCache('products', 'transactions');
+    return res.data;
+  });
 
 export const deleteProduct = (id: string): Promise<any> =>
-  apiClient.delete(`/inventory/products/${id}`).then(res => res.data);
+  apiClient.delete(`/inventory/products/${id}`).then(res => {
+    invalidateApiCache('products', 'transactions');
+    return res.data;
+  });
 
-export const importProducts = async (file: File): Promise<{ message: string, importedCount: number, errors: string[] }> => {
+export interface ExcelSheetPreviewDto {
+  sheetIndex: number;
+  sheetName: string;
+  isImportable: boolean;
+  skipReason?: string | null;
+  headerRowNumber: number;
+  estimatedRowCount: number;
+  suggestedDepartment?: string | null;
+  detectedColumns: string[];
+  mappedFields: Record<string, string>;
+  sampleRows: Record<string, string>[];
+}
+
+export interface ExcelImportPreviewResponse {
+  fileName: string;
+  totalSheets: number;
+  importableSheets: number;
+  sheets: ExcelSheetPreviewDto[];
+}
+
+export interface ExcelSheetImportResultDto {
+  sheetName: string;
+  status: string;
+  importedCount: number;
+  skippedDuplicateCount: number;
+  errorCount: number;
+  notes?: string | null;
+}
+
+export interface ExcelImportResultDto {
+  message: string;
+  importedCount: number;
+  skippedDuplicateCount: number;
+  sheetResults: ExcelSheetImportResultDto[];
+  errors: string[];
+}
+
+export const previewImportProducts = async (file: File): Promise<ExcelImportPreviewResponse> => {
   const formData = new FormData();
   formData.append('file', file);
+  return apiClient
+    .post('/inventory/products/import/preview', formData, { timeout: 180000 })
+    .then(res => res.data);
+};
 
-  // Let axios automatically set the multipart/form-data boundary and handle auth interceptors
-  return apiClient.post('/inventory/products/import', formData).then(res => res.data);
+export const importProducts = async (
+  file: File,
+  sheets?: string[],
+  skipDuplicates: boolean = true,
+  sheetDepartments?: Record<string, string>
+): Promise<ExcelImportResultDto> => {
+  const formData = new FormData();
+  formData.append('file', file);
+  if (sheets && sheets.length > 0) {
+    formData.append('sheets', JSON.stringify(sheets));
+  }
+  formData.append('skipDuplicates', String(skipDuplicates));
+  if (sheetDepartments && Object.keys(sheetDepartments).length > 0) {
+    formData.append('sheetDepartments', JSON.stringify(sheetDepartments));
+  }
+
+  // Let axios automatically set the multipart/form-data boundary and allow generous timeout for multi-sheet workbooks
+  return apiClient
+    .post('/inventory/products/import', formData, { timeout: 180000 })
+    .then(res => {
+      invalidateApiCache('products', 'categories', 'brands', 'departments', 'qualities', 'suppliers', 'persons', 'transactions');
+      return res.data;
+    });
 };
 
 export const uploadProductImage = (id: string, file: File): Promise<{ imageUrl: string }> => {
@@ -514,16 +656,18 @@ export const getProductById = (id: string): Promise<ProductDto> =>
 export const login = (credentials: {
   email: string;
   password: string;
- }): Promise<AuthResponse> => {
+}): Promise<AuthResponse> => {
+  // Clear cached session responses on fresh login
+  invalidateApiCache();
   // The built-in Identity /login endpoint expects an `email` field, which matches
   // the `credentials` object shape.
   return apiClient.post<AuthResponse>("/auth/login", credentials).then((res) => res.data);
- };
+};
 
 export const forceRefreshToken = (): Promise<AuthResponse> => {
   const accessToken = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
   const refreshToken = localStorage.getItem('refreshToken');
-  
+
   if (!accessToken || !refreshToken) return Promise.reject(new Error('No tokens available'));
   return apiClient.post<AuthResponse>("/auth/refresh", { accessToken, refreshToken }).then(res => res.data);
 };
@@ -537,28 +681,34 @@ export const resetPassword = (data: { email: string, token: string, newPassword:
 };
 
 // --- User Management ---
-export const getUsers = (params?: QueryOptions): Promise<PagedResult<User>> => apiClient.get('/users', { params }).then(res => res.data);
+export const getUsers = (params?: QueryOptions): Promise<PagedResult<User>> =>
+  cachedGet(
+    stableKey('users', params),
+    () => apiClient.get('/users', { params }).then(res => res.data),
+    DEFAULT_LIST_TTL_MS
+  );
 
 // Use the dedicated UserManagement controller for admin actions
-export const createUser = (user: UserPayload): Promise<any> => apiClient.post('/users', user).then(res => res.data);
-export const updateUser = (id: string, user: Partial<UserPayload>): Promise<User> => apiClient.put(`/users/${id}`, user).then(res => res.data);
-export const deleteUser = (id: string): Promise<any> => apiClient.delete(`/users/${id}`).then(res => res.data);
-export const toggleUserStatus = (id: string): Promise<{ message: string }> => apiClient.post(`/users/${id}/toggle-status`, {}).then(res => res.data);
+export const createUser = (user: UserPayload): Promise<any> => apiClient.post('/users', user).then(res => { invalidateApiCache('users'); return res.data; });
+export const updateUser = (id: string, user: Partial<UserPayload>): Promise<User> => apiClient.put(`/users/${id}`, user).then(res => { invalidateApiCache('users'); return res.data; });
+export const deleteUser = (id: string): Promise<any> => apiClient.delete(`/users/${id}`).then(res => { invalidateApiCache('users'); return res.data; });
+export const toggleUserStatus = (id: string): Promise<{ message: string }> => apiClient.post(`/users/${id}/toggle-status`, {}).then(res => { invalidateApiCache('users'); return res.data; });
 
 export const uploadUserAvatar = (id: string, file: File): Promise<{ imageUrl: string }> => {
   const formData = new FormData();
   formData.append('file', file);
-  return apiClient.post(`/users/${id}/avatar`, formData).then(res => res.data);
+  return apiClient.post(`/users/${id}/avatar`, formData).then(res => { invalidateApiCache('users'); return res.data; });
 };
 
 // --- Role & Permission Management ---
-export const getRoles = (): Promise<Role[]> => apiClient.get('/roles/all_roles').then(res => res.data);
-export const getPermissions = (): Promise<PermissionDto[]> => 
-  apiClient.get<PermissionDto[]>('/permissions').then(res => res.data);
+export const getRoles = (): Promise<Role[]> =>
+  cachedGet('roles', () => apiClient.get('/roles/all_roles').then(res => res.data));
+export const getPermissions = (): Promise<PermissionDto[]> =>
+  cachedGet('permissions', () => apiClient.get<PermissionDto[]>('/permissions').then(res => res.data));
 export const getRoleDetails = (id: string): Promise<RoleDto> => apiClient.get(`/roles/${id}`).then(res => res.data);
-export const createRole = (role: { name: string, permissions: string[] }): Promise<any> => apiClient.post('/roles', role).then(res => res.data);
-export const updateRole = (id: string, role: { name: string, permissions: string[] }): Promise<any> => apiClient.put(`/roles/${id}`, role).then(res => res.data);
-export const deleteRole = (id: string): Promise<any> => apiClient.delete(`/roles?id=${id}`).then(res => res.data);
+export const createRole = (role: { name: string, permissions: string[] }): Promise<any> => apiClient.post('/roles', role).then(res => { invalidateApiCache('roles'); return res.data; });
+export const updateRole = (id: string, role: { name: string, permissions: string[] }): Promise<any> => apiClient.put(`/roles/${id}`, role).then(res => { invalidateApiCache('roles'); return res.data; });
+export const deleteRole = (id: string): Promise<any> => apiClient.delete(`/roles?id=${id}`).then(res => { invalidateApiCache('roles'); return res.data; });
 
 // --- Profile Management ---
 export const getProfile = (): Promise<User> => {
@@ -597,8 +747,13 @@ export interface SystemSettingsDto {
   allowedCorsOrigins?: string;
   productExportFields?: string;
 }
-export const getSystemSettings = (): Promise<SystemSettingsDto> => apiClient.get('/settings').then(res => res.data);
-export const updateSystemSettings = (settings: SystemSettingsDto): Promise<SystemSettingsDto> => apiClient.put('/settings', settings).then(res => res.data);
+export const getSystemSettings = (): Promise<SystemSettingsDto> =>
+  cachedGet('systemSettings', () => apiClient.get('/settings').then(res => res.data));
+export const updateSystemSettings = (settings: SystemSettingsDto): Promise<SystemSettingsDto> =>
+  apiClient.put('/settings', settings).then(res => {
+    invalidateApiCache('systemSettings');
+    return res.data;
+  });
 
 export const testStripeApiKey = (publicKey: string): Promise<{ success: boolean, message: string }> => {
   return apiClient.post('/settings/test-stripe', { publicKey }).then(res => res.data);
@@ -609,6 +764,8 @@ export interface TransactionDto {
   id: string;
   productId: string;
   productName: string;
+  plateNumber?: string | null;
+  engineNumber?: string | null;
   transactionType: string; // This is an enum on backend
   providerName: string;
   donorId: string;
@@ -623,7 +780,12 @@ export interface TransactionDto {
   createdDate?: string | null;
   updateDate?: string | null;
 }
-export const getTransactions = (params: QueryOptions): Promise<PagedResult<TransactionDto>> => apiClient.get('/transactions', { params }).then(res => res.data);
+export const getTransactions = (params: QueryOptions): Promise<PagedResult<TransactionDto>> =>
+  cachedGet(
+    stableKey('transactions', params),
+    () => apiClient.get('/transactions', { params }).then(res => res.data),
+    DEFAULT_LIST_TTL_MS
+  );
 
 // --- Product Purchase History ---
 export interface ProductPurchaseHistoryDto {
@@ -645,7 +807,11 @@ export interface CreateWriteOffRequest {
   reason: number; // 1: Damaged, 2: Stolen, 3: Expired, 4: Obsolete, 5: Lost, 6: BeyondRepair
   description?: string;
 }
-export const createWriteOff = (data: CreateWriteOffRequest): Promise<any> => apiClient.post('/inventory/write-offs', data).then(res => res.data);
+export const createWriteOff = (data: CreateWriteOffRequest): Promise<any> =>
+  apiClient.post('/inventory/write-offs', data).then(res => {
+    invalidateApiCache('products', 'transactions', 'writeoffs');
+    return res.data;
+  });
 
 export interface WriteOffDto {
   id: string;
@@ -660,7 +826,197 @@ export interface WriteOffDto {
   createdBy?: string;
 }
 
-export const getWriteOffs = (params?: QueryOptions): Promise<PagedResult<WriteOffDto>> => apiClient.get('/inventory/write-offs', { params }).then(res => res.data);
-export const approveWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/approve`, {}).then(res => res.data);
-export const rejectWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/reject`, {}).then(res => res.data);
-export const undoWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/undo`, {}).then(res => res.data);
+export const getWriteOffs = (params?: QueryOptions): Promise<PagedResult<WriteOffDto>> =>
+  cachedGet(
+    stableKey('writeoffs', params),
+    () => apiClient.get('/inventory/write-offs', { params }).then(res => res.data),
+    DEFAULT_LIST_TTL_MS
+  );
+export const approveWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/approve`, {}).then(res => { invalidateApiCache('products', 'transactions', 'writeoffs'); return res.data; });
+export const rejectWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/reject`, {}).then(res => { invalidateApiCache('writeoffs'); return res.data; });
+export const undoWriteOff = (id: string): Promise<any> => apiClient.post(`/inventory/write-offs/${id}/undo`, {}).then(res => { invalidateApiCache('products', 'transactions', 'writeoffs'); return res.data; });
+
+// --- Complex Enterprise Reports ---
+export interface CustomInventoryReportRequest {
+  companyName: string;
+  reportTitle: string;
+  period: string;
+  departmentLabel: string;
+  preparedBy: string;
+  checkedBy: string;
+  approvedBy: string;
+  logoBase64?: string | null;
+  templateStyle?: 'Standard' | 'LegacyYearlyList';
+  groupBy: 'None' | 'Category' | 'Department' | 'Year';
+  columns: string[];
+  name?: string;
+  categoryId?: string;
+  departmentId?: string;
+  qualityId?: string;
+  productGroup?: string;
+  purchaseType?: string;
+  vehicleType?: string;
+  invoiceStartDate?: string;
+  invoiceEndDate?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
+export interface AssessmentLineItemDto {
+  description: string;
+  quantity: number;
+  price: number;
+}
+
+export interface AssessmentRequestFormDto {
+  assessmentNo: string;
+  assessmentDate: string;
+  refToTicketNo: string;
+  itemCode: string;
+  subject: string;
+  issueDescription: string;
+  userName: string;
+  departmentName: string;
+  brandName: string;
+  modelName: string;
+  checkedBy: string;
+  checkedDate?: string | null;
+  items: AssessmentLineItemDto[];
+}
+
+export const exportCustomInventoryExcel = (payload: CustomInventoryReportRequest): Promise<Blob> =>
+  apiClient.post('/reports/inventory/custom-excel', payload, { responseType: 'blob' }).then(res => res.data);
+
+export const exportCustomInventoryPdf = (payload: CustomInventoryReportRequest): Promise<Blob> =>
+  apiClient.post('/reports/inventory/custom-pdf', payload, { responseType: 'blob' }).then(res => res.data);
+
+export const exportProductAssessmentPdf = (payload: AssessmentRequestFormDto): Promise<Blob> =>
+  apiClient.post('/assessment-reports/product/pdf', payload, { responseType: 'blob' }).then(res => res.data);
+
+export const exportProductAssessmentExcel = (payload: AssessmentRequestFormDto): Promise<Blob> =>
+  apiClient.post('/assessment-reports/product/excel', payload, { responseType: 'blob' }).then(res => res.data);
+
+export interface MonthlyTransactionReportFilters {
+  departmentId?: string;
+  transactionType?: string;
+  search?: string;
+  vehicleType?: string;
+}
+
+export const downloadMonthlyTransactionsPdf = (
+  year: number,
+  month: number,
+  filters?: MonthlyTransactionReportFilters
+): Promise<Blob> =>
+  apiClient
+    .get(`/reports/monthly-transactions/${year}/${month}`, {
+      params: filters,
+      responseType: 'blob',
+    })
+    .then(res => res.data);
+
+export const downloadMonthlyTransactionsExcel = (
+  year: number,
+  month: number,
+  filters?: MonthlyTransactionReportFilters
+): Promise<Blob> =>
+  apiClient
+    .get(`/reports/monthly-transactions/${year}/${month}/excel`, {
+      params: filters,
+      responseType: 'blob',
+    })
+    .then(res => res.data);
+
+export const enqueueMonthlyTransactionsReport = (year: number, month: number): Promise<{ jobId: string; message: string }> =>
+  apiClient.post(`/reports/monthly-transactions/${year}/${month}/enqueue`, {}).then(res => res.data);
+
+export interface QuickBooksReconciliationRequest {
+  startDate?: string | null;
+  endDate?: string | null;
+  periodLabel: string;
+  departmentId?: string | null;
+  purchaseType?: string | null;
+  vehicleType?: string | null;
+  preparedBy: string;
+  preparedRole: string;
+  reviewedBy: string;
+  reviewedRole: string;
+  quickBooksReferenceTotal?: number | null;
+  accountMappings?: Record<string, string>;
+  includeMonthlyDepartmentSubReport: boolean;
+}
+
+export interface ReconciliationRowDto {
+  productId: string;
+  date: string;
+  reference: string;
+  department: string;
+  description: string;
+  plateNumber?: string | null;
+  engineNumber?: string | null;
+  className: string;
+  categoryName: string;
+  accountGroup: string;
+  monthKey: string;
+  monthLabel: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface ReconciliationAccountGroupDto {
+  accountGroup: string;
+  rows: ReconciliationRowDto[];
+  subtotal: number;
+}
+
+export interface ReconciliationSummaryItemDto {
+  categoryLabel: string;
+  itemCount: number;
+  totalQuantity: number;
+  amount: number;
+}
+
+export interface DepartmentMonthlyAmountRowDto {
+  department: string;
+  monthlyAmounts: Record<string, number>;
+  totalItems: number;
+  totalQuantity: number;
+  totalAmount: number;
+}
+
+export interface QuickBooksReconciliationResponse {
+  periodLabel: string;
+  startDate: string;
+  endDate: string;
+  preparedBy: string;
+  preparedRole: string;
+  reviewedBy: string;
+  reviewedRole: string;
+  includeVehicleColumns?: boolean;
+  accountGroups: ReconciliationAccountGroupDto[];
+  recordedSummary: ReconciliationSummaryItemDto[];
+  months: string[];
+  departmentMonthlySubReport: DepartmentMonthlyAmountRowDto[];
+  monthColumnTotals: Record<string, number>;
+  grandTotal: number;
+  quickBooksReferenceTotal?: number | null;
+  varianceAmount?: number | null;
+  totalItems: number;
+  totalQuantity: number;
+}
+
+export const previewQuickBooksReconciliation = (
+  payload: QuickBooksReconciliationRequest
+): Promise<QuickBooksReconciliationResponse> =>
+  apiClient.post('/reports/quickbooks-reconciliation/preview', payload).then(res => res.data);
+
+export const exportQuickBooksReconciliationPdf = (
+  payload: QuickBooksReconciliationRequest
+): Promise<Blob> =>
+  apiClient.post('/reports/quickbooks-reconciliation/pdf', payload, { responseType: 'blob' }).then(res => res.data);
+
+export const exportQuickBooksReconciliationExcel = (
+  payload: QuickBooksReconciliationRequest
+): Promise<Blob> =>
+  apiClient.post('/reports/quickbooks-reconciliation/excel', payload, { responseType: 'blob' }).then(res => res.data);

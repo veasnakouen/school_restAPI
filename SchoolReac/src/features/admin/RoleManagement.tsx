@@ -4,6 +4,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, Accordion, AccordionSummary, AccordionDetails, FormGroup, FormControlLabel, Checkbox, IconButton } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { SearchField } from '../../components/SearchField';
 
 export const RoleManagement: React.FC = () => {
     const [roles, setRoles] = useState<api.Role[]>([]);
@@ -160,13 +161,12 @@ export const RoleManagement: React.FC = () => {
 
             <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
                 <Box sx={{ p: 2 }}>
-                    <TextField
+                    <SearchField
                         value={searchQuery}
-                        onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                        onChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+                        onClear={() => { setSearchQuery(''); setCurrentPage(1); }}
                         placeholder="Search roles..."
-                        variant="outlined"
-                        size="small"
-                        sx={{ width: { xs: '100%', sm: 300 } }}
+                        sx={{ width: { xs: '100%', sm: 320 } }}
                     />
                 </Box>
                 <TableContainer>

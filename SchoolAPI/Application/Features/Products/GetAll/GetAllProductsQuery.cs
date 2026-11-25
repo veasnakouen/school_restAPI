@@ -20,5 +20,6 @@ public record GetAllProductsQuery(
     DateTime? InvoiceStartDate = null,
     DateTime? InvoiceEndDate = null,
     decimal? MinPrice = null,
-    decimal? MaxPrice = null
+    decimal? MaxPrice = null,
+    string? VehicleType = null
 ) : IRequest<Result<PagedResult<ProductDto>>>;

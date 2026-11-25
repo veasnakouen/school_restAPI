@@ -1,8 +1,11 @@
 import React from 'react';
 import { Outlet, useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
-import { Box, Tabs, Tab, Typography, Breadcrumbs, Link } from '@mui/material';
+import { Box, Typography, Breadcrumbs, Link } from '@mui/material';
 import { Group as GroupIcon, Security as SecurityIcon, Lock as LockIcon, Settings as SettingsIcon, Category as CategoryIcon } from '@mui/icons-material';
 import { Receipt as ReceiptIcon, ReportProblem as ReportProblemIcon } from '@mui/icons-material';
+import { PageTransition } from '../../components/PageTransition';
+import { AnimatedNavTabs, type AnimatedNavTabItem } from '../../components/AnimatedNavTabs';
+import { prefetchRoute } from '../../routes/routeLoaders';
 
 export const AdminDashboard: React.FC = () => {
   const location = useLocation();
@@ -33,9 +36,15 @@ export const AdminDashboard: React.FC = () => {
     "/admin/write-offs": "WriteOffs",
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    navigate(newValue);
-  };
+  const adminTabs: AnimatedNavTabItem<string>[] = [
+    { label: 'Users', value: '/admin/users', to: '/admin/users', onPrefetch: () => prefetchRoute('/admin/users'), icon: <GroupIcon /> },
+    { label: 'Roles', value: '/admin/roles', to: '/admin/roles', onPrefetch: () => prefetchRoute('/admin/roles'), icon: <SecurityIcon /> },
+    { label: 'Permissions', value: '/admin/permissions', to: '/admin/permissions', onPrefetch: () => prefetchRoute('/admin/permissions'), icon: <LockIcon /> },
+    { label: 'System Settings', value: '/admin/settings', to: '/admin/settings', onPrefetch: () => prefetchRoute('/admin/settings'), icon: <SettingsIcon /> },
+    { label: 'Product Data', value: '/admin/lookups', to: '/admin/lookups', onPrefetch: () => prefetchRoute('/admin/lookups'), icon: <CategoryIcon /> },
+    { label: 'Transactions', value: '/admin/transactions', to: '/admin/transactions', onPrefetch: () => prefetchRoute('/admin/transactions'), icon: <ReceiptIcon /> },
+    { label: 'Write-Offs', value: '/admin/write-offs', to: '/admin/write-offs', onPrefetch: () => prefetchRoute('/admin/write-offs'), icon: <ReportProblemIcon /> },
+  ];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -54,57 +63,19 @@ export const AdminDashboard: React.FC = () => {
       </Box>
 
       <Box sx={{ width: '100%', mb: 1 }}>
-        <Tabs
+        <AnimatedNavTabs
           value={currentTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="admin dashboard tabs"
-          sx={{
-            minHeight: 48,
-            '& .MuiTabs-indicator': { display: 'none' }, // Hide default underline
-            '& .MuiTabs-flexContainer': { gap: 1 } // Add space between tabs
-          }}
-        >
-          {[
-            { label: 'Users', value: '/admin/users', icon: <GroupIcon /> },
-            { label: 'Roles', value: '/admin/roles', icon: <SecurityIcon /> },
-            { label: 'Permissions', value: '/admin/permissions', icon: <LockIcon /> },
-          { label: 'System Settings', value: '/admin/settings', icon: <SettingsIcon /> },
-          { label: 'Product Data', value: '/admin/lookups', icon: <CategoryIcon /> },
-          { label: 'Transactions', value: '/admin/transactions', icon: <ReceiptIcon /> },
-          { label: 'Write-Offs', value: '/admin/write-offs', icon: <ReportProblemIcon /> }
-          ].map((tab) => (
-            <Tab
-              key={tab.value}
-              icon={tab.icon}
-              iconPosition="start"
-              label={tab.label}
-              value={tab.value}
-              disableRipple
-              sx={{
-                minHeight: 48,
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: currentTab === tab.value ? 'bold' : 'medium',
-                px: 3,
-                transition: 'all 0.2s',
-                '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)', // Subtle pop effect for active tab
-                },
-                '&:hover:not(.Mui-selected)': {
-                  bgcolor: 'action.hover',
-                }
-              }}
-            />
-          ))}
-        </Tabs>
+          onChange={(newValue) => navigate(newValue)}
+          items={adminTabs}
+          layoutGroupId="admin-nav"
+          ariaLabel="admin dashboard tabs"
+        />
       </Box>
 
       <Box>
-        <Outlet />
+        <PageTransition pageKey={location.pathname} variant="tab">
+          <Outlet />
+        </PageTransition>
       </Box>
     </Box>
   );

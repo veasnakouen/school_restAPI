@@ -7,7 +7,7 @@ export const AuthGuard: React.FC = () => {
   const { isAuthenticated, isInitializing } = useAuth();
   const location = useLocation();
   if (isInitializing) {
-    return <GlobalSpinner />;
+    return <GlobalSpinner open message="Initializing workspace..." />;
   }
 // Not Authenticated - redirect to login
   if (!isAuthenticated) {

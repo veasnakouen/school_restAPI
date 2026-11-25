@@ -4,6 +4,7 @@ import { useToast } from '../../context/ToastContext';
 import { useAuth } from '../../auth/AuthContext';
 import { Box, Typography, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TablePagination, CircularProgress, Alert, Button, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Chip, Avatar, FormControl, Select, MenuItem, FormGroup, FormControlLabel, Checkbox, useTheme, TableSortLabel } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Lock as LockIcon, LockOpen as LockOpenIcon, Add as AddIcon, Download as DownloadIcon } from '@mui/icons-material';
+import { SearchField } from '../../components/SearchField';
 
 export const UserManagement: React.FC = () => {
   // Data State
@@ -298,13 +299,12 @@ export const UserManagement: React.FC = () => {
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3 }}>
         {/* Filter Bar */}
         <Box sx={{ p: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'space-between', alignItems: { sm: 'center' } }}>
-          <TextField
+          <SearchField
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            onChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+            onClear={() => { setSearchQuery(''); setCurrentPage(1); }}
             placeholder="Search users..."
-            variant="outlined"
-            size="small"
-            sx={{ width: { xs: '100%', sm: 300 } }}
+            sx={{ width: { xs: '100%', sm: 320 } }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <Select

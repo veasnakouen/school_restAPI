@@ -217,6 +217,8 @@ namespace SchoolAPI.Extensions
             services.AddScoped<IStudentAssessmentRequestReportService, StudentAssessmentRequestReportService>();
             services.AddScoped<IMonthlyTransactionReportService, MonthlyTransactionReportService>();
             services.AddScoped<IMonthlyTransactionReportJob, MonthlyTransactionReportJob>();
+            services.AddScoped<ICustomInventoryReportService, CustomInventoryReportService>();
+            services.AddScoped<IQuickBooksReconciliationService, QuickBooksReconciliationService>();
             services.AddScoped<ImageCleanupJob>();
             
             return services;

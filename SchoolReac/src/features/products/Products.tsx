@@ -26,6 +26,9 @@ import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs, { Dayjs } from 'dayjs';
+import * as XLSX from 'xlsx';
+import { MultiSheetImportModal } from './MultiSheetImportModal';
+import { SearchField } from '../../components/SearchField';
 
 const ALL_COLUMNS = [
   { id: 'name', label: 'Name' },
@@ -56,6 +59,12 @@ export const Products: React.FC = () => {
   const [persons, setPersons] = useState<api.PersonDto[]>([]);
   const [suppliers, setSuppliers] = useState<api.SupplierDto[]>([]);
   const [qualities, setQualities] = useState<api.QualityDto[]>([]);
+  const categoriesRef = useRef<api.CategoryDto[]>([]);
+  const departmentsRef = useRef<api.DepartmentDto[]>([]);
+  const qualitiesRef = useRef<api.QualityDto[]>([]);
+  categoriesRef.current = categories;
+  departmentsRef.current = departments;
+  qualitiesRef.current = qualities;
   const [totalItems, setTotalItems] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,7 +109,6 @@ export const Products: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<api.ProductDto | null>(null);
   const [productsToDelete, setProductsToDelete] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [importErrors, setImportErrors] = useState<string[]>([]);
 
   // Purchase History State
@@ -136,6 +144,7 @@ export const Products: React.FC = () => {
   // Menu State
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [columnMenuAnchorEl, setColumnMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [exportAllData, setExportAllData] = useState(false);
   const [exportFields, setExportFields] = useState<string[]>([]);
   const [visibleColumns, setVisibleColumns] = useState<string[]>(() => {
@@ -164,7 +173,7 @@ export const Products: React.FC = () => {
 
   const { showToast } = useToast();
 
-  const activeFilterCount = filterCategory.length + filterDepartment.length + filterQuality.length + 
+  const activeFilterCount = filterCategory.length + filterDepartment.length + filterQuality.length +
     (filterPurchaseType ? 1 : 0) + (filterGroup ? 1 : 0) + (filterStartDate ? 1 : 0) + (filterEndDate ? 1 : 0) + (filterPrice ? 1 : 0);
 
   const totalValue = useMemo(() => {
@@ -220,16 +229,16 @@ export const Products: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const selectedCats = categories.filter(c => filterCategory.includes(c.name));
+      const selectedCats = categoriesRef.current.filter(c => filterCategory.includes(c.name));
       const categoryIds = selectedCats.map(c => c.id).join(',');
-      const selectedDepts = departments.filter(d => filterDepartment.includes(d.name));
+      const selectedDepts = departmentsRef.current.filter(d => filterDepartment.includes(d.name));
       const departmentIds = selectedDepts.map(d => d.id).join(',');
-      const selectedQualities = qualities.filter(q => filterQuality.includes(q.name));
+      const selectedQualities = qualitiesRef.current.filter(q => filterQuality.includes(q.name));
       const qualityIds = selectedQualities.map(q => q.id).join(',');
 
       let filterOn = undefined;
       let filterQuery = undefined;
-      
+
       let minPrice = undefined;
       let maxPrice = undefined;
       if (filterPrice === 'under100') { maxPrice = 99.99; }
@@ -280,7 +289,7 @@ export const Products: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterGroup, filterPrice, filterStartDate, filterEndDate, debouncedSearchQuery, showToast, categories, departments, qualities]);
+  }, [currentPage, pageSize, sortBy, isAscending, filterCategory, filterDepartment, filterQuality, filterPurchaseType, filterGroup, filterPrice, filterStartDate, filterEndDate, debouncedSearchQuery, showToast]);
 
   useEffect(() => {
     loadProducts();
@@ -399,7 +408,7 @@ export const Products: React.FC = () => {
     setSelected([]);
   };
 
-  const handleClick = (event: React.MouseEvent<unknown>, id: string) => {
+  const handleClick = (_event: React.SyntheticEvent, id: string) => {
     const selectedIndex = selected.indexOf(id);
     let newSelected: string[] = [];
 
@@ -482,11 +491,11 @@ export const Products: React.FC = () => {
       // Set initial data from the list for a responsive UI
       setSelectedProduct(product || null);
       setImagePreview(product?.imageUrl || null);
-      
+
       if ((mode === 'view' || mode === 'edit') && product?.id) {
         setHistoryLoading(true);
         setPurchaseHistory([]); // Clear old history
-        
+
         // Dynamically fetch the latest export fields configuration so you never need to refresh the page!
         if (mode === 'view') {
           setShowImageInView(true);
@@ -564,7 +573,7 @@ export const Products: React.FC = () => {
     try {
       // Use the new transfer endpoint
       // await api.transferProduct(productToTransfer.id!, { newDepartmentId: transferDeptId, notes: transferNotes });
-      
+
       // Fallback: If you haven't created the endpoint yet, you can just update the product:
       await api.updateProduct(productToTransfer.id!, { ...productToTransfer, departmentId: transferDeptId });
 
@@ -641,9 +650,9 @@ export const Products: React.FC = () => {
     setIsSaving(true);
 
     // Clean up empty strings to null to ensure the backend validates optional/Date fields properly
-    const payloadToSave: any = { ...selectedProduct }; 
+    const payloadToSave: any = { ...selectedProduct };
     const optionalFields = ['description', 'codeNumber', 'attributes', 'plateNumber', 'engineNumber', 'donorName', 'voucherNumber', 'supplierName', 'responsiblePerson', 'invoiceDate', 'year', 'quality', 'categoryName', 'brandName', 'departmentName'];
-    
+
     optionalFields.forEach(field => {
       if (payloadToSave[field] === '') {
         payloadToSave[field] = null;
@@ -661,7 +670,7 @@ export const Products: React.FC = () => {
           console.warn("Could not auto-create person", e);
         }
       }
-      
+
       // Auto-create Category if it's new
       if (payloadToSave.categoryName && !payloadToSave.categoryId) {
         try {
@@ -705,7 +714,7 @@ export const Products: React.FC = () => {
 
       showToast(
         <Box>
-          <Typography variant="subtitle2" fontWeight="bold">
+          <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
             {modalMode === 'edit' ? 'Product Updated' : 'Product Created'}
           </Typography>
           <Typography variant="body2">
@@ -776,32 +785,6 @@ export const Products: React.FC = () => {
     }
   };
 
-  const handleImportExcel = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    try {
-      // Send the raw file directly to the API. Let the C# backend handle empty rows and parsing.
-      // This prevents browser memory crashes on large Excel files.
-      const result = await api.importProducts(file);
-      if (result.errors && result.errors.length > 0) {
-        showToast(`Imported ${result.importedCount} products. Encountered ${result.errors.length} row errors (see console).`, 'warning');
-        console.warn("Import errors:", result.errors);
-        setImportErrors(result.errors);
-      } else {
-        showToast(`Successfully imported ${result.importedCount} products!`, 'success');
-      }
-      await loadProducts();
-    } catch (err: any) {
-      const message = err.response?.data?.title || err.response?.data?.message || 'Failed to import products.';
-      showToast(message, 'error');
-    } finally {
-      setIsImporting(false);
-      event.target.value = ''; // Reset input so the same file can be uploaded again if needed
-    }
-  };
-
   const handleSaveCrop = async () => {
     if (imgRef.current) {
       const cropWidth = completedCrop?.width || imgRef.current.width;
@@ -812,12 +795,12 @@ export const Products: React.FC = () => {
       const canvas = document.createElement('canvas');
       const scaleX = imgRef.current.naturalWidth / imgRef.current.width;
       const scaleY = imgRef.current.naturalHeight / imgRef.current.height;
-      
+
       // Calculate high-resolution dimensions, capped to prevent massive payloads
       const MAX_SIZE = 1200;
       let finalWidth = cropWidth * scaleX;
       let finalHeight = cropHeight * scaleY;
-      
+
       if (finalWidth > MAX_SIZE || finalHeight > MAX_SIZE) {
         const ratio = Math.min(MAX_SIZE / finalWidth, MAX_SIZE / finalHeight);
         finalWidth *= ratio;
@@ -869,7 +852,7 @@ export const Products: React.FC = () => {
 
       let filterOn = undefined;
       let filterQuery = undefined;
-      
+
       let minPrice = undefined;
       let maxPrice = undefined;
       if (filterPrice === 'under100') { maxPrice = 99.99; }
@@ -927,7 +910,78 @@ export const Products: React.FC = () => {
         extension = 'pdf';
       }
 
-      const blobData = await fetchBlob;
+      let blobData: Blob;
+      try {
+        blobData = await fetchBlob;
+      } catch (serverErr) {
+        // Fallback: If server endpoint returns 404/500, generate export directly on client
+        console.warn("Server export unavailable or failed, generating export directly on client...", serverErr);
+        const res = await api.getProducts(params);
+        const items = res.items || [];
+
+        if (format === 'excel' || format === 'csv') {
+          const exportRows = items.map(p => ({
+            'Name': p.name || '',
+            'Code Number': p.codeNumber || '',
+            'Category': p.categoryName || '',
+            'Brand': p.brandName || '',
+            'Department': p.departmentName || '',
+            'Condition': p.quality || '',
+            'Price': p.price ?? '',
+            'Qty': p.initialQuantity ?? '',
+            'Voucher #': p.voucherNumber || '',
+            'Acquisition Type': p.purchaseType || '',
+            'Supplier': p.supplierName || '',
+            'Donor': p.donorName || '',
+            'Responsible Person': p.responsiblePerson || '',
+            'Year': p.year || '',
+            'Plate #': p.plateNumber || '',
+            'Engine #': p.engineNumber || '',
+            'Description': p.description || ''
+          }));
+
+          const worksheet = XLSX.utils.json_to_sheet(exportRows);
+          if (format === 'excel') {
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Products');
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            blobData = new Blob([excelBuffer], { type: mimeType });
+          } else {
+            const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+            blobData = new Blob([csvOutput], { type: mimeType });
+          }
+        } else {
+          const doc = new jsPDF('landscape');
+          doc.setFontSize(16);
+          doc.text('Products Report', 14, 15);
+          doc.setFontSize(10);
+          doc.setTextColor(100);
+          doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 22);
+
+          const tableRows = items.map(p => [
+            p.name || '',
+            p.codeNumber || '',
+            p.categoryName || '',
+            p.brandName || '',
+            p.departmentName || '',
+            p.quality || '',
+            p.price != null ? `$${p.price.toFixed(2)}` : '',
+            p.initialQuantity ?? '',
+            p.responsiblePerson || ''
+          ]);
+
+          (doc as any).autoTable({
+            startY: 28,
+            head: [['Name', 'Code #', 'Category', 'Brand', 'Department', 'Condition', 'Price', 'Qty', 'Responsible']],
+            body: tableRows,
+            theme: 'striped',
+            styles: { fontSize: 8 }
+          });
+
+          blobData = doc.output('blob');
+        }
+      }
+
       const blob = new Blob([blobData], { type: mimeType });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -936,8 +990,225 @@ export const Products: React.FC = () => {
       URL.revokeObjectURL(link.href);
       showToast(`${format.toUpperCase()} export completed successfully!`, 'success');
     } catch (err) {
-      showToast(`Failed to generate ${format.toUpperCase()} file on the server.`, 'error');
+      showToast(`Failed to generate ${format.toUpperCase()} file.`, 'error');
       console.error("Export error:", err);
+    }
+  };
+
+  const handlePrintTable = async () => {
+    setAnchorEl(null);
+    showToast('Preparing products for printing...', 'info');
+
+    try {
+      let itemsToPrint = products;
+      if (exportAllData || totalItems > products.length) {
+        const selectedCats = categories.filter(c => filterCategory.includes(c.name));
+        const categoryIds = selectedCats.map(c => c.id).join(',');
+        const selectedDepts = departments.filter(d => filterDepartment.includes(d.name));
+        const departmentIds = selectedDepts.map(d => d.id).join(',');
+        const selectedQualities = qualities.filter(q => filterQuality.includes(q.name));
+        const qualityIds = selectedQualities.map(q => q.id).join(',');
+
+        let filterOn = undefined;
+        let filterQuery = undefined;
+        let minPrice = undefined;
+        let maxPrice = undefined;
+        if (filterPrice === 'under100') { maxPrice = 99.99; }
+        else if (filterPrice === 'equal100') { minPrice = 100; maxPrice = 100; }
+        else if (filterPrice === 'over100') { minPrice = 100.01; }
+
+        const unmappedCategories = filterCategory.filter(name => !selectedCats.find(c => c.name === name));
+        const unmappedDepartments = filterDepartment.filter(name => !selectedDepts.find(d => d.name === name));
+        const unmappedQualities = filterQuality.filter(name => !selectedQualities.find(q => q.name === name));
+        if (unmappedCategories.length > 0) {
+          filterOn = 'categoryName';
+          filterQuery = unmappedCategories.join(',');
+        } else if (unmappedDepartments.length > 0) {
+          filterOn = 'departmentName';
+          filterQuery = unmappedDepartments.join(',');
+        } else if (unmappedQualities.length > 0) {
+          filterOn = 'quality';
+          filterQuery = unmappedQualities.join(',');
+        }
+
+        const params: any = {
+          pageNumber: 1,
+          pageSize: exportAllData ? 100000 : (totalItems > 0 ? totalItems : 1000),
+          sortBy: exportAllData ? 'name' : sortBy,
+          isAscending: exportAllData ? true : isAscending,
+          name: exportAllData ? undefined : debouncedSearchQuery || undefined,
+          categoryId: exportAllData ? undefined : categoryIds || undefined,
+          departmentId: exportAllData ? undefined : departmentIds || undefined,
+          qualityId: exportAllData ? undefined : qualityIds || undefined,
+          purchaseType: exportAllData ? undefined : filterPurchaseType || undefined,
+          productGroup: exportAllData ? undefined : filterGroup || undefined,
+          invoiceStartDate: exportAllData ? undefined : (filterStartDate ? new Date(filterStartDate).toISOString() : undefined),
+          invoiceEndDate: exportAllData ? undefined : (filterEndDate ? new Date(filterEndDate).toISOString() : undefined),
+          minPrice: exportAllData ? undefined : minPrice,
+          maxPrice: exportAllData ? undefined : maxPrice,
+          filterOn: exportAllData ? undefined : filterOn,
+          filterQuery: exportAllData ? undefined : filterQuery
+        };
+
+        const res = await api.getProducts(params);
+        if (res && res.items) {
+          itemsToPrint = res.items;
+        }
+      }
+
+      if (!itemsToPrint || itemsToPrint.length === 0) {
+        showToast('No products to print.', 'warning');
+        return;
+      }
+
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        showToast('Please allow popups to print.', 'warning');
+        return;
+      }
+
+      const cols = exportAllData
+        ? ALL_COLUMNS
+        : ALL_COLUMNS.filter(c => visibleColumns.includes(c.id));
+
+      const theadHtml = cols.map(c => `<th>${c.label}</th>`).join('');
+      const rowsHtml = itemsToPrint.map((p) => {
+        const cells = cols.map(col => {
+          let val = (p as any)[col.id];
+          if (col.id === 'price') {
+            val = val != null ? `$${Number(val).toFixed(2)}` : '-';
+          } else if (col.id === 'year' && val) {
+            val = new Date(val).getFullYear();
+          } else {
+            val = val ?? '-';
+          }
+          return `<td>${val}</td>`;
+        }).join('');
+        return `<tr>${cells}</tr>`;
+      }).join('');
+
+      const totalValue = itemsToPrint.reduce((acc, p) => acc + (Number(p.price) || 0), 0);
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Product Inventory Report</title>
+          <style>
+            @page {
+              size: A4 landscape;
+              margin: 10mm;
+            }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+              color: #1e293b;
+              margin: 0;
+              padding: 16px;
+              font-size: 11px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-end;
+              border-bottom: 2px solid #0284c7;
+              padding-bottom: 12px;
+              margin-bottom: 14px;
+            }
+            .title {
+              font-size: 20px;
+              font-weight: 700;
+              color: #0f172a;
+              margin: 0;
+            }
+            .meta {
+              font-size: 11px;
+              color: #64748b;
+              margin-top: 4px;
+            }
+            .summary {
+              text-align: right;
+              font-size: 11px;
+              color: #475569;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 8px;
+            }
+            th {
+              background-color: #f1f5f9;
+              color: #334155;
+              font-weight: 600;
+              text-align: left;
+              padding: 7px 6px;
+              border: 1px solid #cbd5e1;
+              white-space: nowrap;
+            }
+            td {
+              padding: 6px;
+              border: 1px solid #e2e8f0;
+              vertical-align: top;
+            }
+            tr:nth-child(even) {
+              background-color: #f8fafc;
+            }
+            tr {
+              page-break-inside: avoid;
+            }
+            .footer {
+              margin-top: 14px;
+              display: flex;
+              justify-content: space-between;
+              font-size: 10px;
+              color: #64748b;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 8px;
+            }
+            @media print {
+              body { padding: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <h1 class="title">Product Inventory Report</h1>
+              <div class="meta">Printed: ${new Date().toLocaleString()} | Filter: ${filterGroup || 'All'}</div>
+            </div>
+            <div class="summary">
+              <div><strong>Total Items:</strong> ${itemsToPrint.length}</div>
+              <div><strong>Total Value:</strong> $${totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>${theadHtml}</tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+          <div class="footer">
+            <div>Inventory Management System</div>
+            <div>Printed by system</div>
+          </div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+    } catch (err) {
+      console.error("Print error:", err);
+      showToast('Failed to prepare print view.', 'error');
     }
   };
 
@@ -946,7 +1217,7 @@ export const Products: React.FC = () => {
   const renderProductField = (label: string, value: any) => (
     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, borderBottom: '1px dashed', borderColor: 'divider', pb: 1 }}>
       <Typography variant="body2" color="text.secondary" sx={{ minWidth: 140, fontWeight: 500, flexShrink: 0 }}>{label}:</Typography>
-      <Typography variant="body2" fontWeight="medium" sx={{ wordBreak: 'break-word' }}>{value || '-'}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>{value || '-'}</Typography>
     </Box>
   );
 
@@ -1078,7 +1349,7 @@ export const Products: React.FC = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">Products</Typography>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>Products</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>Manage your inventory items.</Typography>
         </Box>
       </Box>
@@ -1086,30 +1357,17 @@ export const Products: React.FC = () => {
       {/* Table Card */}
       <Paper sx={{ width: '100%', overflow: 'hidden', boxShadow: 3, position: 'relative' }}>
         {loading && <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }} />}
-        
+
         {/* Primary Search Bar */}
         <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 2, overflowX: 'auto', '&::-webkit-scrollbar': { display: 'none' } }}>
-          <TextField
+          <SearchField
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(0); }}
+            onChange={(val) => { setSearchQuery(val); setCurrentPage(0); }}
+            onClear={() => { setSearchQuery(''); setCurrentPage(0); }}
             placeholder="Search by name or code..."
-            variant="outlined"
-            size="small"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: { xs: 200, sm: 300 }, flexShrink: 0 }}
+            sx={{ width: { xs: 220, sm: 320 }, flexShrink: 0 }}
           />
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'nowrap', flexShrink: 0 }}>
-            {searchQuery && (
-              <Button variant="text" color="inherit" onClick={() => { setSearchQuery(''); setCurrentPage(0); }}>
-                Clear Search
-              </Button>
-            )}
             <ToggleButtonGroup
               value={viewMode}
               exclusive
@@ -1153,13 +1411,11 @@ export const Products: React.FC = () => {
               ))}
             </Menu>
             <Button
-              component="label"
               variant="outlined"
-              startIcon={isImporting ? <CircularProgress size={20} color="inherit" /> : <CloudUploadIcon />}
-              disabled={isImporting}
+              startIcon={<CloudUploadIcon />}
+              onClick={() => setImportModalOpen(true)}
             >
               Import
-              <input type="file" hidden accept=".xlsx" onChange={handleImportExcel} />
             </Button>
             <Button
               variant="outlined"
@@ -1176,9 +1432,27 @@ export const Products: React.FC = () => {
                 />
               </Box>
               <Divider />
-              <MenuItem onClick={() => handleExport('excel')}>Export as Excel</MenuItem>
-              <MenuItem onClick={() => handleExport('csv')}>Export as CSV</MenuItem>
-              <MenuItem onClick={() => handleExport('pdf')}>Export as PDF</MenuItem>
+              <MenuItem onClick={() => handleExport('excel')}>
+                <ListItemIcon><FileDownloadIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Export as Excel</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleExport('csv')}>
+                <ListItemIcon><FileDownloadIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Export as CSV</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => handleExport('pdf')}>
+                <ListItemIcon><FileDownloadIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Export as PDF</ListItemText>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handlePrintTable}>
+                <ListItemIcon><PrintIcon fontSize="small" /></ListItemIcon>
+                <ListItemText>Print</ListItemText>
+              </MenuItem>
+              <MenuItem onClick={() => { setAnchorEl(null); navigate('/reports'); }}>
+                <ListItemIcon><ViewColumnIcon fontSize="small" color="primary" /></ListItemIcon>
+                <ListItemText>WYSIWYG Report Builder</ListItemText>
+              </MenuItem>
             </Menu>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenModal('create')}>
               Add Product
@@ -1191,174 +1465,174 @@ export const Products: React.FC = () => {
           <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ bgcolor: 'background.default' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <FilterListIcon fontSize="small" color="action" />
-              <Typography variant="subtitle2" fontWeight="bold" color="text.secondary">Advanced Filters</Typography>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 'bold' }}>Advanced Filters</Typography>
               {activeFilterCount > 0 && (
                 <Chip size="small" label={`${activeFilterCount} Active`} color="primary" sx={{ height: 20, fontSize: '0.7rem' }} />
               )}
             </Box>
           </AccordionSummary>
           <AccordionDetails sx={{ bgcolor: 'background.default', p: { xs: 2, md: 3 } }} >
-            <Grid container spacing={2} alignItems="center">
+            <Grid container spacing={2} sx={{ alignItems: 'center' }}>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <Select
-              multiple
-              value={filterCategory}
-              onChange={(e) => { 
-                const val = e.target.value; 
-                setFilterCategory(typeof val === 'string' ? val.split(',') : val as string[]); 
-                setCurrentPage(0); 
-              }}
-              displayEmpty
-              renderValue={(selected) => {
-                if ((selected as string[]).length === 0) return "All Categories";
-                return (selected as string[]).join(', ');
-              }}
-            >
-              <MenuItem disabled value="" sx={{ display: 'none' }}>All Categories</MenuItem>
-              {uniqueCategories.map(name => (
-                <MenuItem key={name} value={name}>
-                  <Checkbox checked={filterCategory.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
-                  <ListItemText primary={name} />
-                </MenuItem>
-              ))}
-            </Select>
+                  <Select
+                    multiple
+                    value={filterCategory}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFilterCategory(typeof val === 'string' ? val.split(',') : val as string[]);
+                      setCurrentPage(0);
+                    }}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if ((selected as string[]).length === 0) return "All Categories";
+                      return (selected as string[]).join(', ');
+                    }}
+                  >
+                    <MenuItem disabled value="" sx={{ display: 'none' }}>All Categories</MenuItem>
+                    {uniqueCategories.map(name => (
+                      <MenuItem key={name} value={name}>
+                        <Checkbox checked={filterCategory.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                        <ListItemText primary={name} />
+                      </MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <Select
-              multiple
-              value={filterDepartment}
-              onChange={(e) => { 
-                const val = e.target.value; 
-                setFilterDepartment(typeof val === 'string' ? val.split(',') : val as string[]); 
-                setCurrentPage(0); 
-              }}
-              displayEmpty
-              renderValue={(selected) => {
-                if ((selected as string[]).length === 0) return "All Depts";
-                return (selected as string[]).join(', ');
-              }}
-            >
-              <MenuItem disabled value="" sx={{ display: 'none' }}>All Depts</MenuItem>
-              {uniqueDepartments.map(name => (
-                <MenuItem key={name} value={name}>
-                  <Checkbox checked={filterDepartment.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
-                  <ListItemText primary={name} />
-                </MenuItem>
-              ))}
-            </Select>
+                  <Select
+                    multiple
+                    value={filterDepartment}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFilterDepartment(typeof val === 'string' ? val.split(',') : val as string[]);
+                      setCurrentPage(0);
+                    }}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if ((selected as string[]).length === 0) return "All Depts";
+                      return (selected as string[]).join(', ');
+                    }}
+                  >
+                    <MenuItem disabled value="" sx={{ display: 'none' }}>All Depts</MenuItem>
+                    {uniqueDepartments.map(name => (
+                      <MenuItem key={name} value={name}>
+                        <Checkbox checked={filterDepartment.includes(name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                        <ListItemText primary={name} />
+                      </MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <Select
-              multiple
-              value={filterQuality}
-              onChange={(e) => { 
-                const val = e.target.value; 
-                setFilterQuality(typeof val === 'string' ? val.split(',') : val as string[]); 
-                setCurrentPage(0); 
-              }}
-              displayEmpty
-              renderValue={(selected) => {
-                if ((selected as string[]).length === 0) return "All Conditions";
-                return (selected as string[]).join(', ');
-              }}
-            >
-              <MenuItem disabled value="" sx={{ display: 'none' }}>All Conditions</MenuItem>
-              {qualities.map(q => (
-                <MenuItem key={q.id} value={q.name}>
-                  <Checkbox checked={filterQuality.includes(q.name)} size="small" sx={{ p: 0.5, mr: 1 }} />
-                  <ListItemText primary={q.name} />
-                </MenuItem>
-              ))}
-            </Select>
+                  <Select
+                    multiple
+                    value={filterQuality}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFilterQuality(typeof val === 'string' ? val.split(',') : val as string[]);
+                      setCurrentPage(0);
+                    }}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if ((selected as string[]).length === 0) return "All Conditions";
+                      return (selected as string[]).join(', ');
+                    }}
+                  >
+                    <MenuItem disabled value="" sx={{ display: 'none' }}>All Conditions</MenuItem>
+                    {qualities.map(q => (
+                      <MenuItem key={q.id} value={q.name}>
+                        <Checkbox checked={filterQuality.includes(q.name)} size="small" sx={{ p: 0.5, mr: 1 }} />
+                        <ListItemText primary={q.name} />
+                      </MenuItem>
+                    ))}
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <Select
-              value={filterPurchaseType}
-              onChange={(e) => { setFilterPurchaseType(e.target.value); setCurrentPage(0); }}
-              displayEmpty
-            >
-              <MenuItem value="">All Acquisitions</MenuItem>
-              <MenuItem value="Purchased">Purchased</MenuItem>
-              <MenuItem value="Donated">Donated</MenuItem>
-            </Select>
+                  <Select
+                    value={filterPurchaseType}
+                    onChange={(e) => { setFilterPurchaseType(e.target.value); setCurrentPage(0); }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">All Acquisitions</MenuItem>
+                    <MenuItem value="Purchased">Purchased</MenuItem>
+                    <MenuItem value="Donated">Donated</MenuItem>
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-        <Select
-          value={filterGroup}
-          onChange={(e) => { setFilterGroup(e.target.value as string); setCurrentPage(0); }}
-          displayEmpty
-        >
-          <MenuItem value="">All Groups</MenuItem>
-          <MenuItem value="Inventory">Inventory (Letters first)</MenuItem>
-          <MenuItem value="Asset">Assets (Year first)</MenuItem>
-          <MenuItem value="NoCode">No Code Assigned</MenuItem>
-        </Select>
+                  <Select
+                    value={filterGroup}
+                    onChange={(e) => { setFilterGroup(e.target.value as string); setCurrentPage(0); }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">All Groups</MenuItem>
+                    <MenuItem value="Inventory">Inventory (Letters first)</MenuItem>
+                    <MenuItem value="Asset">Assets (Year first)</MenuItem>
+                    <MenuItem value="NoCode">No Code Assigned</MenuItem>
+                  </Select>
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <DatePicker
-              label="From Date"
-              slotProps={{ textField: { size: 'small', fullWidth: true } }}
-              value={filterStartDate ? dayjs(filterStartDate) : null}
-              onChange={(newDate: Dayjs | null) => { 
-                setFilterStartDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : ''); 
-                setCurrentPage(0); 
-              }}
-            />
+                  <DatePicker
+                    label="From Date"
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    value={filterStartDate ? dayjs(filterStartDate) : null}
+                    onChange={(newDate: Dayjs | null) => {
+                      setFilterStartDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : '');
+                      setCurrentPage(0);
+                    }}
+                  />
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <DatePicker
-              label="To Date"
-              slotProps={{ textField: { size: 'small', fullWidth: true } }}
-              value={filterEndDate ? dayjs(filterEndDate) : null}
-              onChange={(newDate: Dayjs | null) => { 
-                setFilterEndDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : ''); 
-                setCurrentPage(0); 
-              }}
-            />
+                  <DatePicker
+                    label="To Date"
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                    value={filterEndDate ? dayjs(filterEndDate) : null}
+                    onChange={(newDate: Dayjs | null) => {
+                      setFilterEndDate(newDate && newDate.isValid() ? newDate.format('YYYY-MM-DD') : '');
+                      setCurrentPage(0);
+                    }}
+                  />
                 </FormControl>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
                 <FormControl size="small" fullWidth>
-            <Select
-              value={filterPrice}
-              onChange={(e) => { setFilterPrice(e.target.value as string); setCurrentPage(0); }}
-              displayEmpty
-            >
-              <MenuItem value="">All Prices</MenuItem>
-              <MenuItem value="under100">Under $100</MenuItem>
-              <MenuItem value="equal100">Exactly $100</MenuItem>
-              <MenuItem value="over100">Over $100</MenuItem>
-            </Select>
+                  <Select
+                    value={filterPrice}
+                    onChange={(e) => { setFilterPrice(e.target.value as string); setCurrentPage(0); }}
+                    displayEmpty
+                  >
+                    <MenuItem value="">All Prices</MenuItem>
+                    <MenuItem value="under100">Under $100</MenuItem>
+                    <MenuItem value="equal100">Exactly $100</MenuItem>
+                    <MenuItem value="over100">Over $100</MenuItem>
+                  </Select>
                 </FormControl>
               </Grid>
             </Grid>
-              {activeFilterCount > 0 && (
+            {activeFilterCount > 0 && (
               <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button variant="text" color="error" onClick={handleClearFilters} startIcon={<CloseIcon />}>
                   Clear All Filters
-            </Button>
+                </Button>
               </Box>
-          )}
+            )}
           </AccordionDetails>
         </Accordion>
 
         {/* Bulk Actions Toolbar */}
         {selected.length > 0 && (
           <Box sx={{ p: 2, bgcolor: 'primary.lighter', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="subtitle1" fontWeight="bold">{selected.length} selected</Typography>
+            <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>{selected.length} selected</Typography>
             <Tooltip title="Delete Selected">
               <IconButton color="error" onClick={() => setProductsToDelete(selected)}>
                 <DeleteForeverIcon />
@@ -1369,244 +1643,244 @@ export const Products: React.FC = () => {
 
         {/* Table */}
         {viewMode === 'list' && (
-        <TableContainer sx={{ minHeight: 580, maxHeight: { xs: 'calc(100vh - 280px)', sm: 'calc(100vh - 220px)' } }}>
-          <Table stickyHeader sx={{ minWidth: { xs: '100%', sm: 750 } }} aria-labelledby="tableTitle">
-            <TableHead>
-              <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', bgcolor: 'background.paper' } }}>
-                <TableCell padding="checkbox">
-                  <Checkbox
-                    color="primary"
-                    indeterminate={selected.length > 0 && selected.length < products.length}
-                    checked={products.length > 0 && selected.length === products.length}
-                    onChange={handleSelectAllClick}
-                  />
-                </TableCell>
-                {visibleColumns.includes('name') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'name'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('name')}>
-                      Name
-                    </TableSortLabel>
+          <TableContainer sx={{ minHeight: 580, maxHeight: { xs: 'calc(100vh - 280px)', sm: 'calc(100vh - 220px)' } }}>
+            <Table stickyHeader sx={{ minWidth: { xs: '100%', sm: 750 } }} aria-labelledby="tableTitle">
+              <TableHead>
+                <TableRow sx={{ '& .MuiTableCell-head': { fontWeight: 'bold', bgcolor: 'background.paper' } }}>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      color="primary"
+                      indeterminate={selected.length > 0 && selected.length < products.length}
+                      checked={products.length > 0 && selected.length === products.length}
+                      onChange={handleSelectAllClick}
+                    />
                   </TableCell>
-                )}
-                {visibleColumns.includes('codeNumber') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'codeNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('codeNumber')}>
-                      Code Number
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('year') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'year'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('year')}>
-                      Year
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('plateNumber') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'plateNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('plateNumber')}>
-                      Plate Number
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('engineNumber') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'engineNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('engineNumber')}>
-                      Engine/Serial #
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('categoryName') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'categoryName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('categoryName')}>
-                      Category
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('brandName') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'brandName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('brandName')}>
-                      Brand
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('quality') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'quality'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('quality')}>
-                      Condition
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('departmentName') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'departmentName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('departmentName')}>
-                      Dept
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('responsiblePerson') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'responsiblePerson'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('responsiblePerson')}>
-                      Responsible Person
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('initialQuantity') && (
-                  <TableCell align="right">
-                    <TableSortLabel active={sortBy === 'initialQuantity'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('initialQuantity')}>
-                      Qty
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('voucherNumber') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'voucherNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('voucherNumber')}>
-                      Voucher #
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('donorName') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'donorName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('donorName')}>
-                      Donor
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('supplier') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'supplierName' as any} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('supplierName' as any)}>
-                      Supplier
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('purchaseType') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'purchaseType'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('purchaseType')}>
-                      Acquisition Type
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('price') && (
-                  <TableCell align="right">
-                    <TableSortLabel active={sortBy === 'price'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('price')}>
-                      Price
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                {visibleColumns.includes('description') && (
-                  <TableCell>
-                    <TableSortLabel active={sortBy === 'description'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('description')}>
-                      Description
-                    </TableSortLabel>
-                  </TableCell>
-                )}
-                <TableCell align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-        <TableBody sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
-          {loading && products.length === 0 ? (
-            Array.from(new Array(pageSize)).map((_, index) => (
-              <TableRow key={`skel-row-${index}`}>
-                <TableCell padding="checkbox">
-                  <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: 1 }} />
-                </TableCell>
-                {ALL_COLUMNS.map(col => {
-                  if (!visibleColumns.includes(col.id)) return null;
-                  return (
-                    <TableCell key={`skel-cell-${col.id}-${index}`}>
-                      {col.id === 'name' ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Skeleton variant="circular" width={40} height={40} /><Skeleton variant="text" width="70%" /></Box>
-                      ) : <Skeleton variant="text" />}
+                  {visibleColumns.includes('name') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'name'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('name')}>
+                        Name
+                      </TableSortLabel>
                     </TableCell>
-                  );
-                })}
-                <TableCell align="center">
-                  <Skeleton variant="circular" width={32} height={32} />
-                </TableCell>
-              </TableRow>
-            ))
-          ) : error ? (
-                <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><Alert severity="error">{error}</Alert></TableCell></TableRow>
-              ) : products.length === 0 ? (
-                <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}>No products match your filters.</TableCell></TableRow>
-              ) : (
-                products.map((product) => {
-                  const isItemSelected = isSelected(product.id!);
-                  const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
-                  
-                  let rowBgColor = 'inherit';
-                  if (qualityName) {
-                    const q = qualityName.toLowerCase();
-                    if (q.includes('poor') || q.includes('broken') || q.includes('bad')) rowBgColor = 'rgba(244, 67, 54, 0.08)'; // Light Red
-                    else if (q.includes('fair') || q.includes('okay')) rowBgColor = 'rgba(255, 152, 0, 0.08)'; // Light Orange
-                    else if (q.includes('excellent') || q.includes('new') || q.includes('great')) rowBgColor = 'rgba(76, 175, 80, 0.08)'; // Light Green
-                  }
-
-                  return (
-                    <TableRow hover onClick={(event) => handleClick(event, product.id!)} role="checkbox" tabIndex={-1} key={product.id} selected={isItemSelected} sx={{ bgcolor: rowBgColor }}>
+                  )}
+                  {visibleColumns.includes('codeNumber') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'codeNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('codeNumber')}>
+                        Code Number
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('year') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'year'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('year')}>
+                        Year
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('plateNumber') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'plateNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('plateNumber')}>
+                        Plate Number
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('engineNumber') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'engineNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('engineNumber')}>
+                        Engine/Serial #
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('categoryName') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'categoryName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('categoryName')}>
+                        Category
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('brandName') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'brandName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('brandName')}>
+                        Brand
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('quality') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'quality'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('quality')}>
+                        Condition
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('departmentName') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'departmentName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('departmentName')}>
+                        Dept
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('responsiblePerson') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'responsiblePerson'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('responsiblePerson')}>
+                        Responsible Person
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('initialQuantity') && (
+                    <TableCell align="right">
+                      <TableSortLabel active={sortBy === 'initialQuantity'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('initialQuantity')}>
+                        Qty
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('voucherNumber') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'voucherNumber'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('voucherNumber')}>
+                        Voucher #
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('donorName') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'donorName'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('donorName')}>
+                        Donor
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('supplier') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'supplierName' as any} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('supplierName' as any)}>
+                        Supplier
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('purchaseType') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'purchaseType'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('purchaseType')}>
+                        Acquisition Type
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('price') && (
+                    <TableCell align="right">
+                      <TableSortLabel active={sortBy === 'price'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('price')}>
+                        Price
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  {visibleColumns.includes('description') && (
+                    <TableCell>
+                      <TableSortLabel active={sortBy === 'description'} direction={isAscending ? 'asc' : 'desc'} onClick={() => handleSort('description')}>
+                        Description
+                      </TableSortLabel>
+                    </TableCell>
+                  )}
+                  <TableCell align="center">Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
+                {loading && products.length === 0 ? (
+                  Array.from(new Array(pageSize)).map((_, index) => (
+                    <TableRow key={`skel-row-${index}`}>
                       <TableCell padding="checkbox">
-                        <Checkbox color="primary" checked={isItemSelected} />
+                        <Skeleton variant="rectangular" width={18} height={18} sx={{ borderRadius: 1 }} />
                       </TableCell>
-                      {visibleColumns.includes('name') && (
-                        <TableCell component="th" scope="row">
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Avatar variant="rounded" src={product.imageUrl || undefined}>
-                              <ImageIcon />
-                            </Avatar>
-                            <Typography variant="body2" fontWeight="medium">{product.name}</Typography>
-                          </Box>
-                        </TableCell>
-                      )}
-                      {visibleColumns.includes('codeNumber') && (
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {product.codeNumber || '-'}
-                            {product.codeNumber && (
-                              <Chip 
-                                label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'} 
-                                size="small" 
-                                color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'} 
-                                sx={{ height: 20, fontSize: '0.7rem' }}
-                              />
-                            )}
-                          </Box>
-                        </TableCell>
-                      )}
-                      {visibleColumns.includes('year') && <TableCell>{product.year ? product.year.substring(0, 4) : '-'}</TableCell>}
-                      {visibleColumns.includes('plateNumber') && <TableCell>{product.plateNumber || '-'}</TableCell>}
-                      {visibleColumns.includes('engineNumber') && <TableCell>{product.engineNumber || '-'}</TableCell>}
-                      {visibleColumns.includes('categoryName') && <TableCell>{product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}</TableCell>}
-                      {visibleColumns.includes('brandName') && <TableCell>{product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'}</TableCell>}
-                      {visibleColumns.includes('quality') && <TableCell>{qualityName || '-'}</TableCell>}
-                      {visibleColumns.includes('departmentName') && <TableCell>{product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'}</TableCell>}
-                      {visibleColumns.includes('responsiblePerson') && <TableCell>{product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'}</TableCell>}
-                      {visibleColumns.includes('initialQuantity') && <TableCell align="right">{product.initialQuantity || '-'}</TableCell>}
-                      {visibleColumns.includes('voucherNumber') && <TableCell>{product.voucherNumber || '-'}</TableCell>}
-                      {visibleColumns.includes('donorName') && <TableCell>{product.donorName || '-'}</TableCell>}
-                      {visibleColumns.includes('supplier') && (
-                        <TableCell>
-                          <Typography variant="body2">{product.supplierName || '-'}</Typography>
-                          {product.supplierContact && (
-                            <Typography variant="caption" color="text.secondary" display="block">
-                              {typeof product.supplierContact === 'string' ? product.supplierContact : Object.entries(product.supplierContact || {}).map(([k, v]) => `${k}: ${v}`).join(' | ')}
-                            </Typography>
-                          )}
-                        </TableCell>
-                      )}
-                      {visibleColumns.includes('purchaseType') && <TableCell>{product.purchaseType || '-'}</TableCell>}
-                      {visibleColumns.includes('price') && <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>}
-                      {visibleColumns.includes('description') && <TableCell sx={{ whiteSpace: 'normal', minWidth: 150 }}>{product.description || '-'}</TableCell>}
+                      {ALL_COLUMNS.map(col => {
+                        if (!visibleColumns.includes(col.id)) return null;
+                        return (
+                          <TableCell key={`skel-cell-${col.id}-${index}`}>
+                            {col.id === 'name' ? (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}><Skeleton variant="circular" width={40} height={40} /><Skeleton variant="text" width="70%" /></Box>
+                            ) : <Skeleton variant="text" />}
+                          </TableCell>
+                        );
+                      })}
                       <TableCell align="center">
-                  <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)}>
-                    <MoreVertIcon fontSize="small" />
-                  </IconButton>
+                        <Skeleton variant="circular" width={32} height={32} />
                       </TableCell>
+                    </TableRow>
+                  ))
+                ) : error ? (
+                  <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}><Alert severity="error">{error}</Alert></TableCell></TableRow>
+                ) : products.length === 0 ? (
+                  <TableRow><TableCell colSpan={visibleColumns.length + 2} align="center" sx={{ py: 4 }}>No products match your filters.</TableCell></TableRow>
+                ) : (
+                  products.map((product) => {
+                    const isItemSelected = isSelected(product.id!);
+                    const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
+
+                    let rowBgColor = 'inherit';
+                    if (qualityName) {
+                      const q = qualityName.toLowerCase();
+                      if (q.includes('poor') || q.includes('broken') || q.includes('bad')) rowBgColor = 'rgba(244, 67, 54, 0.08)'; // Light Red
+                      else if (q.includes('fair') || q.includes('okay')) rowBgColor = 'rgba(255, 152, 0, 0.08)'; // Light Orange
+                      else if (q.includes('excellent') || q.includes('new') || q.includes('great')) rowBgColor = 'rgba(76, 175, 80, 0.08)'; // Light Green
+                    }
+
+                    return (
+                      <TableRow hover onClick={(event) => handleClick(event, product.id!)} role="checkbox" tabIndex={-1} key={product.id} selected={isItemSelected} sx={{ bgcolor: rowBgColor }}>
+                        <TableCell padding="checkbox">
+                          <Checkbox color="primary" checked={isItemSelected} />
+                        </TableCell>
+                        {visibleColumns.includes('name') && (
+                          <TableCell component="th" scope="row">
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                              <Avatar variant="rounded" src={product.imageUrl || undefined}>
+                                <ImageIcon />
+                              </Avatar>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>{product.name}</Typography>
+                            </Box>
+                          </TableCell>
+                        )}
+                        {visibleColumns.includes('codeNumber') && (
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {product.codeNumber || '-'}
+                              {product.codeNumber && (
+                                <Chip
+                                  label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'}
+                                  size="small"
+                                  color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'}
+                                  sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                              )}
+                            </Box>
+                          </TableCell>
+                        )}
+                        {visibleColumns.includes('year') && <TableCell>{product.year ? product.year.substring(0, 4) : '-'}</TableCell>}
+                        {visibleColumns.includes('plateNumber') && <TableCell>{product.plateNumber || '-'}</TableCell>}
+                        {visibleColumns.includes('engineNumber') && <TableCell>{product.engineNumber || '-'}</TableCell>}
+                        {visibleColumns.includes('categoryName') && <TableCell>{product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}</TableCell>}
+                        {visibleColumns.includes('brandName') && <TableCell>{product.brandName || brands.find(b => b.id === product.brandId)?.name || '-'}</TableCell>}
+                        {visibleColumns.includes('quality') && <TableCell>{qualityName || '-'}</TableCell>}
+                        {visibleColumns.includes('departmentName') && <TableCell>{product.departmentName || departments.find(d => d.id === product.departmentId)?.name || '-'}</TableCell>}
+                        {visibleColumns.includes('responsiblePerson') && <TableCell>{product.responsiblePerson || persons.find(p => p.id === product.responsiblePersonId)?.fullName || '-'}</TableCell>}
+                        {visibleColumns.includes('initialQuantity') && <TableCell align="right">{product.initialQuantity || '-'}</TableCell>}
+                        {visibleColumns.includes('voucherNumber') && <TableCell>{product.voucherNumber || '-'}</TableCell>}
+                        {visibleColumns.includes('donorName') && <TableCell>{product.donorName || '-'}</TableCell>}
+                        {visibleColumns.includes('supplier') && (
+                          <TableCell>
+                            <Typography variant="body2">{product.supplierName || '-'}</Typography>
+                            {product.supplierContact && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                {typeof product.supplierContact === 'string' ? product.supplierContact : Object.entries(product.supplierContact || {}).map(([k, v]) => `${k}: ${v}`).join(' | ')}
+                              </Typography>
+                            )}
+                          </TableCell>
+                        )}
+                        {visibleColumns.includes('purchaseType') && <TableCell>{product.purchaseType || '-'}</TableCell>}
+                        {visibleColumns.includes('price') && <TableCell align="right">${product.price?.toFixed(2) || '0.00'}</TableCell>}
+                        {visibleColumns.includes('description') && <TableCell sx={{ whiteSpace: 'normal', minWidth: 150 }}>{product.description || '-'}</TableCell>}
+                        <TableCell align="center">
+                          <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)}>
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
                       </TableRow>
                     );
                   })
                 )}
               </TableBody>
-              
+
               {!loading && !error && products.length > 0 && visibleColumns.includes('price') && (
                 <TableFooter>
                   <TableRow sx={{ '& .MuiTableCell-root': { fontWeight: 'bold', border: 0, fontSize: '0.9rem', bgcolor: 'background.paper' } }}>
@@ -1651,72 +1925,72 @@ export const Products: React.FC = () => {
               <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>No products match your filters.</Box>
             ) : (
               <Box sx={{ opacity: loading ? 0.4 : 1, transition: 'opacity 0.2s ease-in-out' }}>
-              <Grid container spacing={{ xs: 1.5, sm: 3 }} columns={60}>
-                {products.map((product) => {
-                  const isItemSelected = isSelected(product.id!);
-                  const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
-                  let badgeColor: 'default' | 'success' | 'warning' | 'error' = 'default';
-                  if (qualityName) {
-                    const q = qualityName.toLowerCase();
-                    if (q.includes('poor') || q.includes('broken') || q.includes('bad')) badgeColor = 'error';
-                    else if (q.includes('fair') || q.includes('okay')) badgeColor = 'warning';
-                    else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
-                  }
-                  return (
-                <Grid key={product.id} size={{ xs: 60, sm: 60 / Math.min(2, gridColumns), md: 60 / Math.min(3, gridColumns), lg: 60 / gridColumns }}>
-                      <Card 
-                        sx={{ 
-                          height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
-                          boxShadow: isItemSelected ? 4 : 1,
-                          border: isItemSelected ? 2 : 1,
-                          borderColor: isItemSelected ? 'primary.main' : 'divider',
-                          cursor: 'pointer', transition: 'all 0.2s',
-                          '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' }
-                        }}
-                        onClick={(event) => handleClick(event, product.id!)}
-                      >
-                  <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Checkbox checked={isItemSelected} onChange={(e) => { e.stopPropagation(); handleClick(e, product.id!); }} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }} />
-                    <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)} sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }}>
-                      <MoreVertIcon fontSize="small" />
-                    </IconButton>
-                        </Box>
-                        <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'center', bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
-                          <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', maxWidth: 140, bgcolor: 'action.hover' }}>
-                            <ImageIcon sx={{ fontSize: { xs: 32, sm: 48 }, color: 'text.disabled' }} />
-                          </Avatar>
-                        </Box>
-                        <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 }, pb: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: { xs: '0.85rem', sm: '1rem' } }} noWrap title={product.name}>{product.name}</Typography>
-                          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                              {product.codeNumber || 'No Code'}
-                            </span>
-                            {product.codeNumber && (
-                              <Chip 
-                                label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'} 
-                                size="small" 
-                                color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'} 
-                                sx={{ height: 18, fontSize: '0.65rem' }}
-                              />
-                            )}
-                          </Typography>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
-                            <Typography variant="subtitle1" color="primary.main" fontWeight="bold">${product.price?.toFixed(2) || '0.00'}</Typography>
-                            {qualityName && <Chip label={qualityName} size="small" color={badgeColor} variant="outlined" />}
+                <Grid container spacing={{ xs: 1.5, sm: 3 }} columns={60}>
+                  {products.map((product) => {
+                    const isItemSelected = isSelected(product.id!);
+                    const qualityName = product.quality || qualities.find(q => q.id === product.qualityId)?.name;
+                    let badgeColor: 'default' | 'success' | 'warning' | 'error' = 'default';
+                    if (qualityName) {
+                      const q = qualityName.toLowerCase();
+                      if (q.includes('poor') || q.includes('broken') || q.includes('bad')) badgeColor = 'error';
+                      else if (q.includes('fair') || q.includes('okay')) badgeColor = 'warning';
+                      else if (q.includes('excellent') || q.includes('new') || q.includes('great')) badgeColor = 'success';
+                    }
+                    return (
+                      <Grid key={product.id} size={{ xs: 60, sm: 60 / Math.min(2, gridColumns), md: 60 / Math.min(3, gridColumns), lg: 60 / gridColumns }}>
+                        <Card
+                          sx={{
+                            height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
+                            boxShadow: isItemSelected ? 4 : 1,
+                            border: isItemSelected ? 2 : 1,
+                            borderColor: isItemSelected ? 'primary.main' : 'divider',
+                            cursor: 'pointer', transition: 'all 0.2s',
+                            '&:hover': { boxShadow: 4, transform: 'translateY(-2px)' }
+                          }}
+                          onClick={(event) => handleClick(event, product.id!)}
+                        >
+                          <Box sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Checkbox checked={isItemSelected} onChange={(e) => { e.stopPropagation(); handleClick(e, product.id!); }} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }} />
+                            <IconButton size="small" onClick={(e) => handleOpenActionMenu(e, product)} sx={{ bgcolor: 'rgba(255,255,255,0.8)', '&:hover': { bgcolor: 'rgba(255,255,255,1)' } }}>
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
                           </Box>
-                          <Typography variant="body2" sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <CategoryIcon fontSize="small" color="action" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
-                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}
-                            </span>
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+                          <Box sx={{ p: { xs: 1, sm: 2 }, display: 'flex', justifyContent: 'center', bgcolor: 'background.default', borderBottom: 1, borderColor: 'divider' }}>
+                            <Avatar src={product.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: 'auto', aspectRatio: '1 / 1', maxWidth: 140, bgcolor: 'action.hover' }}>
+                              <ImageIcon sx={{ fontSize: { xs: 32, sm: 48 }, color: 'text.disabled' }} />
+                            </Avatar>
+                          </Box>
+                          <CardContent sx={{ flexGrow: 1, p: { xs: 1.5, sm: 2 }, pb: 1 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: { xs: '0.85rem', sm: '1rem' } }} noWrap title={product.name}>{product.name}</Typography>
+                            <Typography variant="body2" color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                {product.codeNumber || 'No Code'}
+                              </span>
+                              {product.codeNumber && (
+                                <Chip
+                                  label={/^(19|20)\d{2}/.test(product.codeNumber) ? 'AST' : 'INV'}
+                                  size="small"
+                                  color={/^(19|20)\d{2}/.test(product.codeNumber) ? 'secondary' : 'primary'}
+                                  sx={{ height: 18, fontSize: '0.65rem' }}
+                                />
+                              )}
+                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                              <Typography variant="subtitle1" color="primary.main" sx={{ fontWeight: 'bold' }}>${product.price?.toFixed(2) || '0.00'}</Typography>
+                              {qualityName && <Chip label={qualityName} size="small" color={badgeColor} variant="outlined" />}
+                            </Box>
+                            <Typography variant="body2" sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CategoryIcon fontSize="small" color="action" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {product.categoryName || categories.find(c => c.id === product.categoryId)?.name || '-'}
+                              </span>
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    );
+                  })}
+                </Grid>
               </Box>
             )}
           </Box>
@@ -1739,7 +2013,7 @@ export const Products: React.FC = () => {
             <TextField
               size="small"
               type="number"
-              inputProps={{ min: 1, max: Math.max(1, Math.ceil(totalItems / pageSize)) }}
+              slotProps={{ htmlInput: { min: 1, max: Math.max(1, Math.ceil(totalItems / pageSize)) } }}
               defaultValue={currentPage + 1}
               key={currentPage} // Resets value when external buttons change the page
               onKeyDown={(e) => {
@@ -1803,14 +2077,14 @@ export const Products: React.FC = () => {
                 <TextField label="Product Name" value={selectedProduct?.name || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, name: e.target.value } : null)} required fullWidth />
                 <Box sx={{ display: 'flex', gap: 1 }}>
                   <TextField label="Code Number" value={selectedProduct?.codeNumber || ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, codeNumber: e.target.value } : null)} fullWidth />
-              <Tooltip title="Generate Asset Code (e.g. 2025-LAP...)">
-                <Button variant="outlined" onClick={handleGenerateAssetCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
-                  <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Asset
-                </Button>
-              </Tooltip>
-              <Tooltip title="Generate Inventory Code (e.g. FN2025-...)">
-                <Button variant="outlined" onClick={handleGenerateInventoryCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
-                  <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Inv
+                  <Tooltip title="Generate Asset Code (e.g. 2025-LAP...)">
+                    <Button variant="outlined" onClick={handleGenerateAssetCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
+                      <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Asset
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Generate Inventory Code (e.g. FN2025-...)">
+                    <Button variant="outlined" onClick={handleGenerateInventoryCode} sx={{ minWidth: 'auto', px: 1, whiteSpace: 'nowrap' }}>
+                      <AutorenewIcon fontSize="small" sx={{ mr: 0.5 }} /> Inv
                     </Button>
                   </Tooltip>
                 </Box>
@@ -1848,9 +2122,9 @@ export const Products: React.FC = () => {
                   return (option as any).name;
                 }}
                 filterOptions={(options, params) => {
-                  const filtered = filter(options, params);
+                  const filtered = filter(options as any, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1884,7 +2158,7 @@ export const Products: React.FC = () => {
                     <li key={key} {...restProps}>
                       <Box>
                         <Typography variant="body2">{label}</Typography>
-                        {desc && <Typography variant="caption" color="text.secondary" display="block">{desc}</Typography>}
+                        {desc && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{desc}</Typography>}
                       </Box>
                     </li>
                   );
@@ -1904,9 +2178,9 @@ export const Products: React.FC = () => {
                   return (option as any).name;
                 }}
                 filterOptions={(options, params) => {
-                  const filtered = filter(options, params);
+                  const filtered = filter(options as any, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -1977,9 +2251,9 @@ export const Products: React.FC = () => {
                   return (option as any).name;
                 }}
                 filterOptions={(options, params) => {
-                  const filtered = filter(options, params);
+                  const filtered = filter(options as any, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -2013,9 +2287,9 @@ export const Products: React.FC = () => {
                   return (option as any).name;
                 }}
                 filterOptions={(options, params) => {
-                  const filtered = filter(options, params);
+                  const filtered = filter(options as any, params);
                   const { inputValue } = params;
-                  const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                  const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                   if (inputValue !== '' && !isExisting) {
                     filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                   }
@@ -2070,7 +2344,7 @@ export const Products: React.FC = () => {
                     {selectedProduct?.purchaseType && selectedProduct.purchaseType !== 'None' && (
                       <>
                         <Grid size={{ xs: 12, sm: 4 }}>
-                          <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} inputProps={{ min: 1 }} required fullWidth disabled={disablePurchaseFields} />
+                          <TextField label="Initial Quantity *" type="number" value={selectedProduct?.initialQuantity ?? ''} onChange={(e) => setSelectedProduct(p => p ? { ...p, initialQuantity: e.target.value ? Number(e.target.value) : null } : null)} slotProps={{ htmlInput: { min: 1 } }} required fullWidth disabled={disablePurchaseFields} />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 4 }}>
                           <DatePicker
@@ -2096,9 +2370,9 @@ export const Products: React.FC = () => {
                               return (option as any).name;
                             }}
                             filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
+                              const filtered = filter(options as any, params);
                               const { inputValue } = params;
-                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                              const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.name || '').toLowerCase().replace(/\s+/g, ' ').trim());
                               if (inputValue !== '' && !isExisting) {
                                 filtered.push({ inputValue, name: `Add "${inputValue}"` } as any);
                               }
@@ -2135,9 +2409,9 @@ export const Products: React.FC = () => {
                               return (option as any).fullName;
                             }}
                             filterOptions={(options, params) => {
-                              const filtered = filter(options, params);
+                              const filtered = filter(options as any, params);
                               const { inputValue } = params;
-                              const isExisting = options.some((option) => inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.fullName || '').toLowerCase().replace(/\s+/g, ' ').trim());
+                              const isExisting = options.some((option) => typeof option !== 'string' && inputValue.toLowerCase().replace(/\s+/g, ' ').trim() === (option.fullName || '').toLowerCase().replace(/\s+/g, ' ').trim());
                               if (inputValue !== '' && !isExisting) {
                                 filtered.push({ inputValue, fullName: `Add "${inputValue}"` } as any);
                               }
@@ -2160,28 +2434,28 @@ export const Products: React.FC = () => {
                                 setSelectedProduct(p => p ? { ...p, responsiblePersonId: null, responsiblePerson: newInputValue } : null);
                               }
                             }}
-                renderOption={(props, option) => {
-                  const { key, ...restProps } = props as any;
-                  const isString = typeof option === 'string';
-                          const label = isString ? option : ((option as any).inputValue || (option as any).fullName);
-                          const email = !isString ? (option as any).email : null;
-                          const dept = !isString ? (option as any).department : null;
-                  return (
-                    <li key={key} {...restProps}>
-                      <Box>
-                        <Typography variant="body2">{label}</Typography>
-                        {(email || dept) && <Typography variant="caption" color="text.secondary" display="block">{[dept, email].filter(Boolean).join(' • ')}</Typography>}
-                      </Box>
-                    </li>
-                  );
-                }}
+                            renderOption={(props, option) => {
+                              const { key, ...restProps } = props as any;
+                              const isString = typeof option === 'string';
+                              const label = isString ? option : ((option as any).inputValue || (option as any).fullName);
+                              const email = !isString ? (option as any).email : null;
+                              const dept = !isString ? (option as any).department : null;
+                              return (
+                                <li key={key} {...restProps}>
+                                  <Box>
+                                    <Typography variant="body2">{label}</Typography>
+                                    {(email || dept) && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{[dept, email].filter(Boolean).join(' • ')}</Typography>}
+                                  </Box>
+                                </li>
+                              );
+                            }}
                             renderInput={(params) => <TextField {...params} label="Responsible Person" placeholder="Select or type to assign" />}
                           />
                         </Grid>
                         <Grid size={{ xs: 12 }}>
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <Typography variant="body2" fontWeight="bold" color="text.secondary">Contact Info</Typography>
+                              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>Contact Info</Typography>
                               <Button size="small" variant="outlined" onClick={addContact} disabled={disablePurchaseFields}>+ Add Contact</Button>
                             </Box>
                             {contacts.map((contact, index) => {
@@ -2297,9 +2571,9 @@ export const Products: React.FC = () => {
             <DialogTitle sx={{ m: 0, p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" component="div">{selectedProduct.name}</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <FormControlLabel 
-                  control={<Switch size="small" checked={showImageInView} onChange={(e) => setShowImageInView(e.target.checked)} />} 
-                  label={<Typography variant="body2">Include Image</Typography>} 
+                <FormControlLabel
+                  control={<Switch size="small" checked={showImageInView} onChange={(e) => setShowImageInView(e.target.checked)} />}
+                  label={<Typography variant="body2">Include Image</Typography>}
                   sx={{ m: 0 }}
                 />
                 <IconButton aria-label="close" onClick={handleCloseModal}><CloseIcon /></IconButton>
@@ -2308,31 +2582,31 @@ export const Products: React.FC = () => {
             <DialogContent dividers ref={viewModalContentRef}>
               <Grid container spacing={2}>
                 {showImageInView && (
-                <Grid size={{ xs: 12, sm: 5 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ position: 'relative', width: '100%', maxWidth: 220, mx: 'auto', aspectRatio: '1 / 1' }}>
-                      <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
-                        <BrokenImageIcon sx={{ fontSize: 60, color: 'text.disabled' }} />
-                      </Avatar>
-                      {isSaving && (
-                        <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, borderRadius: 1 }}>
-                          <CircularProgress />
-                        </Box>
-                      )}
+                  <Grid size={{ xs: 12, sm: 5 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ position: 'relative', width: '100%', maxWidth: 220, mx: 'auto', aspectRatio: '1 / 1' }}>
+                        <Avatar src={selectedProduct.imageUrl || undefined} variant="rounded" sx={{ width: '100%', height: '100%', bgcolor: 'action.hover' }}>
+                          <BrokenImageIcon sx={{ fontSize: 60, color: 'text.disabled' }} />
+                        </Avatar>
+                        {isSaving && (
+                          <Box sx={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', bgcolor: 'rgba(255, 255, 255, 0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, borderRadius: 1 }}>
+                            <CircularProgress />
+                          </Box>
+                        )}
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button component="label" variant="outlined" size="small" startIcon={<CloudUploadIcon />} disabled={isSaving}>
+                          Upload
+                          <input type="file" hidden accept="image/*" onChange={handleImageChange} disabled={isSaving} />
+                        </Button>
+                        {selectedProduct.imageUrl && (
+                          <Button size="small" color="error" onClick={handleInstantRemoveImage} disabled={isSaving}>Remove</Button>
+                        )}
+                      </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button component="label" variant="outlined" size="small" startIcon={<CloudUploadIcon />} disabled={isSaving}>
-                        Upload
-                        <input type="file" hidden accept="image/*" onChange={handleImageChange} disabled={isSaving} />
-                      </Button>
-                      {selectedProduct.imageUrl && (
-                        <Button size="small" color="error" onClick={handleInstantRemoveImage} disabled={isSaving}>Remove</Button>
-                      )}
-                    </Box>
-                  </Box>
-                </Grid>
+                  </Grid>
                 )}
-                <Grid container spacing={2} alignContent="flex-start" size={{ xs: 12, sm: showImageInView ? 7 : 12 }}>
+                <Grid container spacing={2} size={{ xs: 12, sm: showImageInView ? 7 : 12 }} sx={{ alignContent: 'flex-start' }}>
                   {renderViewField('Item Name', selectedProduct.name)}
                   {renderViewField('Code Number', selectedProduct.codeNumber)}
                   {renderViewField('Brand', selectedProduct.brandName || brands.find(b => b.id === selectedProduct.brandId)?.name)}
@@ -2422,7 +2696,7 @@ export const Products: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <FormControl fullWidth>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>Current Department</Typography>
-              <Typography variant="body1" fontWeight="bold">
+              <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
                 {productToTransfer?.departmentName || departments.find(d => d.id === productToTransfer?.departmentId)?.name || '-'}
               </Typography>
             </FormControl>
@@ -2438,7 +2712,7 @@ export const Products: React.FC = () => {
                 ))}
               </Select>
             </FormControl>
-            <TextField label="Transfer Notes / Reason" multiline rows={3} value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} fullWidth placeholder="e.g. Relocated for new academic year" />
+            <TextField label="Transfer Notes / Reason" multiline rows={3} value={transferNotes} onChange={(e) => setTransferNotes(e.target.value)} fullWidth placeholder="e.g. Relocated to another department or office" />
           </Box>
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
@@ -2468,7 +2742,7 @@ export const Products: React.FC = () => {
                 <MenuItem value={6}>Beyond Repair</MenuItem>
               </Select>
             </FormControl>
-            <TextField label="Quantity" type="number" value={writeOffQuantity} onChange={(e) => setWriteOffQuantity(Number(e.target.value))} inputProps={{ min: 1 }} fullWidth size="small" />
+            <TextField label="Quantity" type="number" value={writeOffQuantity} onChange={(e) => setWriteOffQuantity(Number(e.target.value))} slotProps={{ htmlInput: { min: 1 } }} fullWidth size="small" />
             <TextField label="Description / Notes" multiline rows={3} value={writeOffNotes} onChange={(e) => setWriteOffNotes(e.target.value)} fullWidth placeholder="Provide details about the damage or loss..." />
           </Box>
         </DialogContent>
@@ -2479,6 +2753,13 @@ export const Products: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Multi-Sheet Excel Import Wizard */}
+      <MultiSheetImportModal
+        open={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImportSuccess={loadProducts}
+      />
 
       {/* Import Errors Modal */}
       <Dialog open={importErrors.length > 0} onClose={() => setImportErrors([])} maxWidth="sm" fullWidth>

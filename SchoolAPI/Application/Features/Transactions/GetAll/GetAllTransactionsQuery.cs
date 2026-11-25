@@ -12,5 +12,9 @@ public record GetAllTransactionsQuery(
     int PageNumber,
     int PageSize,
     DateTime? StartDate,
-    DateTime? EndDate
+    DateTime? EndDate,
+    string? DepartmentId = null,
+    string? TransactionType = null,
+    string? Name = null,
+    string? VehicleType = null
 ) : IRequest<Result<PagedResult<TransactionDto>>>;
